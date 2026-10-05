@@ -1,0 +1,46 @@
+{
+  "name": "dsh-prompt-assembler",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Source registry and request assembly primitives for DSH, with optional provider adapters.",
+  "main": "src/index.js",
+  "exports": {
+    ".": {
+      "types": "./src/index.d.ts",
+      "default": "./src/index.js"
+    },
+    "./*": "./src/*.js",
+    "./adapters/*": "./adapters/*.js",
+    "./package.json": "./package.json",
+    "./scripts/*": "./scripts/*"
+  },
+  "files": [
+    "src",
+    "adapters",
+    "scripts",
+    "docs",
+    "README.md",
+    "README_en.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "test": "node --test",
+    "pack:check": "npm pack --dry-run --cache .npm-cache",
+    "check": "npm test && npm run pack:check"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "peerDependencies": {
+    "react": "18.3.1"
+  },
+  "peerDependenciesMeta": {
+    "react": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "esbuild": "0.28.2"
+  },
+  "license": "MIT"
+}

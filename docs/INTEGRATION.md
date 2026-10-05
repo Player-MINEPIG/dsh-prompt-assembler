@@ -1,0 +1,68 @@
+# 来源接入合同（协议 1）
+
+[English](INTEGRATION_en.md) · [运行示例](examples/notes.js)
+
+## 最小接入
+
+```js
+import { RequestSourceRegistry, assembleRequestAsync, FORMAT } from 'dsh-prompt-assembler'
+import { registerNotes } from './notes.js' // 本文的示例文件
+const registry = new RequestSourceRegistry()
+const stop = registerNotes(registry, myNotesStore)
+const preset = { format: FORMAT, version: 1, name: 'Notes', rules: [
+  { id: 'notes', kind: 'example.notes', role: 'user', lifetime: 'request', depth: 0 },
+] }
+const result = await assembleRequestAsync({ registry, preset, nativeMessages, inputIds, sessionId })
+stop()
+```
+
+示例 `myNotesStore.read({sessionId,signal})` 返回 `{id,text}[]`，接入方自行实现。注册不会加入策略或写入历史。`result.messages` 是逻辑贡献；实际 DSH 请求还需 `projectSystemSnapshots`，以及官方 pre-freeze `agent/assemble-request` 钩子。不要用逻辑消息直接替代原生 durable history。
+
+## 来源及解析器
+
+`register` 必填 `id/pluginId/name/resolve`。其他字段：`version`（默认 1）、`stability`、`dependencies`、`multiple`、`roles`、`lifetimes`、`depth`、`generationRequiresPlugin`。`list()` 返回 JSON 描述和 `acceptsText`，不返回可执行函数。来源身份是提供方声明，不是签名或权限隔离。
+
+`resolve(context,rule)` 获取来源内容；可选 `parseText(context,rule)` 解析用户手填的 `rule.text`。`rule.inputMode:'text'` 只调用 `parseText`，默认调用 `resolve`；未声明 parser 时明确拒绝。两条路径返回同样的 `{blocks,macros?,diagnostics?}`，共享位置、角色、深度和快照管理。UI 自动显示支持手填解析的来源和内容方式切换。来源使用自己的语法；第三方文本不会隐式运行 ST、EJS 或 JavaScript。`renderText({text,context,variables,block,diagnostics,identity})` 可选，必须同步返回字符串；默认保持正文。它在已声明的来源宏引用展开之后运行。
+
+`context` 为本请求固定、分离且深冻结的 `sessionId/turn/step/preview/preset/assets/nativeMessages/inputIds/signal`；Signal 保持原对象。不得写状态；预览可能并发，turn/step 为 null，不含待发输入。响应卸载、取消与自己的读取版本租约；解析器失败或返回非法内容时整次请求拒绝，不发送部分结果。已开始的请求使用捕获的注册集合。资源发生变更时，可用同步 `validateResolved(context)` 在所有异步来源完成后核对租约。
+
+`assets` 由调用方的只读资源 provider 提供，是不透明 JSON，不保证有 Tavern 字段。standalone DSH custom parser 读取 `assets.nativeVariables`。Tavern adapter 读取其公开资产快照（preset/character/user/selection/lore/official sections），Manager adapter 只调用 Manager 的公开资源快照和 trigger/observation 接口。
+
+## 内容块与位置
+
+| 块 | 字段 | 含义 |
+| --- | --- | --- |
+| text | id/text；可选 role/depth/order/name/stability/source | 一条来源文本贡献；来源字段保持 provenance |
+| native | id/messageIds | 引用本次原生消息，不能伪造正文或拆开工具事务 |
+| reference | id/sourceId；可选 blockIds/group | 引用依赖来源的块，来源必须在 dependencies 中声明 |
+
+块 ID 在同一规则内稳定且唯一。text 可提供 `literalMacros` 给自己的 renderer；核心不会擅自解释。`macros` 将宏名映射到本来源 text 块 ID；使用方须声明该来源为依赖，循环/重复宏拒绝。`referenceOnly` 块仅供引用。claims/targetSourceId 等跨来源指向也必须声明依赖。返回输出的 rule/descriptor 字段不能替换注册身份。单来源上限 8 MiB/10,000 块，策略上限 128 条规则，单条手填文本上限 524,288 字符。
+
+按模块列表放置时，明确列出的输出块由列表控制位置与深度；引用与正文宏不能搬走或重新启用它。未列出的依赖按引用方位置输出，未引用的注册来源不会自动出现。referenceOnly 字段可由引用方消费，例如角色 PHI。ST 放置由 Tavern adapter 保留插槽和深度语义；同深度 injection_order 升序。原生系统更新边界与工具调用/结果必须完整；非法顺序拒绝。
+
+`role:'preserve'` 保留来源的 role（未给出时 system）；用户可覆盖 system/user/assistant，原生模块只支持 preserve/request。深度 0 为末尾，正数从原生非 system 消息末尾计数，工具事务中间向后调整。`request` 每次重算，`snapshot` 变化时保留原文和历史锚点；来源禁用、卸载或改为 request 后旧快照不再注入，已有日志正文仍可读。
+
+## 内置接入与宿主组合
+
+- `createDshRegistry()` 提供原生基础指令、历史、本步输入和 `dsh.text`。后者用原生 `{{变量名}}` 插值，缺变量明确拒绝；不接受 ST 特有宏。DSH Skill 的 pre-step metadata、tool 正文、slash 继续由 DSH 运行，不复制注入。
+- `adapters/tavern` 提供 `registerTavernSources`、`parseTavernText`、模板与 MVU 注册函数，以及兼容 preset。Tavern 手填内容与 preset 共用 history/input/world-info 引用解析和 ST 宏，来源文本原文只读；资源编辑仍在 Tavern。
+- `adapters/memory-manager` 的 `connectMemoryManager(ctx,registry)` 随 `dshMemoryManager` 服务出现/卸载注册来源。Manager 的 `requestAssemblyResources()` 返回分离配置快照；`trigger` 执行只读检索，排除由来源自己管理的 MVU/世界书/模板，避免重复注入。 observer 只有核对持久 `request/assembly`、实际消息哈希与节点身份后才记录 applied；不代表网络送达。
+
+Tavern 依文档组合 store、registry、runtime、HTTP、React 视图。`adapters/tavern-runtime` 保留已有存储格式、play/native 模式默认值、owner metadata 和历史接口。`dshPromptSources` 是新服务名；Tavern 保留 `tavernRequestSources` 别名和 `pmp-dsh-tavern/request-assembler` 转发。当前移除来源不转换原生历史，也不将旧装配正文复制进历史。
+
+独立宿主使用 `RequestAssembler({ctx,store,resources,registry,sessionReads,owner})`。resources 提供只读 `compile({agent,sessionId,resolveOnly:true})` 和当前 `assembledFor(agent)` 快照（assemblyInput、officialAssembly、diagnostics），可设 maxProfileBytes。调用方在官方资源装配后、冻结请求前调用 execute，并接入 store.copySelection 的会话继承。Preview 使用当前官方 systemPrompt 和独立 Session；`createSessionReadContext` 仅共享一次读取租约，不附着冷 Session。不要同时给同一请求安装两个独立策略 hook。
+
+HTTP factory 负责 JSON/规则原语，不负责认证。调用方在已认证路径下调用 `createAssemblyApi({store,runtime,agents,sessions,inspect,notify,root})`。UI 用 `AssemblyPanel({sessionId,fetcher,apiRoot,locale,traceRoot?,refreshEvent,close})`；desktop 必须传入其安全 fetch wrapper。核心扩展检查仍为 `agentLoop.requestAssemblyVersion===1`。
+
+## 第三方验收
+
+```sh
+node --test test/integration.test.mjs
+npm pack
+```
+
+对新 adapter 补上动态内容和手填 parser 的正常/失败路径、preview 只读、每 step 求值、列表/深度、禁用/卸载、取消、来源身份与变更租约测试。向本仓库提 PR，adapter 不导入来源包的内部文件。Tavern/Manager 的真正 Host 与浏览器组合由各自集成测试验证；fixture 不等于真实 provider 或用户数据验收。
+
+Tavern 的 preset/custom 来源声明手填解析；角色、用户与世界书通过资源编辑器管理，不声明该输入模式。DSH adapter 的 `registerDshSources(registry,{sectionPlugin})` 可接受只读来源标签映射；Tavern adapter 在此保留其官方 section 的显示身份，通用 DSH adapter 不猜测 Tavern 身份。
+
+真实 Host 验证：`DSH_ASSEMBLER_CORE_ROOT=/path/to/prepared/runtime DSH_ASSEMBLER_MANAGER_ROOT=/path/to/dsh-memory-manager node --test test/host.test.mjs`。使用临时会话和离线合成 provider，不请求真实模型。
