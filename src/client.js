@@ -8,6 +8,7 @@ const labels = {
   contentMode: ['内容方式', 'Content mode'], sourceMode: ['来源内容', 'Source content'], textMode: ['手填内容（来源解析）', 'User text (source parser)'],
   'dsh.text': ['DSH 自定义文本', 'DSH custom text'],
   retry: ['重试', 'Retry'], cancel: ['取消', 'Cancel'], confirm: ['确认', 'Confirm'],
+  createSession: ['使用此策略新建会话', 'Create a session with this strategy'], session: ['会话', 'Session'], newSession: ['新会话', 'New Session'],
   disable: ['关闭策略，使用 DSH 默认', 'Disable; use DSH default'],
   'additional-phi': ['策略追加的后置指令', 'Additional strategy instructions'],
   description: ['角色描述', 'Character description'], personality: ['角色性格', 'Character personality'], scenario: ['场景', 'Scenario'], examples: ['对话示例', 'Dialogue examples'], system: ['系统指令', 'System instructions'], user: ['用户', 'User'], assistant: ['助手', 'Assistant'], tool: ['工具结果', 'Tool result'], greeting: ['开场白参考', 'Greeting reference'], depth_prompt: ['角色深度提示', 'Character depth prompt'],
@@ -38,6 +39,7 @@ async function request(fetcher, apiRoot, path = '', method = 'GET', body) {
 }
 export const assemblyCss = `
 .dta-stage{position:absolute;top:var(--dta-content-top,84px);bottom:0;left:var(--dta-content-left,0px);width:var(--dta-center-width,100%);z-index:1;pointer-events:none;background:#0005;padding:8px;box-sizing:border-box;display:flex;justify-content:center}
+.dta-stage.dta-standalone{inset:0;width:100%;z-index:100;padding:24px}.dta-launcher{font:inherit;color:inherit;border:1px solid currentColor;border-radius:8px;background:transparent;padding:7px 10px;cursor:pointer}.dta-standalone .dtv-assembly-screen{width:min(960px,100%)}
 .dtv-assembly-screen{--dta-border:color-mix(in srgb,var(--dsw-alias-label-primary,#24252b) 32%,var(--dsw-alias-bg-base,#fff));position:relative;width:min(var(--dsh-composer-card-max-width,780px),100%);pointer-events:auto;display:flex;flex-direction:column;box-sizing:border-box;container-type:inline-size;background:var(--dsw-alias-bg-base,#fff);color:var(--dsw-alias-label-primary,#24252b);border:1px solid var(--dta-border);border-radius:18px;box-shadow:0 18px 65px #0003;font:14px/1.55 system-ui;overflow:hidden}.dtv-assembly-screen *{box-sizing:border-box}
 .dta-confirm-shade{position:absolute;inset:0;z-index:4;background:#0006;display:grid;place-items:center;padding:20px}.dta-confirm{background:var(--dsw-alias-bg-base,#fff);border:1px solid var(--dta-border);border-radius:14px;padding:24px;max-width:100%;width:360px;box-shadow:0 10px 40px #0004}.dta-confirm p{margin:0 0 20px}.dta-confirm .dta-toolbar{justify-content:flex-end;margin:0}
 .dta-head{display:flex;justify-content:space-between;align-items:start;padding:20px 28px;border-bottom:1px solid var(--dta-border)}.dta-head{width:100%;max-width:calc(var(--dsh-composer-card-max-width,780px) + 56px);margin:auto}.dta-head h2{margin:0;font-size:22px}.dta-head p{margin:5px 0 0;opacity:.7}.dta-body{overflow:auto;padding:22px 28px 50px;flex:1}.dta-content{max-width:var(--dsh-composer-card-max-width,780px);margin:auto}.dta-toolbar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;align-items:center}
@@ -51,7 +53,7 @@ export function AssemblyPanel(props) {
   // A session change disposes all pending editor state, including async closures.
   return h(AssemblyPanelContent, { ...props, key: props.sessionId ?? 'no-session' })
 }
-function AssemblyPanelContent({ sessionId, close, registerBeforeLeave, chromeMode, locale: selectedLocale = 'zh-CN', fetcher = globalThis.fetch, apiRoot = '/dsh-prompt-assembler/api/v1/assembly-presets', traceRoot, refreshEvent = 'dsh-prompt-assembler:refresh' }) {
+function AssemblyPanelContent({ sessionId, sessionLabel, onCreateSession, createSessionControls, standalone = false, close, registerBeforeLeave, chromeMode, locale: selectedLocale = 'zh-CN', fetcher = globalThis.fetch, apiRoot = '/dsh-prompt-assembler/api/v1/assembly-presets', traceRoot, refreshEvent = 'dsh-prompt-assembler:refresh' }) {
   const locale = selectedLocale === 'zh-CN' ? 0 : 1, t = key => labels[key]?.[locale] ?? key
   const [confirmation, setConfirmation] = useState(null)
   const confirmationResolve = useRef(null)
@@ -65,6 +67,7 @@ function AssemblyPanelContent({ sessionId, close, registerBeforeLeave, chromeMod
   const file = useRef(), stage = useRef(), dialog = useRef(), generation = useRef(0), mounted = useRef(true)
   // Dim only the conversation body; shell navigation and side editors stay interactive.
   useLayoutEffect(() => {
+    if (standalone) return
     const panel = dialog.current
     let frame = panel?.parentElement
     while (frame && getComputedStyle(frame).display !== 'grid') frame = frame.parentElement
@@ -132,7 +135,16 @@ function AssemblyPanelContent({ sessionId, close, registerBeforeLeave, chromeMod
   }
   const sourceInfo = kind => sourceDescriptor(kind)?.generationRequiresPlugin === false ? t('nativeSource') : t('removed')
   async function actualRequest() {
-    if (!traceRoot) { setStatus(t('noActual')); return }
+    const show = record => {
+      if (!record?.messages) return false
+      const result = record.metadata?.assembly ?? { diagnostics: [], nodes: record.messages.map((m, index) => ({ id: m.id ?? `actual-${index}`, module: m.role === 'system' ? 'native-system' : 'history', name: m.role === 'system' ? 'native-system' : m.role, role: m.role, source: { plugin: m.source?.plugin ?? 'DSH', field: m.source?.kind }, stability: 'snapshot', lifetime: 'native', locked: true, text: (m.content ?? []).map(b => b.type === 'text' ? b.text : `[${b.type}]`).join('\n') })) }
+      setPreview({ ...result, diagnostics: result.diagnostics ?? [], nodes: result.nodes ?? [], messages: record.messages, actual: true }); setTab('expanded'); setStatus(record.metadata?.assembly ? '' : t('legacy')); return true
+    }
+    if (!traceRoot) {
+      const data = await api(`/actual?sessionId=${encodeURIComponent(sessionId)}`)
+      if (!show(data.request)) setStatus(t('noActual'))
+      return
+    }
     const response = await fetcher(`${traceRoot}/sessions/${encodeURIComponent(sessionId)}/assemblies`)
     if (!response.ok) throw new Error(`HTTP ${response.status}`)
     const list = await response.json()
@@ -141,10 +153,7 @@ function AssemblyPanelContent({ sessionId, close, registerBeforeLeave, chromeMod
       if (!res.ok) continue
       const record = (await res.json()).record?.requestAssembly
       if (!mounted.current) return
-      if (record?.messages) {
-        const result = record.metadata?.assembly ?? { diagnostics: [], nodes: record.messages.map((m, index) => ({ id: m.id ?? `actual-${index}`, module: m.role === 'system' ? 'native-system' : 'history', name: m.role === 'system' ? 'native-system' : m.role, role: m.role, source: { plugin: m.source?.plugin ?? 'DSH', field: m.source?.kind }, stability: 'snapshot', lifetime: 'native', locked: true, text: (m.content ?? []).map(b => b.type === 'text' ? b.text : `[${b.type}]`).join('\n') })) }
-        setPreview({ ...result, messages: record.messages, actual: true }); setTab('expanded'); setStatus(record.metadata?.assembly ? '' : t('legacy')); return
-      }
+      if (show(record)) return
     }
     setStatus(t('noActual'))
   }
@@ -204,9 +213,9 @@ function AssemblyPanelContent({ sessionId, close, registerBeforeLeave, chromeMod
       h('div', { className: 'dta-summary' }, h('span', { className: 'dta-name', role: 'button', tabIndex: 0, onClick: () => toggle(node.id), onKeyDown: e => { if (e.key === 'Enter') toggle(node.id) }, 'aria-expanded': !!expanded[node.id], title: node.name }, nodeName(node), h('small', { className: 'dta-origin' }, `${originName(node.source.plugin)} · ${t('previewDepth')}: ${node.depth == null ? t('listPosition') : node.depth}`)), summaryMetadata(node.stability, node.lifetime === 'native' ? 'nativeRetention' : node.lifetime, node.role)),
       expanded[node.id] && h('div', { className: 'dta-detail' }, h('div', { className: 'dta-properties' }, h('div', null, t('source'), h('small', null, `${node.source.plugin} / ${node.source.resourceId ?? ''} / ${node.source.field}`), h('small', null, sourceInfo(node.module))), h('div', null, t('stability'), h('small', null, t(node.stability))), h('div', null, t('lifetime'), h('small', null, t(node.lifetime)), h('small', null, t('recorded')))), h('div', { className: 'dta-preview-depth' }, `${t('previewDepth')}: ${node.depth == null ? t('listPosition') : node.depth}`), node.locked && h('small', null, `${t('locked')}: ${node.lockReason}`), ...(node.children ?? []).map(child => h('div', { key: child.id, className: 'dta-child', style: { borderLeftColor: sourceColor(child.source?.plugin) } }, `🔒 ${nodeName(child)}`, h('small', null, child.lockReason), h('small', null, [originName(child.source?.plugin), child.source?.resourceId, child.source?.field, child.source?.sourceKind].filter(Boolean).join(' / ')), h('pre', null, child.text))), h('pre', null, node.text)))
   }
-  return h('div', { ref: stage, className: 'dta-stage' }, h('section', { ref: dialog, className: 'dtv-assembly-screen', role: 'dialog', 'aria-modal': false, 'aria-label': t('title') }, h('style', null, assemblyCss),
+  return h('div', { ref: stage, className: `dta-stage${standalone ? ' dta-standalone' : ''}` }, h('section', { ref: dialog, className: 'dtv-assembly-screen', role: 'dialog', 'aria-modal': standalone, 'aria-label': t('title') }, h('style', null, assemblyCss),
     confirmation && h('div', { className: 'dta-confirm-shade' }, h('div', { className: 'dta-confirm', role: 'alertdialog', 'aria-modal': true, 'aria-label': confirmation, onKeyDown: e => { if (e.key === 'Escape') { e.stopPropagation(); answerConfirmation(false) } else if (e.key === 'Tab') { e.preventDefault(); const buttons = [...e.currentTarget.querySelectorAll('button')]; const at = buttons.indexOf(document.activeElement); buttons[(at + (e.shiftKey ? -1 : 1) + buttons.length) % buttons.length]?.focus() } } }, h('p', null, confirmation), h('div', { className: 'dta-toolbar' }, h('button', { type: 'button', onClick: () => answerConfirmation(false) }, t('cancel')), h('button', { type: 'button', className: 'primary', onClick: () => answerConfirmation(true) }, t('confirm'))))),
-    h('header', { className: 'dta-head' }, h('div', null, h('h2', null, t('title')), h('p', null, t('intro'))), h('button', { onClick: safeClose, 'aria-label': t('close') }, '×')),
+    h('header', { className: 'dta-head' }, h('div', null, h('h2', null, t('title')), h('p', null, t('intro')), sessionLabel !== undefined && h('p', { 'data-assembly-session': sessionId ?? '' }, `${t('session')}: ${sessionLabel || t('newSession')}`)), h('button', { onClick: safeClose, 'aria-label': t('close') }, '×')),
     h('div', { className: 'dta-body' }, h('fieldset', { className: 'dta-content', disabled: busy, style: { border: 0, padding: 0, minWidth: 0 } },
       h('div', { className: 'dta-toolbar' }, h('input', { type: 'file', accept: '.json,application/json', hidden: true, ref: file, onChange: e => { const f = e.target.files?.[0]; e.target.value = ''; if (f) run(async () => { if (f.size > 2 * 1024 * 1024) throw new Error('2 MiB limit'); if (!await discard()) return; const data = await api('', 'POST', JSON.parse(await f.text())); setDraft(data.preset); setItems(i => [...i, data.preset]); setDirty(false); setPreview(null) }) } }), button('import', () => file.current.click()), button('export', download, !draft), button('create', async () => { if (await discard()) { setDraft({ ...structuredClone(items.find(p => p.id === defaultId) ?? items[0] ?? BUILTINS[0]), builtin: false, id: undefined, name: t('title') }); setDirty(true); setPreview(null) } })),
       status && h('div', { role: error ? 'alert' : 'status', className: 'dta-notice', 'data-error': error }, status),
@@ -214,6 +223,7 @@ function AssemblyPanelContent({ sessionId, close, registerBeforeLeave, chromeMod
         h('div', { className: 'dta-grid' }, h('label', null, t('select'), h('select', { value: draft.id ?? '', disabled: busy, onChange: async e => { const id = e.target.value; if (await discard()) { setDraft(items.find(p => p.id === id)); setDirty(false); setPreview(null) } } }, !draft.id && h('option', { value: '' }, draft.name), ...items.map(p => h('option', { key: p.id, value: p.id }, p.name)))), h('label', null, t('name'), h('input', { value: draft.name, disabled: draft.builtin, onChange: e => edit({ name: e.target.value }) }))),
         h('div', { className: 'dta-toolbar' }, button('save', () => run(() => save())), button('copy', () => run(() => save(true))), button('remove', () => run(async () => { if (!await confirm(t('confirmDelete'))) return; await api(`/${draft.id}`, 'DELETE'); setItems(i => i.filter(p => p.id !== draft.id)); setDraft(items[0]); setDirty(false); setPreview(null) }), !draft.id || draft.builtin), dirty && h('span', null, t('dirty'))),
         h('div', { className: 'dta-notice' }, `${t('applied')}: ${selection?.name ?? t('legacy')}`, !capable && h('small', null, t('unavailable'))),
+        onCreateSession && h('div', null, createSessionControls, h('div', { className: 'dta-toolbar' }, button('createSession', () => run(async () => { const preset = dirty || !draft.id ? await save() : draft; if (!mounted.current) return; await onCreateSession(preset.id) }), !capable, 'primary'))),
         h('div', { className: 'dta-toolbar' }, button('apply', () => run(async () => { const preset = dirty || !draft.id ? await save() : draft; const data = await api('/selection', 'PUT', { sessionId, id: preset.id }); setSelection(data.selection); setStatus(t('appliedStatus')); window.dispatchEvent(new CustomEvent(refreshEvent)) }), !sessionId || !capable, 'primary'), button('reset', async () => { if (!await discard()) return; run(async () => { const data = await api('/selection', 'PUT', { sessionId, id: defaultId }); setSelection(data.selection); setDraft(items.find(p => p.id === defaultId)); setDirty(false); setPreview(null); setTab('rules'); setStatus(t('appliedStatus')); window.dispatchEvent(new CustomEvent(refreshEvent)) }) }, !sessionId || !capable), button('disable', () => run(async () => { const data = await api('/selection', 'PUT', { sessionId, id: null }); setSelection(data.selection); window.dispatchEvent(new CustomEvent(refreshEvent)) }), !sessionId || !selection)),
         draft.builtin && h('small', null, t('defaultHint')),
         !sessionId && h('small', null, t('noSession')),
