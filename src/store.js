@@ -1,11 +1,11 @@
-import { mkdirSync, readFileSync, writeFileSync, renameSync, unlinkSync } from 'node:fs'
+import { mkdirSync, readFileSync, writeFileSync, renameSync, unlinkSync, existsSync } from 'node:fs'
 import { join } from 'node:path'
 import { randomUUID } from 'node:crypto'
 import { BUILTINS, normalizePreset } from './model.js'
 
 export class AssemblyPresetStore {
-  constructor(root, { mode = () => null, builtins = BUILTINS, defaultPresetId = builtins[0]?.id } = {}) {
-    this.mode = mode; this.builtins = builtins; this.defaultPresetId = defaultPresetId
+  constructor(root, { mode = () => null, builtins = BUILTINS, defaultPresetId = builtins[0]?.id, unified = false } = {}) {
+    this.unified = unified; this.mode = mode; this.builtins = builtins; this.defaultPresetId = defaultPresetId
     mkdirSync(root, { recursive: true }); this.path = join(root, 'assembly-presets.json')
     this.state = { version: 1, presets: {}, selections: {} }
     try {
@@ -33,7 +33,22 @@ export class AssemblyPresetStore {
     try { renameSync(temp, this.path) } catch (error) { unlinkSync(temp); throw error }
     this.state = next
   }
-  list() { return structuredClone([...this.builtins.map(p => ({ ...p, builtin: true })), ...Object.values(this.state.presets)]) }
+  migrateLegacy(root) {
+    if (join(root, 'assembly-presets.json') === this.path || !existsSync(join(root, 'assembly-presets.json'))) return false
+    const legacy = new AssemblyPresetStore(root) // Validate before changing owned state.
+    const next = structuredClone(this.state); let changed = false
+    for (const area of ['presets', 'selections']) for (const [id, value] of Object.entries(legacy.state[area])) {
+      if (!Object.hasOwn(next[area], id)) { next[area][id] = value; changed = true }
+    }
+    if (changed) this.persist(next)
+    return changed
+  }
+  list() {
+    const builtins = [...this.builtins]
+    // Keep an applied provider built-in visible after that provider disappears.
+    for (const preset of Object.values(this.state.selections)) if (preset?.id?.startsWith('builtin-') && !builtins.some(p => p.id === preset.id)) builtins.push(preset)
+    return structuredClone([...builtins.map(p => ({ ...p, builtin: true })), ...Object.values(this.state.presets)])
+  }
   get(id) {
     const preset = this.list().find(p => p.id === id)
     if (!preset) throw Object.assign(new Error('Assembly preset not found'), { status: 404 })
@@ -51,14 +66,18 @@ export class AssemblyPresetStore {
     if (Object.values(this.state.selections).some(s => s?.id === id)) throw Object.assign(new Error('Preset is applied to a session'), { status: 409 })
     const next = structuredClone(this.state); delete next.presets[id]; this.persist(next)
   }
-  selectionKey(sessionId, mode = this.mode()) { return mode ? `${mode}:${sessionId}` : sessionId }
+  selectionKey(sessionId, mode = this.mode()) { return !this.unified && mode ? `${mode}:${sessionId}` : sessionId }
   hasSelection(sessionId) {
-    return Object.hasOwn(this.state.selections, this.selectionKey(sessionId)) || (this.mode() === 'play' && Object.hasOwn(this.state.selections, sessionId))
+    return [this.selectionKey(sessionId), ...(this.unified && this.mode() ? [`${this.mode()}:${sessionId}`] : []), ...(!this.mode() ? [`native:${sessionId}`, `play:${sessionId}`] : this.mode() === 'play' ? [sessionId] : [])].some(key => Object.hasOwn(this.state.selections, key))
   }
   selection(sessionId, mode = this.mode()) {
     if (!validSession(sessionId)) return null
     const key = this.selectionKey(sessionId, mode)
     if (Object.hasOwn(this.state.selections, key)) return structuredClone(this.state.selections[key])
+    if (this.unified && mode && Object.hasOwn(this.state.selections, `${mode}:${sessionId}`)) return structuredClone(this.state.selections[`${mode}:${sessionId}`])
+    if (!mode) {
+      for (const legacy of [`native:${sessionId}`, `play:${sessionId}`]) if (Object.hasOwn(this.state.selections, legacy)) return structuredClone(this.state.selections[legacy])
+    }
     if (mode === 'play') {
       // Existing explicit selections, including disabled, remain meaningful.
       if (Object.hasOwn(this.state.selections, sessionId)) return structuredClone(this.state.selections[sessionId])
@@ -77,7 +96,7 @@ export class AssemblyPresetStore {
     if (!validSession(to)) throw new TypeError('Invalid session id')
     const next = structuredClone(this.state)
     let changed = false
-    for (const mode of this.mode() ? ['play', 'native'] : [null]) {
+    for (const mode of this.unified ? [this.mode()] : this.mode() ? ['play', 'native'] : [null]) {
       const key = this.selectionKey(to, mode)
       if (Object.hasOwn(next.selections, key)) continue
       next.selections[key] = this.selection(from, mode); changed = true

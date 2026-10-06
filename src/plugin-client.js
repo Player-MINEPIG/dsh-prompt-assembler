@@ -87,16 +87,16 @@ export function AssemblyOverlay({ assembler, sessions, workspaces, uiWorkspace, 
   if (!state.open) return null
   const items = workspaceState.phase === 'ready' ? workspaceState.items : []
   const workspaceId = items.length === 1 ? items[0].workspaceId : items.some(w => w.workspaceId === chosenWorkspace) ? chosenWorkspace : ''
-  const controls = h('div', { className: 'dta-toolbar' },
+  const controls = h('div', { className: 'dta-toolbar dta-session-controls' },
     h('label', null, locale === 'zh-CN' ? '新会话工作区' : 'New session workspace',
       h('select', { value: workspaceId, onChange: e => setWorkspace(e.target.value), disabled: items.length === 0, 'aria-label': locale === 'zh-CN' ? '新会话工作区' : 'New session workspace' },
         h('option', { value: '' }, locale === 'zh-CN' ? '请选择工作区…' : 'Choose a workspace…'),
-        ...items.map(w => h('option', { key: w.workspaceId, value: w.workspaceId }, w.title)))),
-    h('label', null, 'Language / 语言', h('select', { value: locale, onChange: e => setLocale(e.target.value), 'aria-label': 'Language / 语言' }, h('option', { value: 'zh-CN' }, '中文'), h('option', { value: 'en' }, 'English'))))
+        ...items.map(w => h('option', { key: w.workspaceId, value: w.workspaceId }, w.title)))))
+  const interfaceControls = h('div', { className: 'dta-toolbar dta-session-controls' }, h('label', null, 'Language / 语言', h('select', { value: locale, onChange: e => setLocale(e.target.value), 'aria-label': 'Language / 语言' }, h('option', { value: 'zh-CN' }, '中文'), h('option', { value: 'en' }, 'English'))))
   return h(AssemblyPanel, {
     sessionId: state.session?.id, sessionLabel: sessionLabel(state.session, locale), locale, standalone: true,
     close: assembler.close, registerBeforeLeave: assembler.registerBeforeLeave, fetcher,
-    refreshEvent: REFRESH_EVENT, createSessionControls: controls,
+    refreshEvent: REFRESH_EVENT, createSessionControls: controls, interfaceControls,
     onCreateSession: async presetId => {
       const original = assembler.getSnapshot()
       const id = await createSessionWithPreset({ sessions, uiWorkspace, fetcher, workspaceId, presetId,

@@ -1,0 +1,5 @@
+- insert:
+    - id: dsh-prompt-assembler
+      name: 'dsh-prompt-assembler'
+      config:
+        storageDir: !!js dshHomePath('dsh-prompt-assembler')

@@ -77,8 +77,9 @@ export function normalizePreset(value: unknown): Preset
 
 export function moveRule(rules: Rule[], id: string, targetId: string): Rule[]
 export class AssemblyPresetStore {
-  constructor(root: string, options?: { mode?: () => string | null; builtins?: readonly Preset[]; defaultPresetId?: string });
+  constructor(root: string, options?: { mode?: () => string | null; builtins?: readonly Preset[]; defaultPresetId?: string; unified?: boolean });
   list(): Preset[]; get(id: string): Preset; save(value: PresetInput, id?: string): Preset; remove(id: string): void;
+  migrateLegacy(root: string): boolean; hasSelection(sessionId: string): boolean;
   selection(id: string): Preset | null; apply(sessionId: string, id: string | null): Preset | null; copySelection(from: string, to: string): void;
 }
 export class RequestAssembler {
@@ -87,3 +88,9 @@ export class RequestAssembler {
   execute(payload: any, next: () => Promise<any>): Promise<any>; preview(input: any): Promise<AssemblyResult>;
 }
 export function projectSystemSnapshots(logical: AssemblyResult, nativeMessages: NativeMessage[], maxBytes?: number, options?: { preview?: boolean; systemPromptUpdate?: string }): AssemblyResult
+
+export const name: "dsh-prompt-assembler"
+export const inject: string[]
+export function apply(ctx: any, config: { storageDir: string; security?: Record<string, unknown> }): { registry: RequestSourceRegistry; store: AssemblyPresetStore; runtime: RequestAssembler; migrateLegacy(root: string): boolean; attachTavern(options: Record<string, unknown>): () => void }
+declare const plugin: { name: typeof name; inject: typeof inject; apply: typeof apply }
+export default plugin

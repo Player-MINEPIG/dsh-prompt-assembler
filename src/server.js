@@ -12,6 +12,12 @@ export function createAssemblyApi({ store, runtime, agents, sessions, inspect, n
       const url = new URL(req.url, 'http://localhost'), part = decodeURIComponent(url.pathname.slice(root.length + 1)), method = req.method
       const sessionId = url.searchParams.get('sessionId') ?? ''
       if (!part && method === 'GET') return send(res, 200, { ok: true, presets: store.list(), defaultPresetId: store.defaultPresetId, selection: runtime.selected(sessionId), capability: runtime.available(), sourceProtocolVersion: runtime.registry.version, sources: runtime.sources(sessionId) })
+      if (part === 'actual' && method === 'GET') {
+        const live = agents()?.get?.(sessionId)?.session ?? sessions()?.get?.(sessionId)
+        const events = live?.snapshotEvents?.() ?? (sessionId && inspect ? (await inspect(sessionId)).events : [])
+        const request = events.findLast(event => event.type === 'request/assembly')?.data ?? null
+        return send(res, 200, { ok: true, request })
+      }
       if (part === 'preview' && method === 'POST') {
         const body = await read(req), id = body.sessionId ?? sessionId
         const live = agents()?.get?.(id)
@@ -27,6 +33,7 @@ export function createAssemblyApi({ store, runtime, agents, sessions, inspect, n
       if (part === 'selection' && method === 'PUT') {
         const body = await read(req), agent = agents()?.get?.(body.sessionId)
         if (agent?.status === 'running') throw Object.assign(new Error('Apply after the current turn finishes'), { status: 409 })
+        if (inspect) await inspect(body.sessionId) // An existing blank Session is valid; arbitrary ids are not.
         if (body.id !== null) runtime.requireAvailable()
         const selection = store.apply(body.sessionId, body.id); notify()
         return send(res, 200, { ok: true, selection })

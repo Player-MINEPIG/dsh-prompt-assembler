@@ -40,7 +40,7 @@ const registry = createDshRegistry()
 const result = await assembleRequestAsync({ registry, preset: BUILTINS[0], nativeMessages, inputIds })
 ```
 
-根导出保持可组合库 API。DSH loader 的 package `main` 为 `src/plugin.js`，`dsh-prompt-assembler/plugin` 是显式 Host 插件入口，`dsh-prompt-assembler/plugin-client` 是浏览器入口。`src/client.js` 仍提供可嵌入视图；自行组合 HTTP factory 的调用方须负责认证和安全 fetch。
+根导出保持可组合库 API，同时导出 Host 插件的 `name`、`inject` 和 `apply`，供 DSH loader 按 package exports 加载；package `main` 为 `src/plugin.js`，`dsh-prompt-assembler/plugin` 是显式 Host 插件入口，`dsh-prompt-assembler/client` 是浏览器入口。`dsh-prompt-assembler/panel` 仍提供可嵌入视图；自行组合 HTTP factory 的调用方须负责认证和安全 fetch。
 
 ## 开发与验证
 

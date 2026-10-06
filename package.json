@@ -1,9 +1,9 @@
 {
   "name": "dsh-prompt-assembler",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "type": "module",
   "description": "Source registry and request assembly primitives for DSH, with optional provider adapters.",
-  "main": "src/index.js",
+  "main": "src/plugin.js",
   "exports": {
     ".": {
       "types": "./src/index.d.ts",
@@ -12,7 +12,11 @@
     "./*": "./src/*.js",
     "./adapters/*": "./adapters/*.js",
     "./package.json": "./package.json",
-    "./scripts/*": "./scripts/*"
+    "./scripts/*": "./scripts/*",
+    "./plugin": "./src/plugin.js",
+    "./plugin-client": "./dist/client.js",
+    "./client": "./dist/client.js",
+    "./panel": "./src/client.js"
   },
   "files": [
     "src",
@@ -21,26 +25,65 @@
     "docs",
     "README.md",
     "README_en.md",
-    "LICENSE"
+    "LICENSE",
+    "dist",
+    "cordis.patch.yml",
+    "CHANGELOG.md",
+    "SECURITY.md",
+    "SECURITY_en.md"
   ],
   "scripts": {
     "test": "node --test",
     "pack:check": "npm pack --dry-run --cache .npm-cache",
-    "check": "npm test && npm run pack:check"
+    "check": "npm run build && npm test && npm run pack:check",
+    "build": "node scripts/build-client.mjs"
   },
   "engines": {
     "node": ">=20"
   },
   "peerDependencies": {
-    "react": "18.3.1"
+    "react": "18.3.1",
+    "@deepseek-ai/cordis": "4.0.4"
   },
   "peerDependenciesMeta": {
     "react": {
       "optional": true
+    },
+    "@deepseek-ai/cordis": {
+      "optional": true
     }
   },
   "devDependencies": {
-    "esbuild": "0.28.2"
+    "esbuild": "0.28.2",
+    "react-dom": "18.3.1",
+    "linkedom": "0.18.12"
   },
-  "license": "MIT"
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Player-MINEPIG/dsh-prompt-assembler.git"
+  },
+  "keywords": [
+    "dsh",
+    "dsh-plugin",
+    "deepseek-harness",
+    "prompt-assembly"
+  ],
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "inject": [
+        "@deepseek-ai/dsh-api-session-controller",
+        "@deepseek-ai/dsh-api-workspace-controller",
+        "@deepseek-ai/dsh-client-ui-workspace",
+        "@deepseek-ai/dsh-client-ui-layout",
+        "@deepseek-ai/dsh-client-ui-sidebar",
+        "@deepseek-ai/dsh-client-ui-conversation",
+        "@deepseek-ai/dsh-client-ui-renderer"
+      ]
+    }
+  }
 }

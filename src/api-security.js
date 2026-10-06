@@ -1,0 +1,147 @@
+import { isIP } from 'node:net'
+import { randomBytes, timingSafeEqual } from 'node:crypto'
+import { API_ROOT, API_V1 } from './identity.js'
+
+const LOOPBACK_HOSTS = new Set(['127.0.0.1', 'localhost', '::1'])
+const JSON_MEDIA_TYPE = 'application/json'
+
+function sendError(res, status, code, message) {
+  const body = JSON.stringify({ ok: false, code, error: message })
+  res.statusCode = status
+  res.setHeader('Content-Type', 'application/json; charset=utf-8')
+  res.setHeader('Content-Length', Buffer.byteLength(body))
+  res.end(body)
+}
+
+function header(req, name) {
+  const value = req.headers?.[name]
+  return Array.isArray(value) ? value[0] : value
+}
+
+function hostnameFromAuthority(authority) {
+  if (typeof authority !== 'string' || authority.trim() === '') return null
+  try {
+    return new URL(`http://${authority}`).hostname.replace(/^\[|\]$/g, '').toLowerCase()
+  } catch {
+    return null
+  }
+}
+
+function normalizeAllowedHosts(input) {
+  if (!Array.isArray(input)) return new Set()
+  return new Set(input.map(host => String(host).trim().toLowerCase()).filter(Boolean))
+}
+
+function isAllowedHost(hostname, allowedHosts) {
+  if (hostname === null) return false
+  if (LOOPBACK_HOSTS.has(hostname)) return true
+  if (isIP(hostname) !== 0 && hostname.startsWith('127.')) return true
+  return allowedHosts.has(hostname)
+}
+
+function isLoopbackAddress(address) {
+  if (typeof address !== 'string') return false
+  const normalized = address.trim().toLowerCase().split('%', 1)[0]
+  if (normalized === '::1') return true
+  if (normalized.startsWith('::ffff:')) return isLoopbackAddress(normalized.slice(7))
+  return isIP(normalized) === 4 && normalized.startsWith('127.')
+}
+
+function isMutation(method) {
+  return method !== 'GET' && method !== 'HEAD' && method !== 'OPTIONS'
+}
+
+function requestMediaType(req) {
+  return String(header(req, 'content-type') ?? '').split(';', 1)[0].trim().toLowerCase()
+}
+
+
+function sameOrigin(req) {
+  const origin = header(req, 'origin')
+  const authority = header(req, 'host')
+  if (typeof origin !== 'string' || typeof authority !== 'string') return false
+  try {
+    const parsed = new URL(origin)
+    return (parsed.protocol === 'http:' || parsed.protocol === 'https:')
+      && parsed.host.toLowerCase() === authority.toLowerCase()
+  } catch {
+    return false
+  }
+}
+
+/**
+ * Protects the browser-facing API from accidental network exposure, DNS
+ * rebinding and cross-site writes. Remote TCP peers are denied independently
+ * from the client-controlled Host header unless explicitly enabled. This is
+ * still not user authentication: trusted local processes can make requests.
+ */
+export function secureAssemblerApi(handler, options = {}) {
+  if (typeof handler !== 'function') throw new TypeError('handler must be a function')
+  const allowedHosts = normalizeAllowedHosts(options.allowedHosts)
+  const allowRemoteClients = options.allowRemoteClients === true
+  // A per-handler, memory-only CSRF capability. Desktop's authenticated proxy
+  // strips Origin; possession is required there instead of trusting a marker.
+  const requestToken = randomBytes(32).toString('hex')
+  const validToken = req => {
+    const value = header(req, 'x-assembler-request-token')
+    return typeof value === 'string' && /^[a-f0-9]{64}$/.test(value)
+      && timingSafeEqual(Buffer.from(value), Buffer.from(requestToken))
+  }
+
+  return async (req, res) => {
+    res.setHeader('Cache-Control', 'no-store')
+    res.setHeader('X-Content-Type-Options', 'nosniff')
+    res.setHeader('Referrer-Policy', 'no-referrer')
+
+    if (!allowRemoteClients && !isLoopbackAddress(req.socket?.remoteAddress)) {
+      return sendError(
+        res,
+        403,
+        'ASSEMBLER_API_REMOTE_FORBIDDEN',
+        'dsh-prompt-assembler API accepts only loopback TCP clients unless security.allowRemoteClients is explicitly enabled.',
+      )
+    }
+
+    const hostname = hostnameFromAuthority(header(req, 'host'))
+    if (!isAllowedHost(hostname, allowedHosts)) {
+      return sendError(
+        res,
+        403,
+        'ASSEMBLER_API_HOST_FORBIDDEN',
+        'dsh-prompt-assembler API is limited to loopback hosts unless security.allowedHosts explicitly permits this host.',
+      )
+    }
+
+    const method = String(req.method ?? 'GET').toUpperCase()
+    const origin = header(req, 'origin')
+    const crossSite = header(req, 'sec-fetch-site') === 'cross-site'
+    if (new URL(req.url ?? '/', 'http://localhost').pathname === `${API_ROOT}/request-token`) {
+      // Custom header forces a CORS preflight on foreign pages; we never grant
+      // CORS. Null/foreign Origin is denied even when the caller has a token.
+      if (method !== 'GET') return sendError(res, 405, 'ASSEMBLER_API_METHOD', 'GET required.')
+      if (crossSite || (origin !== undefined && !sameOrigin(req))
+        || header(req, 'x-assembler-client') !== 'embedded') {
+        return sendError(res, 403, 'ASSEMBLER_API_ORIGIN_FORBIDDEN', 'Same-origin embedded client required.')
+      }
+      res.setHeader('Content-Type', 'application/json; charset=utf-8')
+      return res.end(JSON.stringify({ ok: true, token: requestToken }))
+    }
+    if (isMutation(method)) {
+      if (crossSite || !(sameOrigin(req) || (origin === undefined && validToken(req)))) {
+        return sendError(res, 403, 'ASSEMBLER_API_ORIGIN_FORBIDDEN', 'Mutation requests must come from the same DSH Web origin.')
+      }
+      const mediaType = requestMediaType(req)
+      if (mediaType !== JSON_MEDIA_TYPE) {
+        return sendError(res, 415, 'ASSEMBLER_API_CONTENT_TYPE_REQUIRED', `Unsupported Content-Type ${JSON.stringify(mediaType || '(missing)')}.`)
+      }
+    }
+
+    return handler(req, res)
+  }
+}
+
+export const assemblerSecurityConstants = Object.freeze({
+  apiRoot: API_ROOT,
+  apiV1: API_V1,
+  loopbackHosts: [...LOOPBACK_HOSTS],
+})

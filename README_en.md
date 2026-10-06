@@ -40,7 +40,7 @@ const registry = createDshRegistry()
 const result = await assembleRequestAsync({ registry, preset: BUILTINS[0], nativeMessages, inputIds })
 ```
 
-Root exports remain composable library APIs. Package `main` is `src/plugin.js` for the DSH loader; `dsh-prompt-assembler/plugin` explicitly exports the Host plugin and `dsh-prompt-assembler/plugin-client` exports the browser entry. `src/client.js` still offers an embeddable view. Callers composing the HTTP factory provide authentication and secure fetch.
+Root exports remain composable library APIs. Package `main` is `src/plugin.js` for the DSH loader; `dsh-prompt-assembler/plugin` explicitly exports the Host plugin and `dsh-prompt-assembler/client` exports the browser entry. `dsh-prompt-assembler/panel` still offers an embeddable view. Callers composing the HTTP factory provide authentication and secure fetch.
 
 ## Develop and verify
 

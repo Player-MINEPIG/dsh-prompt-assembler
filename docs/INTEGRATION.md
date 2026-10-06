@@ -56,13 +56,13 @@ Tavern 的存储模板仅在当前会话存在启用且支持的资源时可作�
 - `adapters/tavern` 提供 `registerTavernSources`、`parseTavernText`、模板与 MVU 注册函数，以及兼容 preset。Tavern 手填内容与 preset 共用 history/input/world-info 引用解析和 ST 宏，来源文本原文只读；资源编辑仍在 Tavern。
 - `adapters/memory-manager` 的 `connectMemoryManager(ctx,registry)` 随 `dshMemoryManager` 服务出现/卸载注册来源。Manager 的 `requestAssemblyResources()` 返回分离配置快照；`trigger` 执行只读检索，排除由来源自己管理的 MVU/世界书/模板，避免重复注入。 observer 只有核对持久 `request/assembly`、实际消息哈希与节点身份后才记录 applied；不代表网络送达。
 
-独立插件在 Host 中组合自己的 store、registry、runtime、HTTP 与浏览器界面。package `main` 为 `src/plugin.js`；`./plugin` 提供 Host 入口，`./plugin-client` 提供浏览器入口；根导出仍为库原语。`dsh.bundle` 指向 `cordis.patch.yml`，`dsh.client` 指向提交的 `dist/client.js`。共享来源服务是 `dshPromptSources`。
+独立插件在 Host 中组合自己的 store、registry、runtime、HTTP 与浏览器界面。package `main` 为 `src/plugin.js`；`./plugin` 提供 Host 入口，`./client` 提供浏览器入口；根导出仍为库原语。`dsh.bundle` 指向 `cordis.patch.yml`，`dsh.client` 指向提交的 `dist/client.js`。共享来源服务是 `dshPromptSources`。
 
 `dshPromptAssembler` 提供 `{store,runtime,registry,attachTavern(options),migrateLegacy(root)}`。插件自有存储位于 Host 的 `dshHomePath('dsh-prompt-assembler')`，文件名为 `assembly-presets.json`。新独立会话没有隐式策略或全局默认；侧栏当前会话入口在第一条消息之前也可用，策略库的“使用此策略新建会话”先绑定策略再打开会话。会话标题可提供可选快捷入口。
 
 `attachTavern({resources,sessionReads,mode,builtins,defaultPresetId,afterAssembly})` 接收来源拥有的公开只读资源对象、读取租约及兼容配置，返回 disposer。Tavern 通过 `registerTavernSources` 将来源注册到共享 registry；注册与卸载跟随来源的 scoped context，不重复注册 DSH 内置来源。assembler 不依赖 Tavern/Manager 包，不读取其内部文件。来源内容、解析权限与资源编辑仍归来源。Tavern 要求独立安装并挂载的 assembler 服务，保留旧 service/HTTP 转发到同一 owned store/runtime；新接入使用 assembler 服务与 API。不要给同一请求同时安装两个独立策略 hook。
 
-`migrateLegacy(root)` 校验旧 `assembly-presets.json`，只合并当前存储缺少的 ID；当前 assembler 条目优先，旧文件不改写。旧 `play:` / `native:` scope 保留。独立选择先查原始 session ID，再回退到显式 `native:<id>`、`play:<id>`，包括显式 null；没有旧选择的新会话不回退到默认策略。接入 Tavern 的 mode 回调时保留其原有 mode 语义。`adapters/tavern-runtime` 继续提供兼容组合原语。
+`migrateLegacy(root)` 校验旧 `assembly-presets.json`，只合并当前存储缺少的 ID；当前 assembler 条目优先，旧文件不改写。旧 `play:` / `native:` scope 保留。独立选择先查原始 session ID，再回退到显式 `native:<id>`、`play:<id>`，包括显式 null；没有旧选择的新会话不回退到默认策略。尚未重新应用的旧选择按 Tavern 当前 mode 读取；在独立插件中重新应用后，以 session ID 统一绑定，重装 Tavern 或切换视图不会恢复旧选择。`adapters/tavern-runtime` 继续提供兼容组合原语。
 
 当前请求 metadata owner 为 `dsh-prompt-assembler`，历史读取仍接受旧 `pmp-dsh-tavern` 快照。移除来源或卸载插件不转换原生历史，不将旧装配正文复制进历史；插件卸载保留自己的策略存储与 DSH durable history。
 

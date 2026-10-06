@@ -30,7 +30,7 @@ export class RequestAssembler {
     const selected = this.selected(agent.id)
     const last = agent.session.snapshotEvents().findLast(e => e.type === 'request/assembly')?.data.metadata
     const revision = selected ? createHash('sha256').update(JSON.stringify(normalizePreset(selected))).digest('hex') : null
-    return revision !== (last?.owner === this.owner ? last.assembly.preset.revision : null)
+    return revision !== ([this.owner, 'pmp-dsh-tavern', 'dsh-prompt-assembler'].includes(last?.owner) ? last.assembly.preset.revision : null)
   }
   async execute(payload, next) {
     const base = await next(), preset = this.selected(payload.agent.id)
@@ -42,7 +42,7 @@ export class RequestAssembler {
     const start = events.findLast(e => e.type === 'step/start')?.seq ?? -1
     const inputIds = events.filter(e => e.seq > start && e.type === 'user/message').map(e => e.data.id)
     const lastMetadata = events.findLast(e => e.type === 'request/assembly')?.data.metadata
-    const previous = lastMetadata?.owner === this.owner ? lastMetadata.assembly : null
+    const previous = [this.owner, 'pmp-dsh-tavern', 'dsh-prompt-assembler'].includes(lastMetadata?.owner) ? lastMetadata.assembly : null
     const assets = { ...snapshot.assemblyInput, diagnostics: snapshot.diagnostics, officialSections: snapshot.officialAssembly?.sections ?? [], nativeVariables: snapshot.officialAssembly?.variables ?? snapshot.assemblyInput.nativeVariables ?? {} }
     const logical = await assembleRequestAsync({ registry: this.registry, afterAssembly: this.afterAssembly, sessionId: payload.agent.id, turn: payload.turn, step: payload.step, signal: payload.signal, preset, assets, nativeMessages: base.messages, inputIds, previous, snapshots: previous?.snapshots ?? [], maxBytes: this.resources.maxProfileBytes })
     // Complete snapshots repeat active instructions; their physical ceiling is independent of logical admission.
