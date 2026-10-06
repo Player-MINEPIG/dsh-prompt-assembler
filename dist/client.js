@@ -88,6 +88,7 @@ var labels = {
   retry: ["\u91CD\u8BD5", "Retry"],
   cancel: ["\u53D6\u6D88", "Cancel"],
   confirm: ["\u786E\u8BA4", "Confirm"],
+  withdrawnPreset: ["\u8BE5\u5185\u7F6E\u9884\u8BBE\u7684\u63D0\u4F9B\u65B9\u672A\u6CE8\u518C\u3002\u6B64\u4F1A\u8BDD\u5DF2\u5E94\u7528\u7684\u65E7\u914D\u7F6E\u4ECD\u4FDD\u7559\uFF1B\u66F4\u6539\u65F6\u8BF7\u9009\u62E9\u5F53\u524D\u53EF\u7528\u7B56\u7565\u3002", "The provider of this built-in preset is not registered. This session retains its applied configuration; choose an available strategy to change it."],
   librarySection: ["\u7B56\u7565\u5E93", "Strategy library"],
   applicationSection: ["\u4F1A\u8BDD\u5E94\u7528", "Session application"],
   rulesSection: ["\u88C5\u914D\u89C4\u5219\u4E0E\u9884\u89C8", "Assembly rules and preview"],
@@ -626,7 +627,7 @@ function AssemblyPanelContent({ sessionId, sessionLabel: sessionLabel2, onCreate
           setPreview(null);
         }), !draft.id || draft.builtin), dirty && (0, import_react.createElement)("span", null, t("dirty"))),
         (0, import_react.createElement)("h3", { className: "dta-section-title" }, t("applicationSection")),
-        (0, import_react.createElement)("div", { className: "dta-notice" }, `${t("applied")}: ${selection?.name ?? t("legacy")}`, !capable && (0, import_react.createElement)("small", null, t("unavailable"))),
+        (0, import_react.createElement)("div", { className: "dta-notice" }, `${t("applied")}: ${selection?.name ?? t("legacy")}`, selection?.id?.startsWith("builtin-") && !items.some((p) => p.id === selection.id) && (0, import_react.createElement)("small", null, t("withdrawnPreset")), !capable && (0, import_react.createElement)("small", null, t("unavailable"))),
         onCreateSession && (0, import_react.createElement)("div", null, createSessionControls, (0, import_react.createElement)("div", { className: "dta-toolbar" }, button("createSession", () => run(async () => {
           const preset = dirty || !draft.id ? await save() : draft;
           if (!mounted.current) return;

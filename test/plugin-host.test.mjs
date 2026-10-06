@@ -8,6 +8,7 @@ import { tmpdir } from 'node:os'
 import plugin from '../src/index.js'
 import { AssemblyPresetStore, BUILTINS, textOf } from '../src/index.js'
 import { registerNotes } from '../docs/examples/notes.js'
+import { BUILTINS as TAVERN_BUILTINS } from '../adapters/tavern.js'
 
 const root = process.env.DSH_ASSEMBLER_CORE_ROOT
 // Mount the actual installable plugin, not a hand-composed runtime.
@@ -65,5 +66,27 @@ test('independent apply supersedes legacy mode selection when Tavern is reattach
     own.apply('one', 'builtin-native'); mode = 'play'
     assert.equal(own.selection('one').id, 'builtin-native')
     mode = 'native'; assert.equal(own.selection('one').id, 'builtin-native')
+  } finally { rmSync(directory, { recursive: true, force: true }) }
+})
+
+test('provider removal withdraws its built-in catalog without deleting applied snapshots', () => {
+  const directory = mkdtempSync(join(tmpdir(), 'assembler-preset-owner-'))
+  try {
+    const store = new AssemblyPresetStore(directory, { builtins: [...BUILTINS, ...TAVERN_BUILTINS], unified: true })
+    store.apply('old-session', 'builtin-st')
+    const before = readFileSync(store.path)
+    store.builtins = BUILTINS
+    assert.deepEqual(store.list().map(p => p.id), ['builtin-native'])
+    assert.equal(store.selection('old-session').id, 'builtin-st')
+    assert.deepEqual(readFileSync(store.path), before)
+    assert.throws(() => store.apply('new-session', 'builtin-st'), /not found/)
+    assert.equal(store.hasSelection('new-session'), false)
+    // A fresh standalone process must not resurrect an old provider's preset.
+    const reopened = new AssemblyPresetStore(directory, { unified: true })
+    assert.deepEqual(reopened.list().map(p => p.id), ['builtin-native'])
+    assert.equal(reopened.selection('old-session').id, 'builtin-st')
+    reopened.builtins = [...BUILTINS, ...TAVERN_BUILTINS]
+    assert.ok(reopened.list().some(p => p.id === 'builtin-st'))
+    reopened.apply('new-session', 'builtin-st')
   } finally { rmSync(directory, { recursive: true, force: true }) }
 })

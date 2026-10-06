@@ -44,10 +44,8 @@ export class AssemblyPresetStore {
     return changed
   }
   list() {
-    const builtins = [...this.builtins]
-    // Keep an applied provider built-in visible after that provider disappears.
-    for (const preset of Object.values(this.state.selections)) if (preset?.id?.startsWith('builtin-') && !builtins.some(p => p.id === preset.id)) builtins.push(preset)
-    return structuredClone([...builtins.map(p => ({ ...p, builtin: true })), ...Object.values(this.state.presets)])
+    // Applied snapshots are session state, never registrations in the catalog.
+    return structuredClone([...this.builtins.map(p => ({ ...p, builtin: true })), ...Object.values(this.state.presets)])
   }
   get(id) {
     const preset = this.list().find(p => p.id === id)

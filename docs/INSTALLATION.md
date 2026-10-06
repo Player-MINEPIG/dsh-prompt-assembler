@@ -35,7 +35,7 @@ node scripts/prepare-request-assembly.mjs <DSH-0.2.0-rc.2-source> <separate-outp
 
 插件的策略与会话选择写入 assembler 自己的 Host `dshHomePath('dsh-prompt-assembler')` 存储中的 `assembly-presets.json`。旧 Tavern `assembly-presets.json` 可通过 `dshPromptAssembler.migrateLegacy(root)` 显式迁移；`root` 指向旧存储目录。原文件保留，旧 `play:` / `native:` mode scope 保留；当前 assembler 条目优先，迁移只合并缺少的 ID。独立运行时先查原始 session ID，再回退到显式 `native:<id>`、`play:<id>`，包括显式 null；没有旧选择的新会话没有隐式默认。重新应用后以 session ID 统一绑定，优先于旧 mode 选择；重装 Tavern 不会恢复旧选择。迁移不会把来源资源复制进策略，也不会转换 DSH 历史。迁移只对已授权的目标运行环境执行。
 
-请求记录的当前 owner 是 `dsh-prompt-assembler`，历史读取继续接受旧 `pmp-dsh-tavern` 快照。卸载保留策略存储与 DSH durable history；旧会话仍可由原生 DSH 使用。显式准备的核心是单独变更，如需恢复 stock rc.2，应使用准备前保留的核心构建，并验证保留的 durable history。
+请求记录的当前 owner 是 `dsh-prompt-assembler`，历史读取继续接受旧 `pmp-dsh-tavern` 快照。预设目录只列出当前提供方注册的内置预设与用户保存的预设。提供方卸载后，它的内置预设退出目录；会话已应用的快照保留并单独标明提供方缺失，不能再次应用为其他会话的内置预设。卸载保留策略存储与 DSH durable history；旧会话仍可由原生 DSH 使用。显式准备的核心是单独变更，如需恢复 stock rc.2，应使用准备前保留的核心构建，并验证保留的 durable history。
 
 ## 验证
 
