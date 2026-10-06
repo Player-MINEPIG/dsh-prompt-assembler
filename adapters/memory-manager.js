@@ -1,9 +1,10 @@
+import {contentGuides} from './content-guides.js'
 import {createHash} from 'node:crypto'
 const hash=value=>createHash('sha256').update(JSON.stringify(value)).digest('hex')
 export const SOURCE_ID='memory-manager.resources'
 export function registerRequestSource(manager,registry,usage){
  if(registry.version!==1)throw Error('Unsupported assembler source protocol')
- return registry.register({id:SOURCE_ID,pluginId:'dsh-memory-manager',name:'记忆管理资源',version:1,lifetimes:['request'],moduleAvailable:()=>{const r=manager.requestAssemblyResources();return r.available&&r.entries.length>0},resolve:async context=>{
+ return registry.register({id:SOURCE_ID,pluginId:'dsh-memory-manager',name:'记忆管理资源',contentGuide:contentGuides[SOURCE_ID],version:1,lifetimes:['request'],moduleAvailable:()=>{const r=manager.requestAssemblyResources();return r.available&&r.entries.length>0},resolve:async context=>{
   const resources=manager.requestAssemblyResources()
   if(!resources.available)return {blocks:[],diagnostics:[{code:'MEMORY_CONFIG_UNAVAILABLE'}]}
   const blocks=[],diagnostics=[]

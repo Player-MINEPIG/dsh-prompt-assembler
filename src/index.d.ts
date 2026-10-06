@@ -14,7 +14,9 @@ export interface SourceContext {
   readonly preset: Readonly<Preset>; readonly assets: Readonly<Record<string, unknown>>;
   readonly nativeMessages: readonly NativeMessage[]; readonly inputIds: readonly string[];
 }
+export interface ContentGuide { contains: [string, string]; origin: [string, string]; editable: [string, string]; editAt: [string, string] }
 export interface Descriptor {
+  textParserAliasFor?: string; contentGuide?: ContentGuide;
   id: string; pluginId: string; name: string; version: number; stability: Stability;
   dependencies: string[]; multiple: boolean; roles: Role[]; lifetimes: Lifetime[]; depth: boolean;
   generationRequiresPlugin: boolean; recordedContentSurvivesRemoval: true; acceptsText: boolean; supportsModule: boolean; moduleAvailable: boolean;

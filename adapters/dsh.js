@@ -1,6 +1,7 @@
+import { contentGuides } from './content-guides.js'
 import { RequestSourceRegistry } from '../src/registry.js'
 const textOf = m => (m.content ?? []).filter(b => b.type === 'text').map(b => b.text).join('\n')
-const native = (id, name, sectionPlugin = section => section.plugin ?? section.source?.plugin ?? null) => ({ id, pluginId: 'DSH', name, roles: ['preserve'], lifetimes: ['request'], depth: false, generationRequiresPlugin: false, stability: id === 'native-system' ? 'assembly' : 'conversation', resolve(context) {
+const native = (id, name, sectionPlugin = section => section.plugin ?? section.source?.plugin ?? null) => ({ id, pluginId: 'DSH', name, contentGuide: contentGuides[id], roles: ['preserve'], lifetimes: ['request'], depth: false, generationRequiresPlugin: false, stability: id === 'native-system' ? 'assembly' : 'conversation', resolve(context) {
   const claimed = new Set(context.inputIds)
   const messages = context.nativeMessages.filter(m => id === 'native-system' ? m.role === 'system' : m.role !== 'system' && (id === 'input' ? claimed.has(m.id) : !claimed.has(m.id)))
   const children = id === 'native-system' ? (context.assets.officialSections ?? []).map((s, i) => ({ id: `official:${i}`, name: s.name, text: s.text, locked: true, lockReason: 'native-system-section', source: { plugin: sectionPlugin(s), providedBy: 'DSH', section: s.name, generationRequiresPlugin: null, recordedContentSurvivesRemoval: true } }))

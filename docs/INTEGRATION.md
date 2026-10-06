@@ -26,7 +26,11 @@ stop()
 
 用户通过“添加自定义文本”选解析器，生成 `inputMode:'text'` 规则；该路径只调用来源的 `parseText`，接受 `{blocks,macros?,diagnostics?}`，位置、角色、深度及快照仍由 assembler 管理。选择解析器不添加或恢复对应来源模块，多个文本规则可使用同一解析器。第三方文本不会隐式运行 ST、EJS 或 JavaScript。`renderText({text,context,variables,block,diagnostics,identity})` 可选，必须同步返回字符串；默认保持正文，在已声明的来源宏引用展开之后运行。
 
-Tavern 的存储模板仅在当前会话存在启用且支持的资源时可作为模块添加。它的文本解析器可独立使用只读 EJS 子集，包括 `<%- await getpreset("fragment") %>`、`<%- await getchar("card-id") %>`、有使用租约的 `getwi`；不创建模板资源、不授予访问或写入权限。原生 DSH 文本与 Tavern ST 文本是解析器入口。MVU 的独立状态/更新指令块仅在当前绑定存在有效资源时可添加；Manager 的独立检索块要求有可管理的装配配置，来源已负责的 MVU、世界书和模板不重复纳入。
+Tavern 的统一 `tavern.text` 解析器按固定顺序处理：先对手填正文执行只读 EJS，再识别 history/input/world-info 引用，最后展开角色、用户等内容宏及 ST 宏。引用来的文本不再次执行 EJS；EJS helper 的访问许可与来源租约不变。没有模板运行时遇到 EJS 会明确失败，不把代码当作普通正文发送。ST setvar/getvar 在本请求内共享临时变量，顺序可能影响结果；它们不是 MVU 持久变量。
+
+Tavern 的存储模板仅在当前会话存在启用且支持的资源时可作为模块添加。统一 Tavern 文本解析器可独立使用只读 EJS 子集，包括 `<%- await getpreset("fragment") %>`、`<%- await getchar("card-id") %>`、有使用租约的 `getwi`；不创建模板资源、不授予访问或写入权限。界面只有 DSH 文本和统一 Tavern 文本两个内置解析器入口。旧 preset/custom/template 的手填规则仍能执行；descriptor 的 `textParserAliasFor` 指向 `tavern.text`，菜单不重复列出，界面预览、导出及明确保存时规范化为统一规则，不在打开时修改存储。统一 Tavern 文本使用 request 保留方式；旧 custom 的 snapshot 不被后台迁移，新保存的文本每次重新装配。MVU 的独立状态/更新指令块仅在当前绑定存在有效资源时可添加；Manager 的独立检索块要求有可管理的装配配置，来源已负责的 MVU、世界书和模板不重复纳入。
+
+模块 descriptor 可提供 `contentGuide:{contains,origin,editable,editAt}`，四个字段均为 `[中文, English]` 非空字符串。adapter 必须据真实能力说明输出字段、资源来源、可编辑性和实际编辑路径；无编辑器须明确说明，不能伪造入口。UI 在所有模块展开项显示这四项，并提示用只读预览查看具体正文/资源 ID。未声明时分别显示“来源未说明”，不猜测权限或编辑能力。规则不会改变这些说明或取得正文写权限。
 
 `context` 为本请求固定、分离且深冻结的 `sessionId/turn/step/preview/preset/assets/nativeMessages/inputIds/signal`；Signal 保持原对象。不得写状态；预览可能并发，turn/step 为 null，不含待发输入。响应卸载、取消与自己的读取版本租约；解析器失败或返回非法内容时整次请求拒绝，不发送部分结果。已开始的请求使用捕获的注册集合。资源发生变更时，可用同步 `validateResolved(context)` 在所有异步来源完成后核对租约。
 
@@ -67,6 +71,6 @@ npm pack
 
 对新 adapter 补上动态内容和手填 parser 的正常/失败路径、preview 只读、每 step 求值、列表/深度、禁用/卸载、取消、来源身份与变更租约测试。向本仓库提 PR，adapter 不导入来源包的内部文件。Tavern/Manager 的真正 Host 与浏览器组合由各自集成测试验证；fixture 不等于真实 provider 或用户数据验收。
 
-Tavern 的 preset/custom 来源声明手填解析；角色、用户与世界书通过资源编辑器管理，不声明该输入模式。DSH adapter 的 `registerDshSources(registry,{sectionPlugin})` 可接受只读来源标签映射；Tavern adapter 在此保留其官方 section 的显示身份，通用 DSH adapter 不猜测 Tavern 身份。
+Tavern 的 preset/custom/template 保留旧手填解析兼容入口；新界面通过 tavern.text 统一选择；角色、用户与世界书通过资源编辑器管理，不声明该输入模式。DSH adapter 的 `registerDshSources(registry,{sectionPlugin})` 可接受只读来源标签映射；Tavern adapter 在此保留其官方 section 的显示身份，通用 DSH adapter 不猜测 Tavern 身份。
 
 真实 Host 验证：`DSH_ASSEMBLER_CORE_ROOT=/path/to/prepared/runtime DSH_ASSEMBLER_MANAGER_ROOT=/path/to/dsh-memory-manager node --test test/host.test.mjs`。使用临时会话和离线合成 provider，不请求真实模型。

@@ -1,7 +1,10 @@
+import { contentGuides } from './content-guides.js'
 import { RequestSourceRegistry } from '../src/registry.js'
 import { normalizePreset, FORMAT } from '../src/model.js'
 import { registerDshSources } from './dsh.js'
 import { renderSillyTavernMacros } from './tavern-macros.js'
+const templateParsers = new WeakMap()
+const unifiedChecks = new WeakMap()
 const textOf = m => (m.content ?? []).filter(b => b.type === 'text').map(b => b.text).join('\n')
 const text = (id, value, extra = {}) => ({ type: 'text', id, text: value ?? '', ...extra, stability: /\{\{\s*(random::|roll |getvar::)/i.test(value ?? '') ? 'evaluation' : /last(user|char)message/i.test(value ?? '') ? 'conversation' : extra.stability })
 const ref = (id, sourceId, blockIds, extra = {}) => ({ type: 'reference', id, sourceId, blockIds, ...extra })
@@ -30,7 +33,7 @@ function characterFields(assets) {
 }
 /** No privileged registration path: these descriptors also serve the public UI catalog. */
 export function registerTavernSources(registry, { worldbookPolicy, worldbookValidateResolved } = {}) {
-  const dispose = [], register = source => dispose.push(registry.register({ pluginId: 'pmp-dsh-tavern', stability: 'asset', renderText: renderTavernText, ...source }))
+  const dispose = [], register = source => dispose.push(registry.register({ pluginId: 'pmp-dsh-tavern', stability: 'asset', renderText: renderTavernText, contentGuide: contentGuides[source.id], ...source }))
   register({ id: 'character', name: '角色卡', resolve({ assets, preset, nativeMessages }, rule) {
     const fields = characterFields(assets), data = assets.character?.data ?? {}, selection = assets.characterSelection ?? {}
     const blocks = Object.entries(fields).map(([id, value]) => text(id, value, { referenceOnly: id === 'phi', source: { resourceId: assets.character?.id, field: id } }))
@@ -47,7 +50,7 @@ export function registerTavernSources(registry, { worldbookPolicy, worldbookVali
     name: e.comment || `worldbook:${e.id ?? e.uid}`, group: e.position ?? 'after', stability: e.constant ? 'asset' : 'conversation', role: e.role ?? 'system',
     ...(e.requestedPosition === 'at_depth' ? { depth: e.depth ?? 0 } : {}), source: { resourceId: e.resourceId, field: String(e.uid ?? e.id) },
   })) }; return worldbookPolicy ? worldbookPolicy(context, output) : output } })
-  register({ id: 'preset', name: '预设正文', parseText: parseTavernText, lifetimes: ['request'], dependencies: ['character', 'persona', 'history', 'input', 'worldbook', 'phi'], resolve({ assets, preset }) {
+  register({ id: 'preset', name: '预设正文', textParserAliasFor: 'tavern.text', parseText: parseTavernText, lifetimes: ['request'], dependencies: ['character', 'persona', 'history', 'input', 'worldbook', 'phi'], resolve({ assets, preset }) {
     const blocks = [], diagnostics = [], fields = characterFields(assets)
     const markerFields = { charDescription: ['character', 'description'], charPersonality: ['character', 'personality'], scenario: ['character', 'scenario'], dialogueExamples: ['character', 'examples'], personaDescription: ['persona', 'persona'], userDescription: ['persona', 'persona'], userPersona: ['persona', 'persona'] }
     for (const p of assets.preset?.prompts ?? []) {
@@ -69,11 +72,13 @@ export function registerTavernSources(registry, { worldbookPolicy, worldbookVali
     return { blocks, diagnostics }
   } })
   register({ id: 'phi', name: '后置指令（PHI）', dependencies: ['character'], resolve: (_, rule) => ({ blocks: [ref('phi', 'character', ['phi'], { honorEnabled: false, useOwnerRule: true, lock: false, owner: 'phi' }), text('additional-phi', rule.text, { source: { field: rule.id } })] }) })
-  register({ id: 'custom', name: '自定义内容', supportsModule: false, parseText: parseTavernText, roles: ['user', 'system', 'assistant'], multiple: true, dependencies: ['character', 'persona', 'history', 'input', 'worldbook'], resolve: (_, rule) => {
+  register({ id: 'custom', name: '自定义内容', textParserAliasFor: 'tavern.text', supportsModule: false, parseText: parseTavernText, roles: ['user', 'system', 'assistant'], multiple: true, dependencies: ['character', 'persona', 'history', 'input', 'worldbook'], resolve: (_, rule) => {
     const blocks = []
     tavernText(blocks, rule.name || 'custom', rule.text, { source: { field: rule.id } })
     return { blocks }
   } })
+  register({ id: 'tavern.text', name: 'Tavern 文本解析器', supportsModule: false, multiple: true, roles: ['preserve', 'user', 'system', 'assistant'], lifetimes: ['request'], stability: 'evaluation', dependencies: ['character', 'persona', 'history', 'input', 'worldbook'],
+    parseText: (context, rule) => parseUnifiedTavernText(registry, context, rule), validateResolved: context => unifiedChecks.get(context)?.() })
   return () => dispose.reverse().forEach(fn => fn())
 }
 export function registerBuiltinSources(registry, options) { const native = registerDshSources(registry, { sectionPlugin: section => section.plugin ?? section.source?.plugin ?? (section.name === 'rp:policy' || section.name?.startsWith('pmp-dsh-tavern:') ? 'pmp-dsh-tavern' : null) }); try { const tavern = registerTavernSources(registry, options); return () => { tavern(); native() } } catch (error) { native(); throw error } }
@@ -104,13 +109,39 @@ export function renderTavernText({ text, context, variables, block, diagnostics,
 }
 export function parseTavernText(context, rule) { const blocks = []; tavernText(blocks, rule.name || 'custom', rule.text, { source: { field: rule.id } }); return { blocks } }
 
+function parseUnifiedTavernText(registry, context, rule) {
+  if (!rule.text.includes('<%')) return parseTavernText(context, rule)
+  const service = templateParsers.get(registry)
+  if (!service?.parseText) throw Object.assign(new Error('Tavern EJS text service is unavailable'), { code: 'TAVERN_TEMPLATE_PARSER_UNAVAILABLE' })
+  unifiedChecks.set(context, () => {
+    if (templateParsers.get(registry) !== service) throw Object.assign(new Error('Tavern EJS parser changed during assembly'), { code: 'TAVERN_TEMPLATE_PARSER_UNAVAILABLE' })
+    service.validateResolved(context)
+  })
+  return Promise.resolve(service.parseText(context, rule)).then(output => {
+    const blocks = []
+    for (const block of output.blocks) {
+      const { id, text: raw, type, ...extra } = block
+      tavernText(blocks, id, raw, extra)
+    }
+    // Preserve source-authorized dependency receipts under the actual emitted
+    // text blocks; authored EJS is evaluated once before references/macros.
+    const diagnostics = (output.diagnostics ?? []).flatMap(fact => {
+      if (typeof fact.blockId !== 'string') return [fact]
+      const emitted = blocks.filter(b => b.type === 'text' && b.text && (b.id === fact.blockId || b.id.startsWith(fact.blockId + ':')))
+      return emitted.length ? emitted.map(b => ({ ...fact, sourceId: 'tavern.text', blockId: b.id })) : [{ ...fact, sourceId: 'tavern.text' }]
+    })
+    return { ...output, blocks, diagnostics }
+  })
+}
 export function registerTavernTemplateSource(registry, service) {
-  return registry.register({ id: 'pmp-dsh-tavern/prompt-template', pluginId: 'pmp-dsh-tavern', name: '提示词模板 / Prompt Template (read-only subset)', stability: 'evaluation', lifetimes: ['request'], renderText: renderTavernText,
+  const stop = registry.register({ id: 'pmp-dsh-tavern/prompt-template', textParserAliasFor: 'tavern.text', contentGuide: contentGuides['pmp-dsh-tavern/prompt-template'], pluginId: 'pmp-dsh-tavern', name: '提示词模板 / Prompt Template (read-only subset)', stability: 'evaluation', lifetimes: ['request'], renderText: renderTavernText,
     moduleAvailable: scope => service.hasModule?.(scope) === true, parseText: typeof service.parseText === 'function' ? (context, rule) => service.parseText(context, rule) : undefined,
     resolve: context => service.resolve(context), validateResolved: context => service.validateResolved(context) })
+  templateParsers.set(registry, service)
+  return () => { stop(); if (templateParsers.get(registry) === service) templateParsers.delete(registry) }
 }
 export function registerTavernMvuSource(registry, service) {
-  return registry.register({ id: 'tavern.mvu/state', pluginId: 'pmp-dsh-tavern', name: 'MVU state', stability: 'conversation', roles: ['system'], lifetimes: ['request'], depth: true, renderText: renderTavernText,
+  return registry.register({ id: 'tavern.mvu/state', contentGuide: contentGuides['tavern.mvu/state'], pluginId: 'pmp-dsh-tavern', name: 'MVU state', stability: 'conversation', roles: ['system'], lifetimes: ['request'], depth: true, renderText: renderTavernText,
     moduleAvailable: scope => service.hasModule?.(scope) === true,
     resolve: context => service.resolveRequest(context), validateResolved: context => service.validateResolved(context) })
 }

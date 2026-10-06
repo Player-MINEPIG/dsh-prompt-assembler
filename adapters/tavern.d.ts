@@ -7,6 +7,6 @@ export function parseTavernText(context: SourceContext, rule: Readonly<Rule>): S
 export const renderTavernText: NonNullable<SourceDefinition['renderText']>
 export const BUILTINS: readonly Preset[]
 export const DEFAULT_RULES: readonly Rule[]
-export function registerTavernTemplateSource(registry: RequestSourceRegistry, service: { resolve(context: SourceContext): SourceOutput | Promise<SourceOutput>; validateResolved(context: SourceContext): void }): () => void
+export function registerTavernTemplateSource(registry: RequestSourceRegistry, service: { parseText?(context: SourceContext, rule: Readonly<Rule>): SourceOutput | Promise<SourceOutput>; hasModule?(scope: { sessionId?: string }): boolean; resolve(context: SourceContext): SourceOutput | Promise<SourceOutput>; validateResolved(context: SourceContext): void }): () => void
 export function registerTavernMvuSource(registry: RequestSourceRegistry, service: { resolveRequest(context: SourceContext): SourceOutput | Promise<SourceOutput>; validateResolved(context: SourceContext): void }): () => void
 export function diagnoseTavernAssembly(assembly: import('../src/index.js').AssemblyResult, context: SourceContext): void
