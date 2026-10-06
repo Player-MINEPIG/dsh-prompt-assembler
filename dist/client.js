@@ -626,6 +626,27 @@ function AssemblyPanelContent({ sessionId, sessionLabel: sessionLabel2, onCreate
           setDirty(false);
           setPreview(null);
         }), !draft.id || draft.builtin), dirty && (0, import_react.createElement)("span", null, t("dirty"))),
+        (0, import_react.createElement)("h3", { className: "dta-section-title" }, t("rulesSection")),
+        (0, import_react.createElement)("div", { className: "dta-tabs" }, (0, import_react.createElement)("button", { "aria-pressed": tab === "rules", onClick: () => setTab("rules") }, t("rules")), button("preview", () => run(async () => {
+          setDragFrom(null);
+          setDropIndex(null);
+          const data = await api("/preview", "POST", { sessionId, preset: editablePreset(draft) });
+          setPreview(data.preview);
+          setTab("expanded");
+        }), false, void 0, tab === "expanded" && !preview?.actual), button("actual", () => run(actualRequest), !sessionId, void 0, tab === "expanded" && !!preview?.actual)),
+        (0, import_react.createElement)("div", { className: "dta-legend" }, ...[...new Set(sources.map((s) => s.pluginId))].map((plugin) => (0, import_react.createElement)("span", { key: plugin, style: { "--assembly-color": sourceColor(plugin) } }, originName(plugin)))),
+        tab === "rules" ? (0, import_react.createElement)(
+          "div",
+          null,
+          (0, import_react.createElement)("label", { className: "dta-toolbar" }, t("placement"), select(draft.placement, ["modules", "st"], (placement) => edit({ placement }))),
+          draft.placement === "st" && (0, import_react.createElement)("small", null, t("stHelp")),
+          ...draft.rules.flatMap((row, i) => [placeholder(i), ruleRow(row, i)]),
+          placeholder(draft.rules.length),
+          modules.length > 0 && (0, import_react.createElement)("div", { className: "dta-toolbar" }, (0, import_react.createElement)("label", { htmlFor: "dta-add-source" }, t("addSource")), (0, import_react.createElement)("select", { id: "dta-add-source", value: modules.some((s) => s.id === addKind) ? addKind : modules[0].id, onChange: (e) => setAddKind(e.target.value) }, ...modules.map((s) => (0, import_react.createElement)("option", { key: s.id, value: s.id }, `${originName(s.pluginId)} \xB7 ${sourceName(s.id)}`))), button("add", () => addRule(modules.some((s) => s.id === addKind) ? addKind : modules[0].id))),
+          parsers.length > 0 && (0, import_react.createElement)("div", { className: "dta-toolbar" }, (0, import_react.createElement)("label", { htmlFor: "dta-add-parser" }, t("parser")), (0, import_react.createElement)("select", { id: "dta-add-parser", value: addParser, onChange: (e) => setAddParser(e.target.value) }, ...parsers.map((s) => (0, import_react.createElement)("option", { key: s.id, value: s.id }, `${originName(s.pluginId)} \xB7 ${sourceName(s.id)}`))), button("addText", () => addRule(addParser, "text"))),
+          (0, import_react.createElement)("small", null, t("sourceHelp"))
+        ) : (0, import_react.createElement)("div", null, (0, import_react.createElement)("div", { className: "dta-notice" }, t(preview?.actual ? "actualNotice" : "previewScope")), !preview ? (0, import_react.createElement)("p", null, t("empty")) : (0, import_react.createElement)("div", null, ...preview.diagnostics.filter((d) => ["ASSEMBLY_EMPTY", "ASSEMBLY_SYSTEM_ONLY"].includes(d.code)).map((d) => (0, import_react.createElement)("div", { key: d.code, className: "dta-notice", role: "alert" }, t(d.code === "ASSEMBLY_EMPTY" ? "emptyRequest" : "systemOnly"))), ...preview.nodes.map(nodeRow), (0, import_react.createElement)("details", null, (0, import_react.createElement)("summary", null, `${t("result")} (${preview.messages.length})`), ...preview.messages.map((m, i) => (0, import_react.createElement)("div", { key: `${m.id}:${i}`, className: "dta-child" }, `${i + 1} \xB7 ${m.role}`, (0, import_react.createElement)("pre", null, (m.content ?? []).map((b) => b.type === "text" ? b.text : `[${b.type}]`).join("\n"))))), preview.diagnostics.length > 0 && (0, import_react.createElement)("details", null, (0, import_react.createElement)("summary", null, t("diagnostics")), (0, import_react.createElement)("pre", null, JSON.stringify(preview.diagnostics, null, 2))))),
+        (0, import_react.createElement)("small", { style: { marginTop: 20 } }, t("tools")),
         (0, import_react.createElement)("h3", { className: "dta-section-title" }, t("applicationSection")),
         (0, import_react.createElement)("div", { className: "dta-notice" }, `${t("applied")}: ${selection?.name ?? t("legacy")}`, selection?.id?.startsWith("builtin-") && !items.some((p) => p.id === selection.id) && (0, import_react.createElement)("small", null, t("withdrawnPreset")), !capable && (0, import_react.createElement)("small", null, t("unavailable"))),
         onCreateSession && (0, import_react.createElement)("div", null, createSessionControls, (0, import_react.createElement)("div", { className: "dta-toolbar" }, button("createSession", () => run(async () => {
@@ -657,28 +678,7 @@ function AssemblyPanelContent({ sessionId, sessionLabel: sessionLabel2, onCreate
           window.dispatchEvent(new CustomEvent(refreshEvent));
         }), !sessionId || !selection)),
         draft.builtin && (0, import_react.createElement)("small", null, t("defaultHint")),
-        !sessionId && (0, import_react.createElement)("small", null, t("noSession")),
-        (0, import_react.createElement)("h3", { className: "dta-section-title" }, t("rulesSection")),
-        (0, import_react.createElement)("div", { className: "dta-tabs" }, (0, import_react.createElement)("button", { "aria-pressed": tab === "rules", onClick: () => setTab("rules") }, t("rules")), button("preview", () => run(async () => {
-          setDragFrom(null);
-          setDropIndex(null);
-          const data = await api("/preview", "POST", { sessionId, preset: editablePreset(draft) });
-          setPreview(data.preview);
-          setTab("expanded");
-        }), false, void 0, tab === "expanded" && !preview?.actual), button("actual", () => run(actualRequest), !sessionId, void 0, tab === "expanded" && !!preview?.actual)),
-        (0, import_react.createElement)("div", { className: "dta-legend" }, ...[...new Set(sources.map((s) => s.pluginId))].map((plugin) => (0, import_react.createElement)("span", { key: plugin, style: { "--assembly-color": sourceColor(plugin) } }, originName(plugin)))),
-        tab === "rules" ? (0, import_react.createElement)(
-          "div",
-          null,
-          (0, import_react.createElement)("label", { className: "dta-toolbar" }, t("placement"), select(draft.placement, ["modules", "st"], (placement) => edit({ placement }))),
-          draft.placement === "st" && (0, import_react.createElement)("small", null, t("stHelp")),
-          ...draft.rules.flatMap((row, i) => [placeholder(i), ruleRow(row, i)]),
-          placeholder(draft.rules.length),
-          modules.length > 0 && (0, import_react.createElement)("div", { className: "dta-toolbar" }, (0, import_react.createElement)("label", { htmlFor: "dta-add-source" }, t("addSource")), (0, import_react.createElement)("select", { id: "dta-add-source", value: modules.some((s) => s.id === addKind) ? addKind : modules[0].id, onChange: (e) => setAddKind(e.target.value) }, ...modules.map((s) => (0, import_react.createElement)("option", { key: s.id, value: s.id }, `${originName(s.pluginId)} \xB7 ${sourceName(s.id)}`))), button("add", () => addRule(modules.some((s) => s.id === addKind) ? addKind : modules[0].id))),
-          parsers.length > 0 && (0, import_react.createElement)("div", { className: "dta-toolbar" }, (0, import_react.createElement)("label", { htmlFor: "dta-add-parser" }, t("parser")), (0, import_react.createElement)("select", { id: "dta-add-parser", value: addParser, onChange: (e) => setAddParser(e.target.value) }, ...parsers.map((s) => (0, import_react.createElement)("option", { key: s.id, value: s.id }, `${originName(s.pluginId)} \xB7 ${sourceName(s.id)}`))), button("addText", () => addRule(addParser, "text"))),
-          (0, import_react.createElement)("small", null, t("sourceHelp"))
-        ) : (0, import_react.createElement)("div", null, (0, import_react.createElement)("div", { className: "dta-notice" }, t(preview?.actual ? "actualNotice" : "previewScope")), !preview ? (0, import_react.createElement)("p", null, t("empty")) : (0, import_react.createElement)("div", null, ...preview.diagnostics.filter((d) => ["ASSEMBLY_EMPTY", "ASSEMBLY_SYSTEM_ONLY"].includes(d.code)).map((d) => (0, import_react.createElement)("div", { key: d.code, className: "dta-notice", role: "alert" }, t(d.code === "ASSEMBLY_EMPTY" ? "emptyRequest" : "systemOnly"))), ...preview.nodes.map(nodeRow), (0, import_react.createElement)("details", null, (0, import_react.createElement)("summary", null, `${t("result")} (${preview.messages.length})`), ...preview.messages.map((m, i) => (0, import_react.createElement)("div", { key: `${m.id}:${i}`, className: "dta-child" }, `${i + 1} \xB7 ${m.role}`, (0, import_react.createElement)("pre", null, (m.content ?? []).map((b) => b.type === "text" ? b.text : `[${b.type}]`).join("\n"))))), preview.diagnostics.length > 0 && (0, import_react.createElement)("details", null, (0, import_react.createElement)("summary", null, t("diagnostics")), (0, import_react.createElement)("pre", null, JSON.stringify(preview.diagnostics, null, 2))))),
-        (0, import_react.createElement)("small", { style: { marginTop: 20 } }, t("tools"))
+        !sessionId && (0, import_react.createElement)("small", null, t("noSession"))
       ),
       interfaceControls && (0, import_react.createElement)("section", { className: "dta-interface-settings", "aria-label": t("interfaceSettings") }, (0, import_react.createElement)("h3", { className: "dta-section-title" }, t("interfaceSettings")), interfaceControls)
     ))
