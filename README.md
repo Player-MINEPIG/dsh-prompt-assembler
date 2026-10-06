@@ -1,16 +1,38 @@
 # DSH Prompt Assembler
 
-[English](README_en.md) · [接入合同](docs/INTEGRATION.md)
+[English](README_en.md) · [安装](docs/INSTALLATION.md) · [来源接入合同](docs/INTEGRATION.md) · [安全边界](SECURITY.md)
 
-独立的提示词装配库，针对 DSH `0.2.0-rc.2` 的请求装配协议 1。它不依赖 Tavern 或 Memory Manager npm 包。来源注册、位置、角色、深度、快照、工具事务与 system 完整快照由 assembler 管理；内容、存储、解析语法和读取权限由来源拥有。
+`dsh-prompt-assembler` 0.2.0 是面向 **DSH `0.2.0-rc.2`** 的独立提示词装配插件，也提供可组合的装配库。插件自己管理策略存储、来源注册、请求钩子、安全 API 和界面；无需安装 Tavern 或 Memory Manager。来源继续拥有正文、资源、解析语法与读取权限，DSH durable history 继续作为会话历史的权威记录。
 
-这是本地候选包 `dsh-prompt-assembler@0.1.0`，尚未发布到 npm/GitHub。可直接安装提供的 tgz；Tavern 组合包需同时安装两个 tgz。原生 DSH rc.2 没有装配钩子，应用策略仍需准备核心扩展；不安装扩展时可以编辑、预览，不能声称支持真实请求装配。
+## 安装与使用
+
+真实 DSH Host 需要 Node **`^22.19.0 || >=24`**；纯装配库需要 Node **`>=20`**。
 
 ```sh
-npm install /path/to/dsh-prompt-assembler-0.1.0.tgz
+dsh plugin --profile web add github:Player-MINEPIG/dsh-prompt-assembler#main
 ```
 
-作为库使用，无需 Tavern：
+该仓库目前为私有仓库，安装需要已获授权的 GitHub 访问。此命令不是公开插件目录或 npm 发布的声明。插件通过 `dsh.bundle` 加载 `cordis.patch.yml`，通过 `dsh.client` 加载提交在仓库中的 `dist/client.js`；安装时不编译客户端源码。
+
+在侧栏打开“当前会话”的装配界面，包括第一条消息之前的空白会话；策略库也始终可从侧栏打开。选择已有会话并应用策略，或在策略库用该策略创建会话：创建操作先绑定策略，再打开新会话。已存在的会话标题入口可作为快捷方式。没有全局默认策略，也不会因安装插件或注册来源而隐式应用策略。
+
+**应用到真实请求还需要请求装配协议 1。** Stock DSH `0.2.0-rc.2` 没有该钩子；必须显式运行并审阅 [核心准备工具](scripts/prepare-request-assembly.mjs) 的独立输出，再在目标运行环境安装准备后的核心。插件安装不会悄悄修改 DSH 核心。缺少能力时，编辑和只读预览可用，应用策略会返回 HTTP 409（`REQUEST_ASSEMBLY_CORE_REQUIRED`）。详见[安装说明](docs/INSTALLATION.md)。
+
+## 来源与第三方扩展
+
+```mermaid
+flowchart LR
+  Host[DSH Host] --> Plugin[Assembler 插件]
+  Plugin --> Store[策略存储与界面]
+  Plugin --> Registry[来源注册与装配]
+  Registry -.公开只读对象.-> Sources[DSH / Tavern / Manager / 第三方来源]
+```
+
+插件公开 Host 服务 `dshPromptAssembler`，提供 `store`、`runtime`、`registry`、`attachTavern(options)` 和 `migrateLegacy(root)`；共享来源服务为 `dshPromptSources`。Tavern adapter 接收来源拥有的公开只读对象，assembler 不依赖 Tavern/Manager 包或其内部文件。第三方用现有 registry API 注册动态模块或自定义文本解析器，无需修改装配核心；未选择的来源不会自动注入。
+
+[来源接入合同](docs/INTEGRATION.md) 和[运行示例](docs/examples/notes.js)说明注册、取消、读取租约、预览和来源卸载的行为。装配快照保留完整请求内容与 provenance；来源卸载后不会改写 DSH 原生历史。迁移旧 `assembly-presets.json` 保留原文件与旧 mode scope，由 assembler 自己的存储接管后续修改。卸载插件保留 DSH durable history 和策略存储。
+
+## 作为库组合
 
 ```js
 import { createDshRegistry, assembleRequestAsync, BUILTINS } from 'dsh-prompt-assembler'
@@ -18,20 +40,13 @@ const registry = createDshRegistry()
 const result = await assembleRequestAsync({ registry, preset: BUILTINS[0], nativeMessages, inputIds })
 ```
 
-[第三方示例](docs/examples/notes.js) 同时实现动态内容和用户手填内容解析，完整验收位于 `test/integration.test.mjs`。adapter 维护在本仓库 `adapters/`，第三方通过 fork 或 PR 添加；新 adapter 不应要求核心识别第三方来源 ID，不在未选择来源时自动注入内容。
+根导出保持可组合库 API。DSH loader 的 package `main` 为 `src/plugin.js`，`dsh-prompt-assembler/plugin` 是显式 Host 插件入口，`dsh-prompt-assembler/plugin-client` 是浏览器入口。`src/client.js` 仍提供可嵌入视图；自行组合 HTTP factory 的调用方须负责认证和安全 fetch。
 
-```mermaid
-flowchart LR
-  Tavern[Tavern 包] --> Assembler[assembler 包]
-  Assembler --> Core[来源注册与装配核心]
-  Assembler --> Adapters[DSH / Tavern / Manager adapters]
-  Adapters -.运行时传入只读来源接口.-> Sources[来源拥有的状态与内容]
+## 开发与验证
+
+```sh
+npm ci
+npm run check
 ```
 
-实线表示代码/包依赖；虚线表示 adapter 调用来源传入的公开接口。assembler 的 adapter 接收 Tavern/Manager 的服务对象，不通过 npm 引入它们，因此没有反向包依赖。React 仅为可选 UI peer，使用 Host 核心不需要 React。`src/client.js` 提供可组合视图，调用方注入 fetch、语言、刷新事件与可选 Trace URL；HTTP handler 必须放在调用方已经认证、检查同源/desktop 令牌的路由边界内。
-
-开发与打包：在 Tavern 源码的 `.local/dsh-prompt-assembler` 中放置此独立 checkout，执行 Tavern 的 `npm ci`。`.local` 不属于 Tavern 仓库或其 npm 发布内容。`node scripts/pack-with-assembler.mjs --assembler .local/dsh-prompt-assembler --output .local/packages` 生成可一起安装的两个包，Tavern 发布包中的依赖改用精确版本 `0.1.0`，不会包含本地 checkout 路径。正式发布后应把 Tavern 源码依赖也改成 npm 版本并重新生成 lockfile；当前不假称包已发布。
-
-[核心扩展准备工具](scripts/prepare-request-assembly.mjs) 只生成独立输出，不修改 DSH 安装或来源 checkout。运行安装/替换核心前须停止并备份目标测试环境。
-
-开发测试在独立源码仓库内执行 `npm ci` 与 `npm run check`。生成核心扩展同样在该源码仓库执行，使用开发依赖 esbuild：`node scripts/prepare-request-assembly.mjs <DSH-source> <separate-output>`。纯运行时安装不需要 esbuild。库可运行于 Node >=20；真实 DSH rc.2 Host 要求 Node ^22.19.0 或 >=24。
+`check` 覆盖本地测试、客户端构建与包内容检查。CI 在库支持的 Node 版本执行上述命令。真实 Host 测试需显式提供准备后的 rc.2 核心；默认测试的跳过项不代表 Host 或浏览器验收通过，详见[验证说明](docs/INSTALLATION.md#验证)。当前版本见[变更记录](CHANGELOG.md)。

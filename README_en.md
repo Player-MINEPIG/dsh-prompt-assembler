@@ -1,16 +1,38 @@
 # DSH Prompt Assembler
 
-[中文](README.md) · [Integration contract](docs/INTEGRATION_en.md)
+[中文](README.md) · [Installation](docs/INSTALLATION_en.md) · [Source integration contract](docs/INTEGRATION_en.md) · [Security boundaries](SECURITY_en.md)
 
-An independent request assembly library targeting DSH `0.2.0-rc.2`, request assembly protocol 1. It has no npm dependency on Tavern or Memory Manager. The assembler owns registration, placement, roles, depth, retention, tool transactions and complete system snapshots. Sources own content, storage, language and read permissions.
+`dsh-prompt-assembler` 0.2.0 is a standalone prompt assembly plugin for **DSH `0.2.0-rc.2`**, with composable library APIs. The plugin owns its strategy store, registry, request hook, secure API and UI. Tavern and Memory Manager are optional sources. Sources retain ownership of content, resources, syntax and read permissions; DSH durable history remains authoritative for session history.
 
-`dsh-prompt-assembler@0.1.0` is a local candidate, not a published npm/GitHub release. Install the provided tarball. Install both tarballs for the Tavern combination. Stock DSH rc.2 has no assembly hook: applying a strategy still requires the prepared core extension. Editing and previewing alone do not establish actual request support.
+## Install and use
+
+An actual DSH Host requires Node **`^22.19.0 || >=24`**. The core library requires Node **`>=20`**.
 
 ```sh
-npm install /path/to/dsh-prompt-assembler-0.1.0.tgz
+dsh plugin --profile web add github:Player-MINEPIG/dsh-prompt-assembler#main
 ```
 
-Standalone library usage:
+The repository is currently private; installation requires authorized GitHub access. This command does not imply a public listing or an npm publication. `dsh.bundle` loads `cordis.patch.yml`; `dsh.client` loads the committed `dist/client.js`. Installation does not compile client source.
+
+Open current-session assembly from the sidebar, including a blank session before its first message. The strategy library is also always available from the sidebar. Apply a strategy to an existing session, or create a session using a library strategy: creation binds the strategy before opening the session. An existing session-header entry can provide an optional shortcut. There is no global default strategy; installing the plugin or registering a source does not implicitly apply one.
+
+**Actual requests also require request assembly protocol 1.** Stock DSH `0.2.0-rc.2` lacks this hook. Explicitly run and review the separate output from the [core preparation tool](scripts/prepare-request-assembly.mjs), then install the prepared core into the intended runtime. Plugin installation never silently modifies DSH core. Without the capability, editing and read-only preview work; applying a strategy returns HTTP 409 (`REQUEST_ASSEMBLY_CORE_REQUIRED`). See [installation instructions](docs/INSTALLATION_en.md).
+
+## Sources and third-party extensions
+
+```mermaid
+flowchart LR
+  Host[DSH Host] --> Plugin[Assembler plugin]
+  Plugin --> Store[Strategy store and UI]
+  Plugin --> Registry[Source registry and assembly]
+  Registry -.public read objects.-> Sources[DSH / Tavern / Manager / third-party sources]
+```
+
+The Host service `dshPromptAssembler` exposes `store`, `runtime`, `registry`, `attachTavern(options)` and `migrateLegacy(root)`. Shared source registration uses `dshPromptSources`. The Tavern adapter receives source-owned public read objects; the assembler has no Tavern/Manager package dependency and does not import their internals. Third parties register dynamic modules or custom text parsers through the existing registry API. Unselected sources do not inject content.
+
+The [integration contract](docs/INTEGRATION_en.md) and [runnable example](docs/examples/notes.js) describe registration, cancellation, read leases, preview and source removal. Assembly snapshots retain full request content and provenance; removing a source does not rewrite native DSH history. Migration of legacy `assembly-presets.json` preserves the original file and old mode scopes; subsequent edits belong to the assembler store. Uninstalling preserves DSH durable history and strategy storage.
+
+## Compose the library
 
 ```js
 import { createDshRegistry, assembleRequestAsync, BUILTINS } from 'dsh-prompt-assembler'
@@ -18,20 +40,13 @@ const registry = createDshRegistry()
 const result = await assembleRequestAsync({ registry, preset: BUILTINS[0], nativeMessages, inputIds })
 ```
 
-The [third-party example](docs/examples/notes.js) implements dynamic content and source parsing of user-authored text. Its acceptance tests are in `test/integration.test.mjs`. Adapters belong in this repository's `adapters/` directory; contributors extend them through forks or PRs. An adapter must not require the core to recognize its source ID or inject unselected content.
+Root exports remain composable library APIs. Package `main` is `src/plugin.js` for the DSH loader; `dsh-prompt-assembler/plugin` explicitly exports the Host plugin and `dsh-prompt-assembler/plugin-client` exports the browser entry. `src/client.js` still offers an embeddable view. Callers composing the HTTP factory provide authentication and secure fetch.
 
-```mermaid
-flowchart LR
-  Tavern[Tavern package] --> Assembler[assembler package]
-  Assembler --> Core[Registry and assembly core]
-  Assembler --> Adapters[DSH / Tavern / Manager adapters]
-  Adapters -.injected read-only source interfaces.-> Sources[Source-owned state and content]
+## Develop and verify
+
+```sh
+npm ci
+npm run check
 ```
 
-Solid arrows are code/package dependencies. The dashed arrow is a runtime call to an injected public interface. Adapters receive Tavern/Manager services, without importing their npm packages. React is an optional UI peer. The reusable React view accepts fetch, locale, refresh event and optional Trace URL. The HTTP handler must be mounted behind the caller's existing authentication, origin and desktop-token checks.
-
-For source development, place this independent checkout at Tavern's `.local/dsh-prompt-assembler`, then run Tavern's `npm ci`. It is excluded from the Tavern repository and npm package. `node scripts/pack-with-assembler.mjs --assembler .local/dsh-prompt-assembler --output .local/packages` builds two installable packages. The packaged Tavern dependency uses exact version `0.1.0`, without a checkout path. After publishing, change the source dependency to the npm version and regenerate the lockfile; no publication is claimed here.
-
-The [core preparation tool](scripts/prepare-request-assembly.mjs) generates separate output and never modifies a DSH installation or source checkout. Stop and back up the intended test runtime before installing a core replacement.
-
-Run `npm ci` and `npm run check` inside the independent source checkout for development tests. Generate the core extension there using the esbuild development dependency: `node scripts/prepare-request-assembly.mjs <DSH-source> <separate-output>`. Library runtime installation does not require esbuild. The library requires Node >=20; an actual DSH rc.2 Host requires Node ^22.19.0 or >=24.
+`check` covers local tests, client building and package checks. CI runs these commands on supported library Node versions. Real Host checks require an explicitly supplied prepared rc.2 core. Skipped default tests do not establish Host or browser acceptance; see [verification](docs/INSTALLATION_en.md#verification). See [version history](CHANGELOG.md) for current changes.

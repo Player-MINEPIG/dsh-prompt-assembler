@@ -1,6 +1,6 @@
 # Source integration contract (protocol 1)
 
-[中文](INTEGRATION.md) · [Runnable example](examples/notes.js)
+[中文](INTEGRATION.md) · [Installation](INSTALLATION_en.md) · [Runnable example](examples/notes.js)
 
 ## Minimal integration
 
@@ -16,7 +16,7 @@ const result = await assembleRequestAsync({ registry, preset, nativeMessages, in
 stop()
 ```
 
-Implement `myNotesStore.read({sessionId,signal})` to return `{id,text}[]`. Registration does not apply a strategy or write history. `result.messages` contains logical contributions. Actual DSH requests also require `projectSystemSnapshots` and the official pre-freeze `agent/assemble-request` hook. Never replace durable history with logical assembly output.
+Implement `myNotesStore.read({sessionId,signal})` to return `{id,text}[]`. Registration does not apply a strategy or write history. `result.messages` contains logical contributions. Actual DSH requests also require `projectSystemSnapshots` and the explicitly prepared protocol 1 pre-freeze `agent/assemble-request` hook. Stock DSH `0.2.0-rc.2` lacks that hook; plugin installation does not modify core. Never replace durable history with logical assembly output.
 
 ## Sources and parsers
 
@@ -58,11 +58,19 @@ In module-list placement, explicitly listed output blocks own their list positio
 - `adapters/tavern` supplies source registration, `parseTavernText`, template/MVU registration and compatible presets. Tavern text and preset content share history/input/world-info parsing and ST macros. Source originals remain read-only; resource editing remains in Tavern.
 - `adapters/memory-manager` exposes `connectMemoryManager(ctx,registry)` and follows the lifecycle of `dshMemoryManager`. `requestAssemblyResources()` provides detached configuration snapshots. Read-only trigger retrieval excludes source-owned MVU/world-book/template content to avoid duplicates. The observer records applied only after matching durable request/assembly, actual message hashes and source nodes. It does not prove network delivery.
 
-Tavern composes the documented store, registry, runtime, HTTP and React primitives. `adapters/tavern-runtime` preserves its storage format, play/native defaults, owner metadata and historical APIs. The new service is `dshPromptSources`; Tavern retains `tavernRequestSources` and `pmp-dsh-tavern/request-assembler` compatibility forwarding. The legacy format string and message source labels remain wire-compatible. Removing a source does not convert history or copy assembled content into it.
+The standalone plugin composes its own store, registry, runtime, HTTP API and browser UI. Package `main` is `src/plugin.js`; `./plugin` exports the Host entry and `./plugin-client` exports the browser entry. Root exports remain library primitives. `dsh.bundle` points to `cordis.patch.yml`, and `dsh.client` points to committed `dist/client.js`. Shared registration uses `dshPromptSources`.
 
-Standalone Hosts use `RequestAssembler({ctx,store,resources,registry,sessionReads,owner})`. The read-only resource provider supplies `compile({agent,sessionId,resolveOnly:true})` and current `assembledFor(agent)` snapshots containing assemblyInput, officialAssembly and diagnostics, plus optional maxProfileBytes. Call execute after resource preparation and before request freezing. Wire session inheritance to store.copySelection. Preview uses current official systemPrompt and a detached Session. `createSessionReadContext` grants only a temporary read lease. Never mount two independent strategy hooks for the same request.
+`dshPromptAssembler` exposes `{store,runtime,registry,attachTavern(options),migrateLegacy(root)}`. Its store uses Host `dshHomePath('dsh-prompt-assembler')` and filename `assembly-presets.json`. New standalone sessions have no implicit strategy or global default. Current-session assembly is available from the sidebar before the first message; the strategy library's “Create session with this strategy” binds before opening the session. A session-header shortcut is optional.
 
-The HTTP factory handles JSON and rule primitives, not authentication. Mount `createAssemblyApi({store,runtime,agents,sessions,inspect,notify,root})` behind the caller's existing authentication. Embed `AssemblyPanel({sessionId,fetcher,apiRoot,locale,traceRoot?,refreshEvent,close})`; desktop callers must inject a secure fetch wrapper. The core capability remains `agentLoop.requestAssemblyVersion===1`.
+`attachTavern({resources,sessionReads,mode,builtins,defaultPresetId,afterAssembly})` receives source-owned public read resources, read leases and compatibility configuration, and returns a disposer. Tavern registers through `registerTavernSources` on the shared registry. Source registration/removal follows its scoped context and does not re-register native DSH sources. The assembler has no Tavern/Manager package dependencies or internal-file imports. Sources retain content, parser permissions and resource editing. Tavern requires the independently mounted assembler service and retains legacy service/HTTP forwarding to the same owned store and runtime; new integrations should use the assembler service and API. Do not install two independent strategy hooks on the same request.
+
+`migrateLegacy(root)` validates legacy `assembly-presets.json` and merges only IDs absent from the current store. Current assembler entries win and the old file remains unchanged. Old `play:` / `native:` scopes survive. Standalone selection checks the raw session ID, then explicit `native:<id>` and `play:<id>` entries, including explicit null. New sessions without a legacy selection receive no fallback default. A Tavern mode callback retains its original mode semantics. `adapters/tavern-runtime` continues to offer compatibility composition primitives.
+
+Current request metadata uses owner `dsh-prompt-assembler`; historical reads still accept prior `pmp-dsh-tavern` snapshots. Removing a source or the plugin does not convert native history or copy assembled text into it. Plugin removal retains strategy storage and DSH durable history.
+
+Standalone Hosts use `RequestAssembler({ctx,store,resources,registry,sessionReads,owner})`. The read-only resource provider supplies `compile({agent,sessionId,resolveOnly:true})` and current `assembledFor(agent)` snapshots containing assemblyInput, officialAssembly and diagnostics, plus optional maxProfileBytes. Library callers invoke execute after DSH resource preparation and before request freezing. Wire session inheritance to store.copySelection. Preview uses current official systemPrompt and a detached Session. `createSessionReadContext` grants only a temporary read lease. Never mount two independent strategy hooks for the same request.
+
+The standalone plugin mounts its API behind Host authentication, origin checks and applicable desktop-token checks, and uses secure fetch in its browser entry. The library HTTP factory handles JSON and rule primitives, not authentication. Mount `createAssemblyApi({store,runtime,agents,sessions,inspect,notify,root})` behind the caller's existing authentication. Embed `AssemblyPanel({sessionId,fetcher,apiRoot,locale,traceRoot?,refreshEvent,close})`; desktop callers must inject a secure fetch wrapper. The core capability is `agentLoop.requestAssemblyVersion===1`. Without it, editing and read-only preview work; applying a non-null strategy returns HTTP 409 (`REQUEST_ASSEMBLY_CORE_REQUIRED`). Explicitly prepare core using the tool described in [installation](INSTALLATION_en.md).
 
 ## Contributor acceptance
 
@@ -75,4 +83,4 @@ Test dynamic and custom parsing, success/failure, read-only preview, evaluation 
 
 Tavern preset/custom/template sources retain legacy text parsing; the new UI uses tavern.text; characters, personas and world books use their resource editors and do not declare that input mode. The DSH adapter accepts an optional read-only section attribution callback through `registerDshSources(registry,{sectionPlugin})`. The Tavern adapter preserves its official section display ownership there; the generic DSH adapter does not guess Tavern identity.
 
-Actual Host checks: `DSH_ASSEMBLER_CORE_ROOT=/path/to/prepared/runtime DSH_ASSEMBLER_MANAGER_ROOT=/path/to/dsh-memory-manager node --test test/host.test.mjs`. They use temporary sessions and an offline synthetic provider, without real model calls.
+Actual Host checks are listed separately in [installation](INSTALLATION_en.md#verification), with explicit `DSH_ASSEMBLER_CORE_ROOT` and optional `DSH_ASSEMBLER_MANAGER_ROOT` fixtures. Standard CI runs `npm ci` / `npm run check` without providing those runtimes; skipped tests do not establish Host or browser acceptance. Tests use temporary sessions and an offline synthetic provider, without real model calls.
