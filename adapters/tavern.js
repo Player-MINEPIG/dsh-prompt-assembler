@@ -69,7 +69,7 @@ export function registerTavernSources(registry, { worldbookPolicy, worldbookVali
     return { blocks, diagnostics }
   } })
   register({ id: 'phi', name: '后置指令（PHI）', dependencies: ['character'], resolve: (_, rule) => ({ blocks: [ref('phi', 'character', ['phi'], { honorEnabled: false, useOwnerRule: true, lock: false, owner: 'phi' }), text('additional-phi', rule.text, { source: { field: rule.id } })] }) })
-  register({ id: 'custom', name: '自定义内容', parseText: parseTavernText, roles: ['user', 'system', 'assistant'], multiple: true, dependencies: ['character', 'persona', 'history', 'input', 'worldbook'], resolve: (_, rule) => {
+  register({ id: 'custom', name: '自定义内容', supportsModule: false, parseText: parseTavernText, roles: ['user', 'system', 'assistant'], multiple: true, dependencies: ['character', 'persona', 'history', 'input', 'worldbook'], resolve: (_, rule) => {
     const blocks = []
     tavernText(blocks, rule.name || 'custom', rule.text, { source: { field: rule.id } })
     return { blocks }
@@ -106,10 +106,12 @@ export function parseTavernText(context, rule) { const blocks = []; tavernText(b
 
 export function registerTavernTemplateSource(registry, service) {
   return registry.register({ id: 'pmp-dsh-tavern/prompt-template', pluginId: 'pmp-dsh-tavern', name: '提示词模板 / Prompt Template (read-only subset)', stability: 'evaluation', lifetimes: ['request'], renderText: renderTavernText,
+    moduleAvailable: scope => service.hasModule?.(scope) === true, parseText: typeof service.parseText === 'function' ? (context, rule) => service.parseText(context, rule) : undefined,
     resolve: context => service.resolve(context), validateResolved: context => service.validateResolved(context) })
 }
 export function registerTavernMvuSource(registry, service) {
   return registry.register({ id: 'tavern.mvu/state', pluginId: 'pmp-dsh-tavern', name: 'MVU state', stability: 'conversation', roles: ['system'], lifetimes: ['request'], depth: true, renderText: renderTavernText,
+    moduleAvailable: scope => service.hasModule?.(scope) === true,
     resolve: context => service.resolveRequest(context), validateResolved: context => service.validateResolved(context) })
 }
 export function diagnoseTavernAssembly(assembly, context) {

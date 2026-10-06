@@ -32,7 +32,7 @@ export function registerDshSources(registry, { sectionPlugin } = {}) {
   const stops = []
   try {
     for (const [id, name] of [['native-system', '官方基础指令'], ['history', '原生历史'], ['input', '本步输入']]) stops.push(registry.register(native(id, name, sectionPlugin)))
-    stops.push(registry.register({ id: 'dsh.text', pluginId: 'DSH', name: 'DSH 自定义文本', multiple: true, roles: ['user', 'system', 'assistant'], renderText: ({ text }) => text, resolve: parseDshText, parseText: parseDshText }))
+    stops.push(registry.register({ id: 'dsh.text', pluginId: 'DSH', name: 'DSH 自定义文本', supportsModule: false, multiple: true, roles: ['user', 'system', 'assistant'], renderText: ({ text }) => text, resolve: parseDshText, parseText: parseDshText }))
   } catch (error) { stops.reverse().forEach(stop => stop()); throw error }
   return () => stops.reverse().forEach(stop => stop())
 }

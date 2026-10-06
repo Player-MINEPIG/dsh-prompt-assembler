@@ -17,7 +17,7 @@ function previewAgent(ctx, agent) {
 
 export class RequestAssembler {
   constructor({ ctx, store, resources, registry = createDefaultRegistry(), sessionReads, owner = 'dsh-prompt-assembler', afterAssembly }) { this.afterAssembly = afterAssembly; this.owner = owner; this.ctx = ctx; this.store = store; this.resources = resources; this.registry = registry; this.sessionReads = sessionReads }
-  sources() { return this.registry.list() }
+  sources(sessionId) { return this.registry.list({ sessionId }) }
   available() { return this.ctx.get('agentLoop')?.requestAssemblyVersion === 1 }
   requireAvailable() {
     if (!this.available()) throw Object.assign(new Error('This layout requires DSH request assembly protocol 1. Install the prepared core before applying it.'), { status: 409, code: 'REQUEST_ASSEMBLY_CORE_REQUIRED' })

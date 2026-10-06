@@ -20,9 +20,13 @@ stop()
 
 ## 来源及解析器
 
-`register` 必填 `id/pluginId/name/resolve`。其他字段：`version`（默认 1）、`stability`、`dependencies`、`multiple`、`roles`、`lifetimes`、`depth`、`generationRequiresPlugin`。`list()` 返回 JSON 描述和 `acceptsText`，不返回可执行函数。来源身份是提供方声明，不是签名或权限隔离。
+`register` 必填 `id/pluginId/name`，并至少实现 `resolve` 或 `parseText`。其他字段：`version`（默认 1）、`stability`、`dependencies`、`multiple`、`roles`、`lifetimes`、`depth`、`generationRequiresPlugin`。`list()` 返回 JSON 描述和 `acceptsText`，不返回可执行函数。来源身份是提供方声明，不是签名或权限隔离。
 
-`resolve(context,rule)` 获取来源内容；可选 `parseText(context,rule)` 解析用户手填的 `rule.text`。`rule.inputMode:'text'` 只调用 `parseText`，默认调用 `resolve`；未声明 parser 时明确拒绝。两条路径返回同样的 `{blocks,macros?,diagnostics?}`，共享位置、角色、深度和快照管理。UI 自动显示支持手填解析的来源和内容方式切换。来源使用自己的语法；第三方文本不会隐式运行 ST、EJS 或 JavaScript。`renderText({text,context,variables,block,diagnostics,identity})` 可选，必须同步返回字符串；默认保持正文。它在已声明的来源宏引用展开之后运行。
+`resolve(context,rule)` 获取来源内容，与 `parseText(context,rule)` 是独立能力，至少实现一个。来源只有分散内容而不能提供独立模块时，可只注册 `parseText`；也可显式设置 `supportsModule:false` 保留旧 resolver 的兼容用途。此类来源不进入模块添加菜单，但仍出现在文本解析器菜单。`moduleAvailable({sessionId})` 可选，是同步、只读的 metadata 布尔判断：当前会话没有独立内容时返回 false；不是使用权限，不执行检索或正文解析。`registry.list({sessionId})` 的 descriptor 同时返回 `supportsModule`、`moduleAvailable`、`acceptsText`。
+
+用户通过“添加自定义文本”选解析器，生成 `inputMode:'text'` 规则；该路径只调用来源的 `parseText`，接受 `{blocks,macros?,diagnostics?}`，位置、角色、深度及快照仍由 assembler 管理。选择解析器不添加或恢复对应来源模块，多个文本规则可使用同一解析器。第三方文本不会隐式运行 ST、EJS 或 JavaScript。`renderText({text,context,variables,block,diagnostics,identity})` 可选，必须同步返回字符串；默认保持正文，在已声明的来源宏引用展开之后运行。
+
+Tavern 的存储模板仅在当前会话存在启用且支持的资源时可作为模块添加。它的文本解析器可独立使用只读 EJS 子集，包括 `<%- await getpreset("fragment") %>`、`<%- await getchar("card-id") %>`、有使用租约的 `getwi`；不创建模板资源、不授予访问或写入权限。原生 DSH 文本与 Tavern ST 文本是解析器入口。MVU 的独立状态/更新指令块仅在当前绑定存在有效资源时可添加；Manager 的独立检索块要求有可管理的装配配置，来源已负责的 MVU、世界书和模板不重复纳入。
 
 `context` 为本请求固定、分离且深冻结的 `sessionId/turn/step/preview/preset/assets/nativeMessages/inputIds/signal`；Signal 保持原对象。不得写状态；预览可能并发，turn/step 为 null，不含待发输入。响应卸载、取消与自己的读取版本租约；解析器失败或返回非法内容时整次请求拒绝，不发送部分结果。已开始的请求使用捕获的注册集合。资源发生变更时，可用同步 `validateResolved(context)` 在所有异步来源完成后核对租约。
 

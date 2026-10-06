@@ -49,6 +49,9 @@ function assembleResolved({ preset: suppliedPreset, previous = null, snapshots =
   const rules = preset.rules.filter(r => r.enabled), entries = resolution.resolved
   const listed = new Set(preset.rules.map(rule => rule.id)), listPlacement = preset.placement === 'modules'
   const byRule = new Map(entries.map(e => [e.rule.id, e])), bySource = new Map(entries.map(e => [e.descriptor.id, e]))
+  // Authored text uses a source parser without replacing that source's own
+  // content module as the target of other sources' declared references.
+  for (const entry of entries.filter(e => e.rule.inputMode !== 'text')) bySource.set(entry.descriptor.id, entry)
   const enabled = kind => rules.some(r => r.kind === kind)
   const diagnostics = structuredClone(assets.diagnostics ?? []).filter(d => !(preset.placement === 'st' && d.code === 'WORLD_BOOK_POSITION_APPROXIMATED' && d.originalPosition === 'at_depth'))
   diagnostics.push(...resolution.diagnostics, ...entries.flatMap(e => e.diagnostics ?? []))

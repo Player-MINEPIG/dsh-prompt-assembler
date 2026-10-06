@@ -17,7 +17,7 @@ export interface SourceContext {
 export interface Descriptor {
   id: string; pluginId: string; name: string; version: number; stability: Stability;
   dependencies: string[]; multiple: boolean; roles: Role[]; lifetimes: Lifetime[]; depth: boolean;
-  generationRequiresPlugin: boolean; recordedContentSurvivesRemoval: true; acceptsText: boolean;
+  generationRequiresPlugin: boolean; recordedContentSurvivesRemoval: true; acceptsText: boolean; supportsModule: boolean; moduleAvailable: boolean;
 }
 export interface BlockBase {
   id: string; name?: string; referenceOnly?: boolean; stability?: Stability;
@@ -37,8 +37,9 @@ export interface ReferenceBlock extends BlockBase {
   honorEnabled?: boolean; useOwnerRule?: boolean; lock?: boolean; owner?: string;
 }
 export interface SourceOutput { blocks: Array<TextBlock | NativeBlock | ReferenceBlock>; macros?: Record<string, string>; diagnostics?: Json[] }
-export type SourceDefinition = Pick<Descriptor, 'id' | 'pluginId' | 'name'> & Partial<Omit<Descriptor, 'id' | 'pluginId' | 'name'>> & {
-  resolve(context: SourceContext, rule: Readonly<Rule>): SourceOutput | Promise<SourceOutput>;
+export type SourceDefinition = Pick<Descriptor, 'id' | 'pluginId' | 'name'> & Partial<Omit<Descriptor, 'id' | 'pluginId' | 'name' | 'moduleAvailable'>> & {
+  moduleAvailable?(context: { sessionId?: string }): boolean;
+  resolve?(context: SourceContext, rule: Readonly<Rule>): SourceOutput | Promise<SourceOutput>;
   parseText?(context: SourceContext, rule: Readonly<Rule>): SourceOutput | Promise<SourceOutput>;
   renderText?(input: { text: string; context: SourceContext; variables: Map<string, string>; block: TextBlock; diagnostics: Json[]; identity: string }): string;
   /** Read-only synchronous lease check after all asynchronous sources have resolved. */
@@ -50,7 +51,7 @@ export class RequestSourceRegistry {
   constructor(options?: { renderText?: SourceDefinition['renderText'] });
   readonly version: 1;
   register(source: SourceDefinition): () => void;
-  list(): Descriptor[];
+  list(context?: { sessionId?: string }): Descriptor[];
   resolve(context: SourceContext): Promise<unknown>;
   resolveSync(context: SourceContext): unknown;
 }
@@ -80,7 +81,7 @@ export class AssemblyPresetStore {
 }
 export class RequestAssembler {
   constructor(options: { ctx: { get(name: string): any }; store: any; resources: any; registry?: RequestSourceRegistry; sessionReads?: any; owner?: string; afterAssembly?: AssemblyOptions['afterAssembly'] });
-  sources(): Descriptor[]; available(): boolean; requireAvailable(): void; selected(id: string): Preset | null;
+  sources(sessionId?: string): Descriptor[]; available(): boolean; requireAvailable(): void; selected(id: string): Preset | null;
   execute(payload: any, next: () => Promise<any>): Promise<any>; preview(input: any): Promise<AssemblyResult>;
 }
 export function projectSystemSnapshots(logical: AssemblyResult, nativeMessages: NativeMessage[], maxBytes?: number, options?: { preview?: boolean; systemPromptUpdate?: string }): AssemblyResult

@@ -19,23 +19,32 @@ export class RequestSourceRegistry {
   #sources = new Map()
   constructor({ renderText = ({ text }) => text } = {}) { this.renderText = renderText }
   register(source) {
-    if (!source || !idPattern.test(source.id) || !idPattern.test(source.pluginId) || typeof source.name !== 'string' || !source.name || typeof source.resolve !== 'function') throw new TypeError('Source requires id, pluginId, name and resolve')
+    if (!source || !idPattern.test(source.id) || !idPattern.test(source.pluginId) || typeof source.name !== 'string' || !source.name || (typeof source.resolve !== 'function' && typeof source.parseText !== 'function')) throw new TypeError('Source requires id, pluginId, name and resolve or parseText')
     if (this.#sources.has(source.id)) throw new TypeError(`Duplicate assembly source: ${source.id}`)
     const descriptor = freeze(structuredClone({ id: source.id, pluginId: source.pluginId, name: source.name, version: source.version ?? 1,
       stability: source.stability ?? 'conversation', dependencies: source.dependencies ?? [], multiple: source.multiple === true,
       roles: source.roles ?? ['preserve', 'system', 'user', 'assistant'], lifetimes: source.lifetimes ?? ['request', 'snapshot'], depth: source.depth !== false,
-      generationRequiresPlugin: source.generationRequiresPlugin !== false, recordedContentSurvivesRemoval: true, acceptsText: typeof source.parseText === 'function',
+      generationRequiresPlugin: source.generationRequiresPlugin !== false, recordedContentSurvivesRemoval: true, acceptsText: typeof source.parseText === 'function', supportsModule: source.supportsModule !== false && typeof source.resolve === 'function',
     }))
     if (!Array.isArray(descriptor.dependencies) || descriptor.dependencies.some(id => !idPattern.test(id)) || !['asset', 'conversation', 'evaluation', 'assembly', 'snapshot'].includes(descriptor.stability)) throw new TypeError('Invalid source descriptor')
     if (!Number.isInteger(descriptor.version) || descriptor.version < 1 || !Array.isArray(descriptor.roles) || !descriptor.roles.length || descriptor.roles.some(r => !['preserve', 'system', 'user', 'assistant'].includes(r)) || !Array.isArray(descriptor.lifetimes) || !descriptor.lifetimes.length || descriptor.lifetimes.some(l => !['request', 'snapshot'].includes(l))) throw new TypeError('Invalid source capabilities')
     if (source.validateResolved !== undefined && typeof source.validateResolved !== 'function') throw new TypeError('validateResolved must be a function')
     if (source.parseText !== undefined && typeof source.parseText !== 'function') throw new TypeError('parseText must be a function')
     if (source.renderText !== undefined && typeof source.renderText !== 'function') throw new TypeError('renderText must be a function')
-    const entry = { descriptor, resolve: source.resolve, parseText: source.parseText, renderText: source.renderText ?? this.renderText, validateResolved: source.validateResolved }
+    if (source.supportsModule !== undefined && typeof source.supportsModule !== 'boolean') throw new TypeError('supportsModule must be a boolean')
+    if (source.moduleAvailable !== undefined && typeof source.moduleAvailable !== 'function') throw new TypeError('moduleAvailable must be a synchronous metadata reader')
+    const entry = { descriptor, moduleAvailable: source.moduleAvailable, resolve: source.resolve, parseText: source.parseText, renderText: source.renderText ?? this.renderText, validateResolved: source.validateResolved }
     this.#sources.set(source.id, entry)
     return () => { if (this.#sources.get(source.id) === entry) this.#sources.delete(source.id) }
   }
-  list() { return structuredClone([...this.#sources.values()].map(s => s.descriptor)) }
+  list(context = {}) {
+    const scope = freeze(structuredClone(context))
+    return structuredClone([...this.#sources.values()].map(s => {
+      const available = s.descriptor.supportsModule && (s.moduleAvailable ? s.moduleAvailable(scope) : true)
+      if (typeof available !== 'boolean') { available?.catch?.(() => {}); throw new TypeError('moduleAvailable must return a boolean synchronously') }
+      return { ...s.descriptor, moduleAvailable: available }
+    }))
+  }
   #jobs(context) {
     // Capture registrations and a detached read-only request once: unload/reload only
     // changes the next request, never half of an in-flight resolution.
@@ -47,10 +56,11 @@ export class RequestSourceRegistry {
       if (!source) { diagnostics.push({ code: 'ASSEMBLY_SOURCE_UNAVAILABLE', sourceId: rule.kind, ruleId: rule.id }); done.add(rule.id); return }
       const d = source.descriptor
       if (rule.inputMode === 'text' && !source.parseText) throw new TypeError(`Source does not accept custom text: ${rule.kind}`)
+      if (rule.inputMode !== 'text' && !source.resolve) throw new TypeError(`Source only supplies a text parser: ${rule.kind}`)
       if (!d.roles.includes(rule.role) || !d.lifetimes.includes(rule.lifetime) || (!d.depth && rule.depth != null)) throw new TypeError(`Unsupported rule settings for ${rule.kind}`)
-      if (!d.multiple && context.preset.rules.filter(r => r.kind === rule.kind).length > 1) throw new TypeError(`Duplicate source rule: ${rule.kind}`)
+      if (!d.multiple && rule.inputMode !== 'text' && context.preset.rules.filter(r => r.kind === rule.kind && r.inputMode !== 'text').length > 1) throw new TypeError(`Duplicate source rule: ${rule.kind}`)
       visiting.add(rule.kind)
-      for (const id of d.dependencies) visit(context.preset.rules.find(r => r.kind === id) ?? { id: `reference-${id}`, kind: id, enabled: false, role: 'preserve', lifetime: 'request', depth: null, text: '', name: '' })
+      for (const id of d.dependencies) visit(context.preset.rules.find(r => r.kind === id && r.inputMode !== 'text') ?? { id: `reference-${id}`, kind: id, enabled: false, role: 'preserve', lifetime: 'request', depth: null, text: '', name: '' })
       visiting.delete(rule.kind); done.add(rule.id); jobs.push({ rule, ...source })
     }
     for (const rule of context.preset.rules.filter(r => r.enabled)) visit(rule)
