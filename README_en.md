@@ -1,6 +1,6 @@
 # DSH Prompt Assembler
 
-[中文](README.md) · [Installation](docs/INSTALLATION_en.md) · [Source integration contract](docs/INTEGRATION_en.md) · [Security boundaries](SECURITY_en.md)
+[中文](README.md) · [Installation](docs/INSTALLATION_en.md) · [Usage](docs/USAGE_en.md) · [Source integration contract](docs/INTEGRATION_en.md) · [Security boundaries](SECURITY_en.md)
 
 `dsh-prompt-assembler` 0.2.0 is a standalone prompt assembly plugin for **DSH `0.2.0-rc.2`**, with composable library APIs. The plugin owns its strategy store, registry, request hook, secure API and UI. Tavern and Memory Manager are optional sources. Sources retain ownership of content, resources, syntax and read permissions; DSH durable history remains authoritative for session history.
 
@@ -40,7 +40,7 @@ const registry = createDshRegistry()
 const result = await assembleRequestAsync({ registry, preset: BUILTINS[0], nativeMessages, inputIds })
 ```
 
-Root exports remain composable library APIs. Package `main` is `src/plugin.js` for the DSH loader; `dsh-prompt-assembler/plugin` explicitly exports the Host plugin and `dsh-prompt-assembler/client` exports the browser entry. `dsh-prompt-assembler/panel` still offers an embeddable view. Callers composing the HTTP factory provide authentication and secure fetch.
+Root exports retain composable library APIs and also export the Host plugin’s `name`, `inject` and `apply` for DSH package-exports loading. Package `main` is `src/plugin.js`; `dsh-prompt-assembler/plugin` explicitly exports the Host plugin and `dsh-prompt-assembler/client` exports the browser entry. `dsh-prompt-assembler/panel` still offers an embeddable view. Callers composing the HTTP factory provide authentication and secure fetch.
 
 ## Develop and verify
 

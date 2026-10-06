@@ -1,6 +1,6 @@
 # DSH Prompt Assembler
 
-[English](README_en.md) · [安装](docs/INSTALLATION.md) · [来源接入合同](docs/INTEGRATION.md) · [安全边界](SECURITY.md)
+[English](README_en.md) · [安装](docs/INSTALLATION.md) · [使用](docs/USAGE.md) · [来源接入合同](docs/INTEGRATION.md) · [安全边界](SECURITY.md)
 
 `dsh-prompt-assembler` 0.2.0 是面向 **DSH `0.2.0-rc.2`** 的独立提示词装配插件，也提供可组合的装配库。插件自己管理策略存储、来源注册、请求钩子、安全 API 和界面；无需安装 Tavern 或 Memory Manager。来源继续拥有正文、资源、解析语法与读取权限，DSH durable history 继续作为会话历史的权威记录。
 

@@ -2,6 +2,11 @@
 
 ## 0.2.0
 
+- 提供方卸载时撤销其内置预设注册，保留旧会话的已应用快照并说明提供方缺失；不把旧快照重新加入全局列表。
+- 界面以分割线区分策略库、装配规则与预览、会话应用及界面设置；语言独立显示。双语使用文档说明消息角色、模块开关、保存/应用与自定义文本。
+- Provider removal withdraws its built-ins while retaining applied session snapshots with an unavailable-provider notice; old snapshots do not re-register catalog entries.
+- Dividers separate the strategy library, assembly rules/preview, session application and interface settings. Language has its own section; bilingual usage documents explain roles, module switches, save/apply and custom text.
+
 - 独立 DSH `0.2.0-rc.2` Host 插件：自有策略存储、registry、请求钩子、安全 API 与浏览器入口；`dsh.bundle` / `dsh.client` metadata 和提交的客户端构建支持 GitHub 安装。
 - 侧栏提供当前会话（含首条消息之前的会话）及策略库；用策略创建会话时在打开之前完成绑定，无全局默认策略。
 - `dshPromptAssembler` 公开 store/runtime/registry、Tavern 只读接入与旧存储迁移；`dshPromptSources` 为共享来源服务。根导出保留可组合库 API，无 Tavern/Manager 包依赖。
