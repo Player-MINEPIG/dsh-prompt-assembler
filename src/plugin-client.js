@@ -115,10 +115,6 @@ export function apply(ctx) {
     name: 'sidebar.footer.action', id: `${name}-launcher`, order: 80,
     inject: () => ({ assembler }),
   }, AssemblyLauncher))
-  ctx.slots.inject('conversation.session.header.utilities', () => ctx.slots.register({
-    name: 'conversation.session.header.utilities', id: `${name}-shortcut`, order: 80,
-    inject: () => ({ assembler }),
-  }, AssemblyLauncher))
   ctx.slots.inject('shell.overlay', () => ctx.slots.register({
     name: 'shell.overlay', id: `${name}-editor`, order: 80,
     inject: () => ({ assembler, sessions: ctx.sessions, workspaces: ctx.workspaces, uiWorkspace: ctx.uiWorkspace, fetcher: assemblerFetch }),

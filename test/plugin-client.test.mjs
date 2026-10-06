@@ -16,7 +16,7 @@ function source(snapshot) {
 const catalog = (...rows) => ({ byId: Object.fromEntries(rows.map(row => [row.id, row])), ids: rows.map(r => r.id), phase: 'ready' })
 const row = (id, mainView = 1) => ({ id, title: `Session ${id}`, blank: false, retainedBy: { mainView } })
 
-test('entry registers owned root footer, optional session utility and overlay without Tavern', () => {
+test('entry registers owned root footer and overlay without a session header shortcut or Tavern', () => {
   assert.equal(name, 'dsh-prompt-assembler')
   assert.deepEqual(inject, ['slots', 'sessions', 'workspaces', 'uiWorkspace'])
   const entries = [], cleanups = []
@@ -24,7 +24,7 @@ test('entry registers owned root footer, optional session utility and overlay wi
     inject: (slot, fn) => { fn() }, register: (entry, component) => { entries.push({ ...entry, component }); return () => {} },
   } }
   apply(ctx)
-  assert.deepEqual(entries.map(e => e.name), ['sidebar.footer.action', 'conversation.session.header.utilities', 'shell.overlay'])
+  assert.deepEqual(entries.map(e => e.name), ['sidebar.footer.action', 'shell.overlay'])
   assert.equal(entries[0].inject().assembler.getSnapshot().open, false)
   cleanups.forEach(fn => fn())
   assert.equal(ctx.sessions.list.listeners, 0)

@@ -331,14 +331,17 @@ function AssemblyPanelContent({ sessionId, sessionLabel: sessionLabel2, onCreate
   }, [sessionId, reload]);
   (0, import_react.useEffect)(() => {
     const refresh = () => run(async () => {
+      const gen = generation.current;
       const data = await api(`?sessionId=${encodeURIComponent(sessionId ?? "")}`);
+      if (gen !== generation.current || !mounted.current) return;
+      setItems(data.presets);
       setSelection(data.selection);
       setCapable(data.capability);
       setSources(data.sources ?? []);
     });
     window.addEventListener(refreshEvent, refresh);
     return () => window.removeEventListener(refreshEvent, refresh);
-  }, [sessionId, chromeMode]);
+  }, [sessionId, chromeMode, refreshEvent]);
   (0, import_react.useEffect)(() => {
     let active = true;
     request(fetcher, apiRoot, `?sessionId=${encodeURIComponent(sessionId ?? "")}`).then((data) => {
@@ -372,6 +375,7 @@ function AssemblyPanelContent({ sessionId, sessionLabel: sessionLabel2, onCreate
     setItems((list) => [...list.filter((p) => p.id !== data.preset.id), data.preset]);
     setDirty(false);
     setStatus(t("saved"));
+    window.dispatchEvent(new window.Event(refreshEvent));
     return data.preset;
   }
   function download() {
@@ -659,7 +663,7 @@ function AssemblyPanelContent({ sessionId, sessionLabel: sessionLabel2, onCreate
           const data = await api("/selection", "PUT", { sessionId, id: preset.id });
           setSelection(data.selection);
           setStatus(t("appliedStatus"));
-          window.dispatchEvent(new CustomEvent(refreshEvent));
+          window.dispatchEvent(new window.Event(refreshEvent));
         }), !sessionId || !capable, "primary"), button("reset", async () => {
           if (!await discard()) return;
           run(async () => {
@@ -670,12 +674,12 @@ function AssemblyPanelContent({ sessionId, sessionLabel: sessionLabel2, onCreate
             setPreview(null);
             setTab("rules");
             setStatus(t("appliedStatus"));
-            window.dispatchEvent(new CustomEvent(refreshEvent));
+            window.dispatchEvent(new window.Event(refreshEvent));
           });
         }, !sessionId || !capable), button("disable", () => run(async () => {
           const data = await api("/selection", "PUT", { sessionId, id: null });
           setSelection(data.selection);
-          window.dispatchEvent(new CustomEvent(refreshEvent));
+          window.dispatchEvent(new window.Event(refreshEvent));
         }), !sessionId || !selection)),
         draft.builtin && (0, import_react.createElement)("small", null, t("defaultHint")),
         !sessionId && (0, import_react.createElement)("small", null, t("noSession"))
@@ -891,12 +895,6 @@ function apply(ctx) {
   ctx.slots.inject("sidebar.footer.action", () => ctx.slots.register({
     name: "sidebar.footer.action",
     id: `${name}-launcher`,
-    order: 80,
-    inject: () => ({ assembler })
-  }, AssemblyLauncher));
-  ctx.slots.inject("conversation.session.header.utilities", () => ctx.slots.register({
-    name: "conversation.session.header.utilities",
-    id: `${name}-shortcut`,
     order: 80,
     inject: () => ({ assembler })
   }, AssemblyLauncher));

@@ -4,13 +4,15 @@
 
 ## Entry and interface
 
-The sidebar Prompt assembly entry is always available, including before a session’s first message. Existing session headers offer the same shortcut. Sections appear in this order: Strategy library → Assembly rules and preview → Session application → Interface settings, separated by headings and dividers. Language changes UI labels; it is not prompt content or session strategy configuration.
+The sidebar Prompt assembly entry is always available, including before a session’s first message. Sections appear in this order: Strategy library → Assembly rules and preview → Session application → Interface settings, separated by headings and dividers. Language changes UI labels; it is not prompt content or session strategy configuration.
 
 ## Saving and applying
 
 Create, import, export or select strategies in the library. Built-ins cannot be renamed or deleted; save modifications as a copy. User strategies are editable. Saving updates the library; applying captures the chosen configuration for the current session. Editing a library strategy does not silently update applied session snapshots. Reapply it to affect future requests.
 
 Create a session with this strategy requires an explicit workspace choice unless exactly one workspace exists. The plugin creates and binds the session before opening it, so its first request can use the strategy. There is no global default. Unselected or disabled strategies use DSH default assembly. Without protocol 1 core support, editing and preview work, but nonempty strategy application is refused.
+
+The standalone and embedded Tavern panels share one strategy library and one session binding, with no plugin priority. The last successful application determines the session snapshot. Editing a draft or saving a library strategy does not overwrite the applied snapshot. Both panels refresh their applied status while preserving their own unsaved drafts.
 
 ## Native modules and message roles
 

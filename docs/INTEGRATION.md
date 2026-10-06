@@ -58,7 +58,7 @@ Tavern 的存储模板仅在当前会话存在启用且支持的资源时可作�
 
 独立插件在 Host 中组合自己的 store、registry、runtime、HTTP 与浏览器界面。package `main` 为 `src/plugin.js`；`./plugin` 提供 Host 入口，`./client` 提供浏览器入口；根导出仍为库原语。`dsh.bundle` 指向 `cordis.patch.yml`，`dsh.client` 指向提交的 `dist/client.js`。共享来源服务是 `dshPromptSources`。
 
-`dshPromptAssembler` 提供 `{store,runtime,registry,attachTavern(options),migrateLegacy(root)}`。插件自有存储位于 Host 的 `dshHomePath('dsh-prompt-assembler')`，文件名为 `assembly-presets.json`。新独立会话没有隐式策略或全局默认；侧栏当前会话入口在第一条消息之前也可用，策略库的“使用此策略新建会话”先绑定策略再打开会话。会话标题可提供可选快捷入口。
+`dshPromptAssembler` 提供 `{store,runtime,registry,attachTavern(options),migrateLegacy(root)}`。插件自有存储位于 Host 的 `dshHomePath('dsh-prompt-assembler')`，文件名为 `assembly-presets.json`。新独立会话没有隐式策略或全局默认；侧栏当前会话入口在第一条消息之前也可用，策略库的“使用此策略新建会话”先绑定策略再打开会话。
 
 `attachTavern({resources,sessionReads,mode,builtins,defaultPresetId,afterAssembly})` 接收来源拥有的公开只读资源对象、读取租约及兼容配置，返回 disposer。Tavern 通过 `registerTavernSources` 将来源注册到共享 registry；注册与卸载跟随来源的 scoped context，不重复注册 DSH 内置来源。assembler 不依赖 Tavern/Manager 包，不读取其内部文件。来源内容、解析权限与资源编辑仍归来源。Tavern 要求独立安装并挂载的 assembler 服务，保留旧 service/HTTP 转发到同一 owned store/runtime；新接入使用 assembler 服务与 API。不要给同一请求同时安装两个独立策略 hook。
 

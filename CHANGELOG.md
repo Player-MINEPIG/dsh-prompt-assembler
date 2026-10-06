@@ -2,6 +2,8 @@
 
 ## 0.2.0
 
+- 装配入口保留在侧栏，移除会话右上角快捷入口；独立与 Tavern 内嵌面板共用刷新事件，同步策略库及当前应用状态，保留未保存草稿。
+- Assembly remains available from the sidebar; the session-header shortcut is removed. Standalone and embedded Tavern panels share refresh events for library and applied state while preserving unsaved drafts.
 - 提供方卸载时撤销其内置预设注册，保留旧会话的已应用快照并说明提供方缺失；不把旧快照重新加入全局列表。
 - 界面以分割线区分策略库、装配规则与预览、会话应用及界面设置；语言独立显示。双语使用文档说明消息角色、模块开关、保存/应用与自定义文本。
 - Provider removal withdraws its built-ins while retaining applied session snapshots with an unavailable-provider notice; old snapshots do not re-register catalog entries.
