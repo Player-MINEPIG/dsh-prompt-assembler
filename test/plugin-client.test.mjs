@@ -226,13 +226,18 @@ test('native actual view displays recorded source names and explicitly marks mis
   try {
     const source={plugin:'pmp-dsh-tavern',module:'preset',resourceId:'old-preset',field:'main'}
     const nodes=[{id:'main',name:'Recorded opening rules',module:'preset',role:'system',source,sourceStatus:'recorded',text:'OLD BODY',stability:'snapshot',lifetime:'native'},
-      {id:'old',name:'preset:custom-id',module:'preset',role:'system',source:{...source,field:'custom-id'},sourceStatus:'name-unrecorded',text:'OLDER BODY',stability:'snapshot',lifetime:'native'}]
+      {id:'old',name:'preset:custom-id',module:'preset',role:'system',source:{...source,field:'custom-id'},sourceStatus:'name-unrecorded',text:'OLDER BODY',stability:'snapshot',lifetime:'native'},
+      {id:'current',name:'Readable preset item',module:'preset',role:'system',source:{...source,field:'uuid-field'},sourceStatus:'current-name',text:'HISTORICAL BODY',stability:'snapshot',lifetime:'native'}]
     const fetcher=async url=>url.includes('/actual?')?json({request:{messages:[{role:'system',content:[{type:'text',text:'OLD BODY'}]}],metadata:{assembly:{backend:'native',nodes,diagnostics:[]}}}}):json({...library,selection:{...preset,backend:'native'}})
     await act(async()=>ui.root.render(h(AssemblyPanel,{sessionId:'real',standalone:true,locale:'en',fetcher})))
     await act(async()=>button(ui.document,'View latest actual request').click())
     assert.match(ui.document.body.textContent,/Recorded opening rules/)
-    assert.match(ui.document.body.textContent,/Item name not recorded/)
-    assert.match(ui.document.body.textContent,/Preset content · custom-id/)
+    assert.match(ui.document.body.textContent,/Original item name not recorded/)
+    assert.match(ui.document.body.textContent,/Readable preset item/)
+    assert.match(ui.document.body.textContent,/Name from the current preset; body from the recorded request/)
+    assert.ok(!ui.document.body.textContent.includes('uuid-field'))
+    assert.match(ui.document.body.textContent,/Preset content · 2/)
+    assert.ok(!ui.document.querySelector('.dta-summary').textContent.includes('custom-id'))
     assert.match(ui.document.body.textContent,/Request messages \(1\)/)
     assert.ok(!ui.document.body.textContent.includes('Logical order (1)'))
     await act(async()=>ui.document.querySelector('[role="button"][title="Recorded opening rules"]').click())
