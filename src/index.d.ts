@@ -80,7 +80,7 @@ export class AssemblyPresetStore {
   constructor(root: string, options?: { mode?: () => string | null; builtins?: readonly Preset[]; defaultPresetId?: string; unified?: boolean });
   list(): Preset[]; get(id: string): Preset; save(value: PresetInput, id?: string): Preset; remove(id: string): void;
   migrateLegacy(root: string): boolean; hasSelection(sessionId: string): boolean;
-  selection(id: string): Preset | null; apply(sessionId: string, id: string | null): Preset | null; copySelection(from: string, to: string): void;
+  selection(id: string): Preset | null; apply(sessionId: string, id: string | null): Preset | null; applySnapshot(sessionId: string, preset: Preset | null): Preset | null; copySelection(from: string, to: string): void;
 }
 export class RequestAssembler {
   constructor(options: { ctx: { get(name: string): any }; store: any; resources: any; registry?: RequestSourceRegistry; sessionReads?: any; owner?: string; afterAssembly?: AssemblyOptions['afterAssembly'] });

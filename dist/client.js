@@ -153,6 +153,7 @@ var labels = {
   appliedStatus: ["\u5DF2\u5E94\u7528\u5230\u5F53\u524D\u4F1A\u8BDD", "Applied to this session"],
   unavailable: ["\u5BBF\u4E3B\u5C1A\u672A\u652F\u6301\u8BF7\u6C42\u88C5\u914D\u534F\u8BAE\u3002\u53EF\u4EE5\u7F16\u8F91\u548C\u9884\u89C8\uFF1B\u5E94\u7528\u524D\u9700\u5B89\u88C5\u6838\u5FC3\u6269\u5C55\u3002", "Editing and preview are available. Applying requires the request assembly core extension."],
   previewScope: ["\u9884\u89C8\u4F7F\u7528\u5F53\u524D\u8D44\u4EA7\u4E0E\u53EF\u8BFB\u53D6\u5386\u53F2\uFF0C\u4E0D\u542B\u5F85\u53D1\u9001\u8F93\u5165\uFF1B\u968F\u673A\u5B8F\u4F7F\u7528\u56FA\u5B9A\u6837\u4F8B\u3002\u5B9E\u9645\u8BF7\u6C42\u4EE5\u8F68\u8FF9\u4E2D\u7684\u51BB\u7ED3\u7ED3\u679C\u4E3A\u51C6\u3002", "Preview uses current assets and available history, without pending input. Random macros use a fixed sample. Recorded requests contain the frozen result."],
+  deferredSelection: ["\u5E94\u7528\u5230\u5F53\u524D\u5F00\u573A\u914D\u7F6E\uFF1B\u9996\u6B21\u53D1\u9001\u65F6\u63A5\u5165\u4F1A\u8BDD\u3002\u5C55\u5F00\u9884\u89C8\u9700\u771F\u5B9E\u4F1A\u8BDD\u3002", "Apply to the current opening configuration; it transfers on first send. Expanded preview requires a real session."],
   noSession: ["\u8BF7\u5148\u6253\u5F00\u4F1A\u8BDD", "Open a session first"],
   loading: ["\u52A0\u8F7D\u4E2D\u2026", "Loading\u2026"],
   close: ["\u5173\u95ED", "Close"],
@@ -221,7 +222,7 @@ async function request(fetcher, apiRoot, path = "", method = "GET", body) {
 var assemblyCss = `
 .dta-stage{position:absolute;top:var(--dta-content-top,84px);bottom:0;left:var(--dta-content-left,0px);width:var(--dta-center-width,100%);z-index:1;pointer-events:none;background:#0005;padding:8px;box-sizing:border-box;display:flex;justify-content:center}
 .dta-stage.dta-standalone{inset:0;width:100%;z-index:100;padding:24px}.dta-launcher{font:inherit;color:inherit;border:1px solid currentColor;border-radius:8px;background:transparent;padding:7px 10px;cursor:pointer}.dta-standalone .dtv-assembly-screen{width:min(960px,100%)}.dta-section-title{font-size:15px;font-weight:600;margin:24px 0 16px;padding-top:20px;border-top:1px solid var(--dta-border)}.dta-content>.dta-section-title:first-child{margin-top:0;padding-top:0;border-top:0}.dta-interface-settings{margin-top:28px}.dta-toolbar.dta-session-controls{gap:16px 24px}.dta-session-controls label{display:flex;align-items:center;gap:12px;max-width:100%}.dtv-assembly-screen .dta-session-controls select{width:120px;flex-shrink:1}.dtv-assembly-screen .dta-session-controls label:first-child select{width:220px}@media(max-width:600px){.dta-session-controls label{flex-wrap:wrap}}
-.dtv-assembly-screen{--dta-border:color-mix(in srgb,var(--dsw-alias-label-primary,#24252b) 32%,var(--dsw-alias-bg-base,#fff));position:relative;width:min(var(--dsh-composer-card-max-width,780px),100%);pointer-events:auto;display:flex;flex-direction:column;box-sizing:border-box;container-type:inline-size;background:var(--dsw-alias-bg-base,#fff);color:var(--dsw-alias-label-primary,#24252b);border:1px solid var(--dta-border);border-radius:18px;box-shadow:0 18px 65px #0003;font:14px/1.55 system-ui;overflow:hidden}.dtv-assembly-screen *{box-sizing:border-box}
+.dtv-assembly-screen{--dta-border:color-mix(in srgb,var(--dsw-alias-label-primary,#24252b) 32%,var(--dsw-alias-bg-base,#fff));position:relative;contain:paint;transform:translateZ(0);width:min(var(--dsh-composer-card-max-width,780px),100%);pointer-events:auto;display:flex;flex-direction:column;box-sizing:border-box;container-type:inline-size;background:var(--dsw-alias-bg-base,#fff);color:var(--dsw-alias-label-primary,#24252b);border:1px solid var(--dta-border);border-radius:18px;box-shadow:0 18px 65px #0003;font:14px/1.55 system-ui;overflow:hidden}.dtv-assembly-screen *{box-sizing:border-box}
 .dta-confirm-shade{position:absolute;inset:0;z-index:4;background:#0006;display:grid;place-items:center;padding:20px}.dta-confirm{background:var(--dsw-alias-bg-base,#fff);border:1px solid var(--dta-border);border-radius:14px;padding:24px;max-width:100%;width:360px;box-shadow:0 10px 40px #0004}.dta-confirm p{margin:0 0 20px}.dta-confirm .dta-toolbar{justify-content:flex-end;margin:0}
 .dta-head{display:flex;justify-content:space-between;align-items:start;padding:20px 28px;border-bottom:1px solid var(--dta-border)}.dta-head{width:100%;max-width:calc(var(--dsh-composer-card-max-width,780px) + 56px);margin:auto}.dta-head h2{margin:0;font-size:22px}.dta-head p{margin:5px 0 0;opacity:.7}.dta-body{overflow:auto;padding:22px 28px 50px;flex:1}.dta-content{max-width:var(--dsh-composer-card-max-width,780px);margin:auto}.dta-toolbar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;align-items:center}
 .dtv-assembly-screen button,.dtv-assembly-screen select,.dtv-assembly-screen input:not([type=checkbox]),.dtv-assembly-screen textarea{font:inherit;color:inherit;background:var(--dsw-alias-button-secondary-fill,var(--dsw-alias-bg-base));border:1px solid var(--dta-border);border-radius:9px;padding:8px 12px;min-width:0}.dtv-assembly-screen select,.dtv-assembly-screen input:not([type=checkbox]){height:40px;line-height:22px;width:100%}.dtv-assembly-screen .dta-toolbar select{width:auto;max-width:100%}.dtv-assembly-screen button{cursor:pointer}.dtv-assembly-screen button:disabled{opacity:.45;cursor:default}.dtv-assembly-screen :focus-visible{outline:2px solid #4386dc;outline-offset:2px}.dtv-assembly-screen .primary{background:#347cd2;color:white;border-color:#347cd2}.dta-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:16px 0}.dta-grid label{display:flex;flex-direction:column;gap:5px}.dta-notice{padding:12px 15px;border-radius:10px;background:var(--dsw-alias-bg-layer-2,var(--dsw-alias-bg-base));margin:12px 0;overflow-wrap:anywhere}.dta-notice[data-error=true]{color:#be4747}.dta-tabs{display:flex;gap:8px;flex-wrap:wrap;margin:24px 0 14px}.dtv-assembly-screen .dta-tabs button[aria-pressed=true]{border-color:var(--dsw-alias-state-business-primary,#4d6bfe);box-shadow:inset 0 0 0 1px var(--dsw-alias-state-business-primary,#4d6bfe);color:var(--dsw-alias-state-business-primary,#4d6bfe)}
@@ -231,9 +232,9 @@ var assemblyCss = `
 @media(max-width:700px){.dtv-assembly-screen{border-radius:12px}.dta-head,.dta-body{padding:15px}.dta-head{padding-right:64px}.dta-grid,.dta-properties{grid-template-columns:1fr}.dta-summary{gap:8px;padding:12px 10px}.dta-name{font-size:15px}.dta-summary-meta{display:none}.dta-properties>*+*{border-left:0;border-top:1px solid var(--dsw-alias-state-business-primary,#4d6bfe);padding:12px 0 0}}
 `;
 function AssemblyPanel(props) {
-  return (0, import_react.createElement)(AssemblyPanelContent, { ...props, key: props.sessionId ?? "no-session" });
+  return (0, import_react.createElement)(AssemblyPanelContent, { ...props, key: props.selectionTarget?.id ?? props.sessionId ?? "no-session" });
 }
-function AssemblyPanelContent({ sessionId, sessionLabel: sessionLabel2, onCreateSession, createSessionControls, interfaceControls, standalone = false, close, registerBeforeLeave, chromeMode, locale: selectedLocale = "zh-CN", fetcher = globalThis.fetch, apiRoot = "/dsh-prompt-assembler/api/v1/assembly-presets", traceRoot, refreshEvent = "dsh-prompt-assembler:refresh" }) {
+function AssemblyPanelContent({ selectionTarget, sessionId, sessionLabel: sessionLabel2, onCreateSession, createSessionControls, interfaceControls, standalone = false, close, registerBeforeLeave, chromeMode, locale: selectedLocale = "zh-CN", fetcher = globalThis.fetch, apiRoot = "/dsh-prompt-assembler/api/v1/assembly-presets", traceRoot, refreshEvent = "dsh-prompt-assembler:refresh" }) {
   const locale = selectedLocale === "zh-CN" ? 0 : 1, t = (key) => labels[key]?.[locale] ?? key;
   const [confirmation, setConfirmation] = (0, import_react.useState)(null);
   const confirmationResolve = (0, import_react.useRef)(null);
@@ -288,7 +289,8 @@ function AssemblyPanelContent({ sessionId, sessionLabel: sessionLabel2, onCreate
   }, []);
   const [reload, setReload] = (0, import_react.useState)(0), [dragFrom, setDragFrom] = (0, import_react.useState)(null), [dropIndex, setDropIndex] = (0, import_react.useState)(null);
   const api = async (...args) => {
-    const result = await request(fetcher, apiRoot, ...args);
+    const result = selectionTarget && args[0] === "/selection" ? await selectionTarget.applyAssembly(args[2].id) : await request(fetcher, apiRoot, ...args);
+    if (selectionTarget && String(args[0]).startsWith("?")) result.selection = await selectionTarget.getSelection();
     if (!mounted.current) throw new DOMException("Panel closed", "AbortError");
     return result;
   };
@@ -328,7 +330,7 @@ function AssemblyPanelContent({ sessionId, sessionLabel: sessionLabel2, onCreate
       mounted.current = false;
       generation.current++;
     };
-  }, [sessionId, reload]);
+  }, [sessionId, selectionTarget, reload]);
   (0, import_react.useEffect)(() => {
     const refresh = () => run(async () => {
       const gen = generation.current;
@@ -341,17 +343,17 @@ function AssemblyPanelContent({ sessionId, sessionLabel: sessionLabel2, onCreate
     });
     window.addEventListener(refreshEvent, refresh);
     return () => window.removeEventListener(refreshEvent, refresh);
-  }, [sessionId, chromeMode, refreshEvent]);
+  }, [sessionId, selectionTarget, chromeMode, refreshEvent]);
   (0, import_react.useEffect)(() => {
     let active = true;
-    request(fetcher, apiRoot, `?sessionId=${encodeURIComponent(sessionId ?? "")}`).then((data) => {
+    api(`?sessionId=${encodeURIComponent(sessionId ?? "")}`).then((data) => {
       if (active) setSelection(data.selection);
     }).catch(() => {
     });
     return () => {
       active = false;
     };
-  }, [chromeMode, sessionId]);
+  }, [chromeMode, sessionId, selectionTarget]);
   const discard = () => !busy && (!dirty || confirm(t("discard")));
   (0, import_react.useEffect)(() => registerBeforeLeave?.(discard), [dirty, busy, registerBeforeLeave]);
   const edit = (patch) => {
@@ -637,7 +639,7 @@ function AssemblyPanelContent({ sessionId, sessionLabel: sessionLabel2, onCreate
           const data = await api("/preview", "POST", { sessionId, preset: editablePreset(draft) });
           setPreview(data.preview);
           setTab("expanded");
-        }), false, void 0, tab === "expanded" && !preview?.actual), button("actual", () => run(actualRequest), !sessionId, void 0, tab === "expanded" && !!preview?.actual)),
+        }), Boolean(selectionTarget), void 0, tab === "expanded" && !preview?.actual), button("actual", () => run(actualRequest), !sessionId, void 0, tab === "expanded" && !!preview?.actual)),
         (0, import_react.createElement)("div", { className: "dta-legend" }, ...[...new Set(sources.map((s) => s.pluginId))].map((plugin) => (0, import_react.createElement)("span", { key: plugin, style: { "--assembly-color": sourceColor(plugin) } }, originName(plugin)))),
         tab === "rules" ? (0, import_react.createElement)(
           "div",
@@ -664,7 +666,7 @@ function AssemblyPanelContent({ sessionId, sessionLabel: sessionLabel2, onCreate
           setSelection(data.selection);
           setStatus(t("appliedStatus"));
           window.dispatchEvent(new window.Event(refreshEvent));
-        }), !sessionId || !capable, "primary"), button("reset", async () => {
+        }), !sessionId && !selectionTarget || !capable || selectionTarget?.editable === false, "primary"), button("reset", async () => {
           if (!await discard()) return;
           run(async () => {
             const data = await api("/selection", "PUT", { sessionId, id: defaultId });
@@ -676,13 +678,13 @@ function AssemblyPanelContent({ sessionId, sessionLabel: sessionLabel2, onCreate
             setStatus(t("appliedStatus"));
             window.dispatchEvent(new window.Event(refreshEvent));
           });
-        }, !sessionId || !capable), button("disable", () => run(async () => {
+        }, !sessionId && !selectionTarget || !capable || selectionTarget?.editable === false), button("disable", () => run(async () => {
           const data = await api("/selection", "PUT", { sessionId, id: null });
           setSelection(data.selection);
           window.dispatchEvent(new window.Event(refreshEvent));
-        }), !sessionId || !selection)),
+        }), !sessionId && !selectionTarget || !selection || selectionTarget?.editable === false)),
         draft.builtin && (0, import_react.createElement)("small", null, t("defaultHint")),
-        !sessionId && (0, import_react.createElement)("small", null, t("noSession"))
+        !sessionId && (0, import_react.createElement)("small", null, selectionTarget ? t("deferredSelection") : t("noSession"))
       ),
       interfaceControls && (0, import_react.createElement)("section", { className: "dta-interface-settings", "aria-label": t("interfaceSettings") }, (0, import_react.createElement)("h3", { className: "dta-section-title" }, t("interfaceSettings")), interfaceControls)
     ))

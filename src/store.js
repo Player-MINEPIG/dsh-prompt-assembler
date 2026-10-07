@@ -84,10 +84,13 @@ export class AssemblyPresetStore {
     return null
   }
   apply(sessionId, id) {
+    return this.applySnapshot(sessionId, id === null ? null : this.get(id))
+  }
+  applySnapshot(sessionId, preset) {
     if (!validSession(sessionId)) throw new TypeError('Invalid session id')
     const next = structuredClone(this.state)
-    if (id === null) next.selections[this.selectionKey(sessionId)] = null
-    else next.selections[this.selectionKey(sessionId)] = this.get(id)
+    if (preset !== null && (typeof preset?.id !== 'string' || !preset.id || preset.id.length > 200)) throw new TypeError('Snapshot requires a preset identity')
+    next.selections[this.selectionKey(sessionId)] = preset === null ? null : { ...normalizePreset(preset), id: preset.id }
     this.persist(next); return this.selection(sessionId)
   }
   copySelection(from, to) {

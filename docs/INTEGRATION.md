@@ -82,3 +82,7 @@ npm pack
 Tavern 的 preset/custom/template 保留旧手填解析兼容入口；新界面通过 tavern.text 统一选择；角色、用户与世界书通过资源编辑器管理，不声明该输入模式。DSH adapter 的 `registerDshSources(registry,{sectionPlugin})` 可接受只读来源标签映射；Tavern adapter 在此保留其官方 section 的显示身份，通用 DSH adapter 不猜测 Tavern 身份。
 
 真实 Host 验证在[安装说明](INSTALLATION.md#验证)中单独列出，通过 `DSH_ASSEMBLER_CORE_ROOT` 和可选 `DSH_ASSEMBLER_MANAGER_ROOT` 显式选择外部 fixture。标准 CI 的 `npm ci` / `npm run check` 不提供这些运行环境；跳过不等于 Host 或浏览器验收通过。使用临时会话和离线合成 provider，不请求真实模型。
+
+`AssemblyPresetStore.applySnapshot(sessionId, presetOrNull)` 验证并保存独立策略快照，不写入预设库。适用于先保存插件草稿、再创建真实 DSH 会话的调用方；`null` 解除装配策略。与 `apply` 相同，保存后该会话的快照成为请求装配的权威，不随库中同名预设修改而变化。
+
+嵌入 `AssemblyPanel` 的调用方可传 `selectionTarget: { id, editable, getSelection(), applyAssembly(presetIdOrNull) }`，以异步方式读写插件自己的开场配置；`applyAssembly` 返回 `{ selection }`。此时不传 `sessionId`，面板按 target 身份挂载、显示其已保存快照，并继续使用装配器的规则库。应用/重置/禁用交给调用方持久保存，首次发送时再用 `applySnapshot` 接入真实会话。该 target 不模拟 DSH 会话；展开预览和请求轨迹仅对真实 `sessionId` 开放。
