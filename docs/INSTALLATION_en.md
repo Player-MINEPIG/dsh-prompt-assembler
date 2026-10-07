@@ -14,17 +14,22 @@ The repository is public. Standard metadata provides `main:src/plugin.js`, `dsh.
 
 ## Optional advanced extension
 
-Pack core-extension separately from the same checkout, then explicitly enable its tgz:
+Stop the target Host, then run one installation command from the same checkout. It installs/enables the addon, switches core builds, and retains stock builds for rollback:
 
 ```sh
-npm ci
-npm run build
-npm pack ./core-extension --ignore-scripts --pack-destination .local/packages
-node core-extension/scripts/prepare-request-assembly.mjs <DSH-0.2.0-rc.2-source> <separate-output>
-dsh plugin --profile web add /path/to/dsh-prompt-assembler-core-0.2.0.tgz
+node core-extension/scripts/switch-runtime.mjs install --runtime /path/to/runtime --home /path/to/dsh-home --profile web --prepared /path/to/prepared-core --stock-runtime /path/to/stock-runtime
 ```
 
-Replace placeholder paths. The addon peers with `dsh-prompt-assembler@0.2.0`, sharing its store/UI. Preparation verifies pinned Session/AgentLoop versions and source digests, writes separate output and a receipt, and refuses overlapping paths. It does not modify source or installed core. Review output, stop/back up the authorized Host, then replace builds through that environment's core installation procedure. Plugin installation, preparation and runtime replacement are separate actions.
+Before the first install, generate prepared-core with `node core-extension/scripts/prepare-request-assembly.mjs /path/to/dsh-rc2-source /path/to/prepared-core`. Stock-runtime must contain unmodified official rc.2 `node_modules/@deepseek-ai/dsh-session` and `dsh-agent-loop`. All target/reference/prepared builds must use 0.2.0-rc.2; the standard plugin must be 0.2.0. The switch uses public `dsh-plugin-manager/operations` for package installation and activation, calling npm by default; `--npm /path/to/npm` selects a command. Preparation verifies pinned source digests; switching rejects unknown builds, damaged backups and incompatible versions.
+
+Subsequent installation or removal needs no prepared/stock input. Stop the Host, run the appropriate single command, then restart:
+
+```sh
+node core-extension/scripts/switch-runtime.mjs install --runtime /path/to/runtime --home /path/to/dsh-home --profile web
+node core-extension/scripts/switch-runtime.mjs uninstall --runtime /path/to/runtime --home /path/to/dsh-home --profile web
+```
+
+Removal only removes the advanced addon and restores stock core. Sessions still bound to core strategies switch to native ST; their previous selections remain in `.assembler-core-switch/selections-before-uninstall.json` within the profile. Custom strategies, native selections, disabled selections and DSH session logs remain. Reinstalling does not restore advanced selections automatically. Initial installation also preserves explicit selections; choose an advanced ST/cache/PHI strategy in the UI to compare advanced behavior. Keep `.assembler-core-switch/` backups and receipt until rollback is complete. Commands target explicit paths and require the target Host to be stopped.
 
 Mounting requires `agentLoop.requestAssemblyVersion===1`. Prepared core alone does not enable advanced strategies; the addon must also be mounted. Missing either permits editing/preview but returns 409 on core application. The standard tarball excludes preparation tooling and the addon bundle; root `scripts/prepare-request-assembly.mjs` is only a source-development compatibility entry.
 
@@ -32,7 +37,7 @@ Mounting requires `agentLoop.requestAssemblyVersion===1`. Prepared core alone do
 
 Strategies/session snapshots live in `dshHomePath('dsh-prompt-assembler')/assembly-presets.json`. Explicit `migrateLegacy(root)` merges absent IDs and retains old files and play/native scopes. Unified session selection, including null, wins over legacy mode fallback. Missing backend remains core, without automatic conversion. Standalone use has no default. Attached Tavern uses standard ST style for unbound play sessions and new openings; explicitly installed addons can retain the advanced default. Existing snapshots remain unchanged.
 
-Provider removal withdraws its sources/catalog entries while retaining applied snapshots/storage. Standard user contributions remain native history; advanced request-only contributions stop, while request/assembly remains readable. Disable or switch core strategies before removing the addon; retained core selections fail explicitly. Returning to stock uses the original retained core builds. Migrations and real-profile writes require an authorized environment.
+Provider removal withdraws its sources/catalog entries while retaining applied snapshots/storage. Standard user contributions remain native history; advanced request-only contributions stop, while request/assembly remains readable. The switch command moves core selections to native ST before returning to stock; removing the addon separately leaves retained core selections explicitly unavailable. Returning to stock uses retained standard builds. Migrations and real-profile writes require an authorized environment.
 
 ## Verification
 

@@ -6,4 +6,4 @@
 
 要求精确标准包 0.2.0，以及显式准备的 DSH 0.2.0-rc.2（`requestAssemblyVersion:1`）。stock 核心拒绝挂载；核心 marker 不会隐式启用扩展。选择 core 策略才执行进阶投影，native 策略继续官方路径。两种后端不会同时改写一个请求。
 
-从仓库根执行 `npm pack ./core-extension`，单独安装并启用产物。准备工具为 `core-extension/scripts/prepare-request-assembly.mjs`，只生成独立输出，不能代替环境安装/备份。详见安装合同。卸载扩展撤销 backend，保留策略及日志；旧 core 选择明确报错，需要关闭或切换标准策略。
+一键安装或卸载使用 `node core-extension/scripts/switch-runtime.mjs install|uninstall --runtime <runtime> --home <DSH_HOME> --profile web`。首次安装还需 `--prepared <准备产物> --stock-runtime <标准runtime>`；安装会自动打包并启用 addon，卸载恢复标准构建并将进阶选择切回标准 ST。先停止目标 Host，执行后重启；完整步骤见上方安装说明。保留策略和日志，进阶版与标准版可以反复切换。

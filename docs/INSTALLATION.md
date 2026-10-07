@@ -14,17 +14,22 @@ dsh plugin --profile web add github:Player-MINEPIG/dsh-prompt-assembler#main
 
 ## 可选进阶扩展
 
-高级用户在同一 checkout 单独打包 core-extension，并显式启用该 tgz：
+停止目标 Host 后，从同一 checkout 执行一键安装；它安装并启用 addon、切换核心，并保存标准构建以供回退：
 
 ```sh
-npm ci
-npm run build
-npm pack ./core-extension --ignore-scripts --pack-destination .local/packages
-node core-extension/scripts/prepare-request-assembly.mjs <DSH-0.2.0-rc.2-source> <separate-output>
-dsh plugin --profile web add /path/to/dsh-prompt-assembler-core-0.2.0.tgz
+node core-extension/scripts/switch-runtime.mjs install --runtime /path/to/runtime --home /path/to/dsh-home --profile web --prepared /path/to/prepared-core --stock-runtime /path/to/stock-runtime
 ```
 
-参数路径需替换。core-extension peer 要求 `dsh-prompt-assembler@0.2.0`，不拥有第二套策略/UI。准备工具核对 Session/AgentLoop 的版本及固定源码摘要，只写独立输出与 receipt，拒绝重叠路径，不修改来源或已安装核心。审阅输出，备份并停止已授权目标 Host，再按其环境的核心安装流程替换对应构建。插件安装、准备工具和运行环境替换是三个独立动作。
+首次使用前，`prepared-core` 由 `node core-extension/scripts/prepare-request-assembly.mjs /path/to/dsh-rc2-source /path/to/prepared-core` 生成；`stock-runtime` 是未修改的官方 rc.2 runtime，含 `node_modules/@deepseek-ai/dsh-session` 和 `dsh-agent-loop`。目标 runtime、标准参照和准备产物均须为 0.2.0-rc.2，标准插件须为 0.2.0。工具通过公开 `dsh-plugin-manager/operations` 安装和启用插件，默认调用 npm，可用 `--npm /path/to/npm` 指定命令。准备工具核验固定源码摘要；切换工具拒绝未知构建、损坏备份和版本不匹配。
+
+随后安装、卸载均无需再提供准备产物或标准参照。停止 Host 后执行对应单条指令，然后重新启动 Host：
+
+```sh
+node core-extension/scripts/switch-runtime.mjs install --runtime /path/to/runtime --home /path/to/dsh-home --profile web
+node core-extension/scripts/switch-runtime.mjs uninstall --runtime /path/to/runtime --home /path/to/dsh-home --profile web
+```
+
+卸载只移除进阶 addon 并恢复标准核心。仍绑定进阶策略的会话切回标准 ST，原选择备份保留在 profile 的 `.assembler-core-switch/selections-before-uninstall.json`；自定义策略、标准选择、关闭状态及 DSH 会话日志保留。重新安装不自动恢复旧进阶选择。首次安装也保留已有显式选择；请在界面选择进阶 ST、缓存友好或后置指令策略以测试进阶行为。核心备份与切换 receipt 位于 profile 的 `.assembler-core-switch/`，回退前不要删除。两条指令只针对显式路径，要求目标 Host 已停止。
 
 扩展仅在 `agentLoop.requestAssemblyVersion===1` 时可挂载。只有准备后的核心、没有 addon，也不能应用 core 策略。两者缺任一，旧进阶策略仍可编辑/预览，但应用返回 409。标准包不包含准备工具或 addon bundle；root `scripts/prepare-request-assembly.mjs` 仅是源码开发兼容入口。
 
@@ -32,7 +37,7 @@ dsh plugin --profile web add /path/to/dsh-prompt-assembler-core-0.2.0.tgz
 
 策略与 session 快照存于 `dshHomePath('dsh-prompt-assembler')/assembly-presets.json`。显式 `migrateLegacy(root)` 只合并缺少的 ID，保留旧文件和 play/native scope；统一 session 选择（含 null）优先于旧 mode 回退。旧策略缺 backend 仍为 core，不自动变成 native。独立运行无默认；Tavern 挂载时，无绑定 play 会话和新开场默认标准 ST 风格；显式安装 addon 后可保留进阶默认。已有明确快照不会因此改变。
 
-卸载提供方撤销其来源与内置目录项，保留会话快照和策略文件。标准 user 贡献留在原生历史；进阶 request-only 贡献停止，已有 request/assembly 仍可读。移除 addon 前先关闭或切换旧 core 策略；未切换会明确报错。恢复 stock 核心使用准备前保留的构建。迁移与真实 profile 写入只在授权环境执行。
+卸载提供方撤销其来源与内置目录项，保留会话快照和策略文件。标准 user 贡献留在原生历史；进阶 request-only 贡献停止，已有 request/assembly 仍可读。一键卸载将旧 core 选择切回标准 ST；单独移除 addon 而不切换会明确报错。恢复 stock 核心使用切换工具保留的标准构建。迁移与真实 profile 写入只在授权环境执行。
 
 ## 验证
 
