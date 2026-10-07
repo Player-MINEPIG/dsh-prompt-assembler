@@ -456,6 +456,7 @@ function AssemblyPanelContent({ selectionTarget, sessionId, sessionLabel: sessio
     if (labels[node.name]) return t(node.name);
     const standard = { "Main Prompt": "main", "Post-History Instructions": "jailbreak", "Character Description": "charDescription", "Character Personality": "charPersonality", "Persona Description": "personaDescription", "Chat History": "history", "World Info (before)": "worldbook", "World Info (after)": "worldbook" };
     if (standard[node.name]) return t(standard[node.name]);
+    if (node.sourceStatus === "name-unrecorded" && node.source?.field && !labels[node.source.field]) return `${t(node.module)} \xB7 ${node.source.field}`;
     if (node.name?.startsWith("preset:") || node.name?.startsWith("worldbook:")) return labels[node.source?.field] ? t(node.source.field) : `${t(node.name.startsWith("preset:") ? "preset" : "worldbook")} \xB7 ${Math.max(0, preview?.nodes?.indexOf(node) ?? -1) + 1}`;
     return node.name;
   };

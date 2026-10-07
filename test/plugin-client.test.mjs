@@ -232,6 +232,7 @@ test('native actual view displays recorded source names and explicitly marks mis
     await act(async()=>button(ui.document,'View latest actual request').click())
     assert.match(ui.document.body.textContent,/Recorded opening rules/)
     assert.match(ui.document.body.textContent,/Item name not recorded/)
+    assert.match(ui.document.body.textContent,/Preset content · custom-id/)
     assert.match(ui.document.body.textContent,/Request messages \(1\)/)
     assert.ok(!ui.document.body.textContent.includes('Logical order (1)'))
     await act(async()=>ui.document.querySelector('[role="button"][title="Recorded opening rules"]').click())
