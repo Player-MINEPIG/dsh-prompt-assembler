@@ -70,7 +70,7 @@ Tavern 默认使用原生 ST 风格；显式挂载 addon 可选进阶默认。�
 
 进阶库调用方先显式注册 `CoreRequestBackend`；标准 Host 接入复用插件的公开接口钩子。独立宿主使用 `RequestAssembler({ctx,store,resources,registry,sessionReads,owner})`。resources 提供只读 `compile({agent,sessionId,resolveOnly:true})` 和当前 `assembledFor(agent)` 快照（assemblyInput、officialAssembly、diagnostics），可设 maxProfileBytes。库调用方在 DSH 资源装配后、冻结请求前调用 execute，并接入 store.copySelection 的会话继承。Preview 使用当前官方 systemPrompt 和独立 Session；`createSessionReadContext` 仅共享一次读取租约，不附着冷 Session。不要同时给同一请求安装两个独立策略 hook。
 
-独立插件把 API 放在 Host 的认证、同源校验与适用的 desktop 令牌边界内，并在浏览器使用安全 fetch。库的 HTTP factory 负责 JSON/规则原语，不负责认证。调用方在已认证路径下调用 `createAssemblyApi({store,runtime,agents,sessions,inspect,notify,root})`。UI 用 `AssemblyPanel({sessionId,fetcher,apiRoot,locale,traceRoot?,refreshEvent,close})`；desktop 必须传入其安全 fetch wrapper。core 能力要求 addon 挂载及 `agentLoop.requestAssemblyVersion===1`；缺任一拒绝进阶应用，标准策略检查 native 能力；核心须通过 [安装说明](INSTALLATION.md)中的准备工具显式准备。
+独立插件把 API 放在 Host 的认证、同源校验与适用的 desktop 令牌边界内，并在浏览器使用安全 fetch。库的 HTTP factory 负责 JSON/规则原语，不负责认证。调用方在已认证路径下调用 `createAssemblyApi({store,runtime,agents,sessions,inspect,readActual?,notify,root})`。UI 用 `AssemblyPanel({sessionId,fetcher,apiRoot,locale,traceRoot?,refreshEvent,close})`；desktop 必须传入其安全 fetch wrapper。core 能力要求 addon 挂载及 `agentLoop.requestAssemblyVersion===1`；缺任一拒绝进阶应用，标准策略检查 native 能力；核心须通过 [安装说明](INSTALLATION.md)中的准备工具显式准备。
 
 ## 第三方验收
 
@@ -90,3 +90,5 @@ Tavern 的 preset/custom/template 保留旧手填解析兼容入口；新界面�
 嵌入 `AssemblyPanel` 的调用方可传 `selectionTarget: { id, editable, getSelection(), applyAssembly(presetIdOrNull) }`，以异步方式读写插件自己的开场配置；`applyAssembly` 返回 `{ selection }`。此时不传 `sessionId`，面板按 target 身份挂载、显示其已保存快照，并继续使用装配器的规则库。应用/重置/禁用交给调用方持久保存，首次发送时再用 `applySnapshot` 接入真实会话。该 target 不模拟 DSH 会话；展开预览和请求轨迹仅对真实 `sessionId` 开放。
 
 Host 启用与旧策略迁移遵循[后端规则](BACKENDS.md)。上文 depth/snapshot/projectSystemSnapshots/协议 1 的合同属于进阶库路径。标准生命周期为 nativeAssembly/nativePreStep；execute 仅在 addon 显式 registerRequestBackend 后委托。应用使用 requireAvailable(preset) 检查。
+
+`GET /assembly-presets/actual?sessionId=…` 读取最近的冻结请求，不因当前策略是 native 而拒绝已有 `request/assembly`。附加 provider 可通过 `attachTavern({…,readActual})` 或 HTTP factory 的 `readActual(sessionId)` 返回 `{request,backend,recordKind,seq}`；按 DSH 日志序号与持久冻结记录比较。Tavern 的原生 observer 只保存请求边界和整组消息哈希，读取时用公共 Session detached replay 恢复该边界并核验哈希，不复制正文、不重新装配。缺少历史引用或旧会话没有当次记录时明确返回不可用。没有该 observer 的普通原生宿主无法提供完整历史请求。

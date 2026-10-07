@@ -64,7 +64,7 @@ export function apply(ctx, config = {}) {
     ctx.inject(['webServer'], scope => {
       const handler = secureAssemblerApi(createAssemblyApi({ store, runtime,
         agents: () => ctx.get('agents'), sessions: () => ctx.get('sessions'),
-        inspect: id => ctx.get('sessionController').inspect(id), root: API_V1 }), config.security)
+        inspect: id => ctx.get('sessionController').inspect(id), readActual: id => provider?.readActual?.(id), root: API_V1 }), config.security)
       scope.effect(() => scope.webServer.register({ kind: 'prefix', path: API_ROOT, handler }), 'assembler: HTTP API')
     })
   }

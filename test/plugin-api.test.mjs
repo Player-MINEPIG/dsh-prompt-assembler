@@ -27,3 +27,21 @@ test('actual request reads durable cold events without preparing an Agent or Ses
   const response = await invoke(handler, 'GET', '/dsh-prompt-assembler/api/v1/assembly-presets/actual?sessionId=old')
   assert.equal(response.status, 200); assert.deepEqual(response.body.request, recorded.data); assert.equal(reads, 1)
 })
+
+test('native selection reads existing durable actual requests regardless of current strategy', async () => {
+  const request = { messages: [{ role: 'user', content: [{ type: 'text', text: 'FROZEN' }] }] }
+  const handler = createAssemblyApi({ store: {}, runtime: { selected: () => ({ backend: 'native' }) },
+    agents: () => ({}), sessions: () => ({}), inspect: async () => ({ events: [{ seq: 10, type: 'request/assembly', data: request }] }) })
+  assert.deepEqual((await invoke(handler, 'GET', '/dsh-prompt-assembler/api/v1/assembly-presets/actual?sessionId=old')).body.request, request)
+})
+test('native observed requests take precedence over older advanced records without falling back on invalid references', async () => {
+  let observed = { seq: 20, backend: 'native', request: { messages: [{ role: 'user', content: [] }] }, recordKind: 'native-request-reference' }
+  const handler = createAssemblyApi({ store: {}, runtime: {}, agents: () => ({}), sessions: () => ({}),
+    inspect: async () => ({ events: [{ seq: 10, type: 'request/assembly', data: { messages: ['OLD'] } }] }), readActual: async () => observed })
+  const read = () => invoke(handler, 'GET', '/dsh-prompt-assembler/api/v1/assembly-presets/actual?sessionId=old')
+  assert.deepEqual((await read()).body.request, observed.request)
+  observed = { ...observed, request: null }
+  assert.equal((await read()).body.request, null)
+  observed = { ...observed, seq: 5 }
+  assert.deepEqual((await read()).body.request.messages, ['OLD'])
+})

@@ -6,7 +6,7 @@ async function read(req) {
   for await (const chunk of req) { size += chunk.length; if (size > 2 * 1024 * 1024) throw Object.assign(new Error('Assembly request exceeds 2 MiB'), { status: 413 }); chunks.push(chunk) }
   return JSON.parse(Buffer.concat(chunks).toString('utf8') || '{}')
 }
-export function createAssemblyApi({ store, runtime, agents, sessions, inspect, notify = () => {}, root = ROOT }) {
+export function createAssemblyApi({ store, runtime, agents, sessions, inspect, readActual, notify = () => {}, root = ROOT }) {
   return async (req, res) => {
     try {
       const url = new URL(req.url, 'http://localhost'), part = decodeURIComponent(url.pathname.slice(root.length + 1)), method = req.method
@@ -15,9 +15,10 @@ export function createAssemblyApi({ store, runtime, agents, sessions, inspect, n
       if (part === 'actual' && method === 'GET') {
         const live = agents()?.get?.(sessionId)?.session ?? sessions()?.get?.(sessionId)
         const events = live?.snapshotEvents?.() ?? (sessionId && inspect ? (await inspect(sessionId)).events : [])
-        const backend = runtime.selected?.(sessionId)?.backend ?? 'core'
-        const request = backend === 'native' ? null : events.findLast(event => event.type === 'request/assembly')?.data ?? null
-        return send(res, 200, { ok: true, request, backend, recordKind: 'request/assembly' })
+        const event = events.findLast(event => event.type === 'request/assembly')
+        const observed = sessionId && readActual ? await readActual(sessionId) : null
+        if (observed && (!event || observed.seq > event.seq)) return send(res, 200, { ok: true, ...observed })
+        return send(res, 200, { ok: true, request: event?.data ?? null, backend: event?.data?.metadata?.backend ?? runtime.selected?.(sessionId)?.backend ?? 'core', recordKind: 'request/assembly' })
       }
       if (part === 'preview' && method === 'POST') {
         const body = await read(req), id = body.sessionId ?? sessionId

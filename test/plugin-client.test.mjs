@@ -189,3 +189,20 @@ test('browser bundle keeps React external and has no Tavern client dependency', 
     assert.equal(ui.document.querySelector('[role="alert"]'),null)
   } finally {await ui.close()}
  })
+
+test('standard real session actual button reads native requests through the same API', async () => {
+  const ui = dom(), calls = []
+  try {
+    const fetcher = async url => {
+      calls.push(url)
+      if (url.includes('/actual?')) return json({ backend: 'native', request: { messages: [{ role: 'user', content: [{ type: 'text', text: 'NATIVE ACTUAL' }] }], metadata: { backend: 'native' } } })
+      return json({ ...library, selection: { ...preset, backend: 'native' } })
+    }
+    await act(async () => ui.root.render(h(AssemblyPanel, { sessionId: 'real', standalone: true, locale: 'en', fetcher })))
+    assert.equal(button(ui.document, 'View latest actual request').disabled, false)
+    await act(async () => button(ui.document, 'View latest actual request').click())
+    assert.ok(calls.some(url => url.endsWith('/actual?sessionId=real')))
+    assert.match(ui.document.body.textContent, /NATIVE ACTUAL/)
+    assert.match(ui.document.body.textContent, /This is the recorded request/)
+  } finally { await ui.close() }
+})
