@@ -168,7 +168,8 @@ function AssemblyPanelContent({ selectionTarget, sessionId, sessionLabel, onCrea
     for (const item of [...(list.records ?? [])].reverse().slice(0, 20)) {
       const res = await fetcher(`${traceRoot}/sessions/${encodeURIComponent(sessionId)}/assemblies/${encodeURIComponent(item.id)}`)
       if (!res.ok) continue
-      const record = (await res.json()).record?.requestAssembly
+      const detail = (await res.json()).record
+      const record = detail?.requestAssembly ?? detail?.nativeRequest
       if (!mounted.current) return
       if (show(record)) return
     }

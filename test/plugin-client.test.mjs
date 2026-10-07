@@ -206,3 +206,17 @@ test('standard real session actual button reads native requests through the same
     assert.match(ui.document.body.textContent, /This is the recorded request/)
   } finally { await ui.close() }
 })
+
+test('legacy trace-root embedding can display verified native request details', async () => {
+  const ui = dom()
+  try {
+    const fetcher = async url => {
+      if (url.endsWith('/assemblies')) return json({ records: [{ id: 'native' }] })
+      if (url.endsWith('/assemblies/native')) return json({ record: { nativeRequest: { messages: [{ role: 'user', content: [{ type: 'text', text: 'NATIVE TRACE' }] }] } } })
+      return json({ ...library, selection: { ...preset, backend: 'native' } })
+    }
+    await act(async () => ui.root.render(h(AssemblyPanel, { sessionId: 'real', traceRoot: '/trace', standalone: true, locale: 'en', fetcher })))
+    await act(async () => button(ui.document, 'View latest actual request').click())
+    assert.match(ui.document.body.textContent, /NATIVE TRACE/)
+  } finally { await ui.close() }
+})
