@@ -51,3 +51,5 @@ The selectable catalog contains currently registered provider built-ins and save
 Reinstalling a provider restores its registrations. Existing selections, explicit disabled states and strategies reapplied independently take precedence over old configuration. Missing source modules report diagnostics and are omitted; saved user strategies remain and use the source again when it returns. Migration and removal do not rewrite native history.
 
 Standard mode uses native durable events. Tavern Trace verifies historical system/context references; the standalone panel does not present current history as a complete frozen request record.
+
+Tavern opening drafts can also preview their selected resources and draft variables with this button. Drafts have no native history yet; previews exclude pending input and neither create a Session nor call a model. Actual requests are available after sending.

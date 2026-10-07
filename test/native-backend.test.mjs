@@ -112,3 +112,15 @@ test('native API rejects unsupported application without changing the applied se
     assert.throws(() => validateNativePreset(mixed), { code: 'ASSEMBLY_NATIVE_UNSUPPORTED' })
   } finally { rmSync(directory, { recursive: true, force: true }) }
 })
+
+ test('trusted sessionless preview variables render native sections without an Agent or model request', async () => {
+  let assembled
+  const runtime = new RequestAssembler({ ctx: { get: key => key === 'systemPrompt' ? {async assemble(context) {
+    assembled = context
+    return {sections:[{name:'official',text:'{{provider}}/{{model}} at {{cwd}}'}],variables:{provider:undefined,model:undefined,cwd:undefined}}
+  }} : undefined }, store:{}, resources:{compile:()=>({assemblyInput:{}})} })
+  const result = await runtime.preview({preset:BUILTINS[0],nativeVariables:{provider:'offline',model:'draft',cwd:'/tmp'}})
+  assert.match(result.messages.map(textOf).join('\n'), /offline\/draft at \/tmp/)
+  assert.equal(assembled.agent, undefined); assert.equal(assembled.scope, undefined)
+  assert.equal(result.backend,'native'); assert.equal(result.pendingInputsIncluded,false)
+ })

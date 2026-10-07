@@ -75,11 +75,11 @@ export class RequestAssembler {
     } finally { this.claimed.delete(payload.agent) }
   }
   observeNativeRequest(options, session) { return observeNativePlan(this.nativePlans.get(this.ctx.get('agents')?.get(options.sessionId)), options, session) }
-  async preview({ preset, agent, sessionId, signal }) {
-    if (agent?.session && this.sessionReads) return this.sessionReads.run(agent.session, () => this.#preview({ preset, agent, sessionId, signal }))
-    return this.#preview({ preset, agent, sessionId, signal })
+  async preview({ preset, agent, sessionId, signal, nativeVariables }) {
+    if (agent?.session && this.sessionReads) return this.sessionReads.run(agent.session, () => this.#preview({ preset, agent, sessionId, signal, previewVariables: nativeVariables }))
+    return this.#preview({ preset, agent, sessionId, signal, previewVariables: nativeVariables })
   }
-  async #preview({ preset, agent, sessionId, signal }) {
+  async #preview({ preset, agent, sessionId, signal, previewVariables }) {
     agent = previewAgent(this.ctx, agent)
     const snapshot = this.resources.compile({ agent, sessionId, resolveOnly: true })
     // Historical system messages may still contain the old loader's assets.
@@ -90,6 +90,9 @@ export class RequestAssembler {
     const systemPrompt = this.ctx.get('systemPrompt')
     if (systemPrompt?.assemble) {
       const current = await systemPrompt.assemble({ agent, scope: agent, tavernAssemblyPreview: true, dshAssemblerRaw: true })
+      // Trusted callers may supply pre-session model/workspace variables. This
+      // input is deliberately absent from the HTTP session-preview endpoint.
+      if (previewVariables) current.variables = { ...current.variables, ...previewVariables }
       officialSections = current.sections; nativeVariables = current.variables ?? {}
       const text = current.sections.map(section => section.interpolate === false ? section.text : section.text.replace(/\{\{([^{}]*)\}\}/g, (_, key) => {
         if (!/^[a-z][a-z0-9_]*$/.test(key) || typeof current.variables?.[key] !== 'string') throw Object.assign(new Error(`Native preview variable "${key}" is unavailable in the current session configuration`), { code: 'NATIVE_PREVIEW_VARIABLE_UNAVAILABLE', status: 409 })
