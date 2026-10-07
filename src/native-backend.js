@@ -62,7 +62,11 @@ export async function assembleNative(runtime, { preset, agent, sessionId = agent
   const expected = nativeMessages.filter(m => m.role !== 'system')
   if (JSON.stringify(finalNative.map(m => m.id)) !== JSON.stringify(expected.map(m => m.id))) fail('Native conversation order must remain unchanged.')
   const result = { ...assembly, sections, contexts: [...assembly.contexts, ...contexts], variables }
-  const plan = { logical, contributed, beforeInput, afterInput, assembly: result, snapshot, backend: 'native' }
+  // Public request-series reconciliation removes retained effective system
+  // updates when the native-system source is omitted. Original log events remain.
+  const reconcileSystem = !preset.rules.some(r => r.kind === 'native-system' && r.enabled)
+    && (agent?.session?.deriveMessages?.() ?? []).some(m => m.role === 'system' && textOf(m) !== renderOfficialSections(result))
+  const plan = { logical, contributed, beforeInput, afterInput, assembly: result, snapshot, backend: 'native', reconcileSystem }
   runtime.validateResult?.({ messages: logical.messages, metadata: { assembly: logical } }, agent)
   // The Tavern recorder reads this exact waterfall result before agent/request.
   snapshot.officialAssembly = structuredClone(result)

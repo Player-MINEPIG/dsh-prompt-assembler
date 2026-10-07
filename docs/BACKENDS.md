@@ -14,12 +14,14 @@
 | 来源正文留存 | DSH 自己记录 system 更新与 user 消息 | request-only 正文不进入原生消息历史；snapshot 使用进阶锚点 |
 | 实际证据 | 原生 durable events；Tavern Trace 的 system/context 引用与哈希 | log-only request/assembly 保存冻结请求；Trace 引用该事件 |
 
-标准版的 system 是对官方装配结果的贡献。DSH 根据模型能力决定更新在请求头替换，还是作为 in-history system 更新；标准版不移动这些原生更新。
+标准版的 system 是对官方装配结果的贡献。DSH 根据模型能力决定更新在请求头替换，还是作为 in-history system 更新；保留官方基础指令时，标准版不移动这些原生更新。关闭/省略官方基础指令后，若旧有效 system 与当前装配不同，标准版通过公开的 `startsRequestSeries` 决策要求 DSH 统一更新有效 system，避免 in-history 旧官方指令继续进入未来请求；原始历史事件保留。
 
 user `delivery:context` 是输入之后的原生上下文快照，正文变化时新增，未变化复用；`delivery:pre-step` 是实际步骤前接受的 user 消息，可在本步输入前或后。输入后固定为 context→pre-step；相反顺序会被拒绝。相同投递区域内可排序。两者**都会进入 durable history**；关闭/卸载只停止未来贡献，旧正文继续作为历史存在。context 撤销使用 DSH 自己的失效说明，pre-step 不撤回旧消息。标准版不能任意 depth、不能禁用历史/输入、不能把 system 变成历史后的贡献；不支持的配置返回 `ASSEMBLY_NATIVE_UNSUPPORTED`，不会偷偷转换。
 
-Tavern 提供三个标准预设：`builtin-native-st` 将各资产作为历史前的 system，近似 ST 顺序；`builtin-native-cache` 把变化世界书作为输入后 context，PHI 作为末尾 pre-step；`builtin-native-phi` 保留 system 资产，末尾追加 PHI user 提醒。缓存命中与指令影响仍由模型/provider 决定；末尾 user 提醒不等于末尾 system 优先级。原有 `builtin-st/cache/snapshots` 是进阶策略。
+Tavern 提供三个标准预设：`builtin-native-st` 将各资产作为历史前的 system，近似 ST 顺序，不采用条目原角色或预设聊天插槽；`builtin-native-cache` 把变化世界书作为输入后 context，PHI 作为末尾 pre-step；`builtin-native-phi` 保留 system 资产，末尾追加 PHI user 提醒。缓存命中与指令影响仍由模型/provider 决定；末尾 user 提醒不等于末尾 system 优先级。原有 `builtin-st/cache/snapshots` 是进阶策略。
 
 旧策略未写 `backend` 时仍解释为 core，原规则与 revision 保持原语义。迁移不转换策略，不删除已应用快照；缺扩展时明确返回 409 `REQUEST_ASSEMBLY_CORE_REQUIRED`。请显式选择一个标准预设或安装进阶扩展。保存草稿不应用；应用会复制会话快照。两个版本共用唯一 store/registry/UI，没有第二套历史或策略库。
 
 `runtime.capabilities()` 区分 native、core、coreExtensionInstalled、nativeRoles、nativeUserDelivery 和 nativeUserEntersHistory。`runtime.requireAvailable(preset)` 核对指定策略。旧 `available()` 是“有任一装配能力”，不能当作 core 授权。核心 protocol marker 本身不会加载进阶 backend；移除 addon 撤销 backend，保留选择与存储。
+
+“历史后条目都是 user”只说明尾部可通过 pre-step 投递。历史前若也有 user 条目（例如前文标记），标准版不能将它们插到已有历史之前。因此不能仅凭尾部角色判断能否复刻整个进阶 ST 布局。模块位置是装配规则，实际请求位置以 DSH 冻结消息为准。

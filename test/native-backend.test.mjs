@@ -79,6 +79,9 @@ for(const inHistory of [false,true])test(`standard install on stock rc.2: ${inHi
     const noNative={...p,rules:p.rules.map(r=>r.kind==='native-system'?{...r,enabled:false}:r)}
     face.store.applySnapshot('native',noNative); location='PIER';await turn('THREE')
     assert.equal(textOf(requests[2].filter(m=>m.role==='system').at(-1)),'FIRST')
+    assert.ok(!requests[2].some(m=>m.role==='system'&&textOf(m).includes('OFFICIAL')), 'disabling native system clears earlier effective system updates')
+    assert.equal(requests[2].findIndex(m=>m.role==='system'),0)
+    assert.ok(agent.session.snapshotEvents().some(e=>e.type==='system/message'&&textOf(e.data.message).includes('OFFICIAL')), 'original system events remain durable')
     stopSource();await turn('FOUR')
     assert.ok(requests[3].some(m=>textOf(m).includes('DOCK')),'prior snapshots remain historical')
     assert.ok(requests[3].some(m=>textOf(m).includes('Earlier runtime-context snapshots no longer apply.')))

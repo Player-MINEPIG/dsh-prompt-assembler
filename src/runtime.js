@@ -71,7 +71,7 @@ export class RequestAssembler {
       const lastAssistant = payload.agent.session.deriveMessages().findLast(m => m.role === 'assistant')
       const continuesTools = payload.step > 1 && lastAssistant?.content.some(b => b.type === 'tool-call')
       if (!plan || (!decision.messages?.length && !continuesTools)) return decision // Do not manufacture a waking input.
-      return { ...decision, messages: [...plan.beforeInput, ...decision.messages, ...plan.afterInput] }
+      return { ...decision, ...(plan.reconcileSystem ? { startsRequestSeries: true } : {}), messages: [...plan.beforeInput, ...decision.messages, ...plan.afterInput] }
     } finally { this.claimed.delete(payload.agent) }
   }
   observeNativeRequest(options, session) { return observeNativePlan(this.nativePlans.get(this.ctx.get('agents')?.get(options.sessionId)), options, session) }
