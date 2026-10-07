@@ -92,3 +92,5 @@ Tavern 的 preset/custom/template 保留旧手填解析兼容入口；新界面�
 Host 启用与旧策略迁移遵循[后端规则](BACKENDS.md)。上文 depth/snapshot/projectSystemSnapshots/协议 1 的合同属于进阶库路径。标准生命周期为 nativeAssembly/nativePreStep；execute 仅在 addon 显式 registerRequestBackend 后委托。应用使用 requireAvailable(preset) 检查。
 
 `GET /assembly-presets/actual?sessionId=…` 读取最近的冻结请求，不因当前策略是 native 而拒绝已有 `request/assembly`。附加 provider 可通过 `attachTavern({…,readActual})` 或 HTTP factory 的 `readActual(sessionId)` 返回 `{request,backend,recordKind,seq}`；按 DSH 日志序号与持久冻结记录比较。Tavern 的原生 observer 只保存请求边界和整组消息哈希，读取时用公共 Session detached replay 恢复该边界并核验哈希，不复制正文、不重新装配。缺少历史引用或旧会话没有当次记录时明确返回不可用。没有该 observer 的普通原生宿主无法提供完整历史请求。
+
+实际请求视图按实际消息顺序展示当时记录的来源段落，不重新求值当前预设。新原生请求的 `nativeSourceRefs` 保存 version 1、条目名称、来源字段/资源标识及消息哈希和 UTF-16 范围；system、context、pre-step PHI 和可唯一核验的嵌套引用均可关联。正文只从 DSH 历史读取。旧记录可利用已核验段落引用恢复来源标识，缺失的条目名称明确标为未记录；无法核验的区间显示“来源未记录”，不将合并的 system 全文标为官方基础指令。 同日志序号的 provider 结果只有带历史装配明细时才用于增强冻结请求展示；缺失证据不会覆盖该次冻结正文。

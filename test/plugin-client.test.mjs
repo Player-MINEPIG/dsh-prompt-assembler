@@ -220,3 +220,33 @@ test('legacy trace-root embedding can display verified native request details', 
     assert.match(ui.document.body.textContent, /NATIVE TRACE/)
   } finally { await ui.close() }
 })
+
+test('native actual view displays recorded source names and explicitly marks missing names', async () => {
+  const ui=dom()
+  try {
+    const source={plugin:'pmp-dsh-tavern',module:'preset',resourceId:'old-preset',field:'main'}
+    const nodes=[{id:'main',name:'Recorded opening rules',module:'preset',role:'system',source,sourceStatus:'recorded',text:'OLD BODY',stability:'snapshot',lifetime:'native'},
+      {id:'old',name:'preset:custom-id',module:'preset',role:'system',source:{...source,field:'custom-id'},sourceStatus:'name-unrecorded',text:'OLDER BODY',stability:'snapshot',lifetime:'native'}]
+    const fetcher=async url=>url.includes('/actual?')?json({request:{messages:[{role:'system',content:[{type:'text',text:'OLD BODY'}]}],metadata:{assembly:{backend:'native',nodes,diagnostics:[]}}}}):json({...library,selection:{...preset,backend:'native'}})
+    await act(async()=>ui.root.render(h(AssemblyPanel,{sessionId:'real',standalone:true,locale:'en',fetcher})))
+    await act(async()=>button(ui.document,'View latest actual request').click())
+    assert.match(ui.document.body.textContent,/Recorded opening rules/)
+    assert.match(ui.document.body.textContent,/Item name not recorded/)
+    assert.match(ui.document.body.textContent,/Request messages \(1\)/)
+    assert.ok(!ui.document.body.textContent.includes('Logical order (1)'))
+    await act(async()=>ui.document.querySelector('[role="button"][title="Recorded opening rules"]').click())
+    assert.match(ui.document.body.textContent,/old-preset \/ main/)
+    assert.match(ui.document.body.textContent,/OLD BODY/)
+  }finally{await ui.close()}
+})
+
+test('unannotated system messages no longer pretend to be official base instructions', async () => {
+  const ui=dom()
+  try {
+    const fetcher=async url=>url.includes('/actual?')?json({request:{messages:[{role:'system',content:[{type:'text',text:'UNATTRIBUTED'}]}],metadata:{}}}):json(library)
+    await act(async()=>ui.root.render(h(AssemblyPanel,{sessionId:'real',standalone:true,locale:'en',fetcher})))
+    await act(async()=>button(ui.document,'View latest actual request').click())
+    assert.match(ui.document.body.textContent,/Source not recorded/)
+    assert.ok(!ui.document.body.textContent.includes('Native instructions'))
+  }finally{await ui.close()}
+})

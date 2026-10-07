@@ -45,3 +45,15 @@ test('native observed requests take precedence over older advanced records witho
   observed = { ...observed, seq: 5 }
   assert.deepEqual((await read()).body.request.messages, ['OLD'])
 })
+
+test('same frozen event can gain verified historical source details without changing its messages', async () => {
+  const request = { messages: [{role:'system',content:[{type:'text',text:'ACTUAL'}]}], metadata:null }
+  const assembly = { backend:'native', nodes:[{name:'Recorded main',source:{field:'main'}}],diagnostics:[] }
+  const handler = createAssemblyApi({store:{},runtime:{},agents:()=>({}),sessions:()=>({}),
+    inspect:async()=>({events:[{seq:10,type:'request/assembly',data:request}]}),
+    readActual:async()=>({seq:10,backend:'native',request:{...request,metadata:{assembly}}})})
+  const read = await invoke(handler,'GET','/dsh-prompt-assembler/api/v1/assembly-presets/actual?sessionId=real')
+  assert.deepEqual(read.body.request.messages,request.messages)
+  assert.deepEqual(read.body.request.metadata.assembly,assembly)
+  assert.equal(request.metadata,null)
+})

@@ -17,7 +17,7 @@ export function createAssemblyApi({ store, runtime, agents, sessions, inspect, r
         const events = live?.snapshotEvents?.() ?? (sessionId && inspect ? (await inspect(sessionId)).events : [])
         const event = events.findLast(event => event.type === 'request/assembly')
         const observed = sessionId && readActual ? await readActual(sessionId) : null
-        if (observed && (!event || observed.seq > event.seq)) return send(res, 200, { ok: true, ...observed })
+        if (observed && (!event || (observed.seq > event.seq || (observed.seq === event.seq && observed.request?.metadata?.assembly)))) return send(res, 200, { ok: true, ...observed })
         return send(res, 200, { ok: true, request: event?.data ?? null, backend: event?.data?.metadata?.backend ?? runtime.selected?.(sessionId)?.backend ?? 'core', recordKind: 'request/assembly' })
       }
       if (part === 'preview' && method === 'POST') {
