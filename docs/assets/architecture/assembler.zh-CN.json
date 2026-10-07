@@ -1,0 +1,236 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "Prompt Assembler 架构",
+    "locale": "zh-CN",
+    "quality_profile": "showcase",
+    "viewBox": [
+      1380,
+      760
+    ]
+  },
+  "components": [
+    {
+      "id": "assembly-panel",
+      "type": "frontend",
+      "label": "装配策略界面",
+      "sublabel": "侧栏入口 / 安全 fetch",
+      "pos": [
+        40,
+        330
+      ],
+      "size": [
+        230,
+        78
+      ]
+    },
+    {
+      "id": "assembly-api",
+      "type": "backend",
+      "label": "策略 API 与存储",
+      "sublabel": "应用独立快照 / session ID",
+      "pos": [
+        390,
+        330
+      ],
+      "size": [
+        230,
+        78
+      ]
+    },
+    {
+      "id": "assembly-runtime",
+      "type": "backend",
+      "label": "请求装配运行时",
+      "sublabel": "共享来源与策略 / 标准默认",
+      "pos": [
+        740,
+        330
+      ],
+      "size": [
+        230,
+        78
+      ]
+    },
+    {
+      "id": "dsh-request",
+      "type": "external",
+      "label": "DSH 请求执行",
+      "sublabel": "原生冻结 / llm/stream",
+      "pos": [
+        1090,
+        330
+      ],
+      "size": [
+        230,
+        78
+      ]
+    },
+    {
+      "id": "strategy-file",
+      "type": "database",
+      "label": "assembly-presets.json",
+      "sublabel": "预设库与会话选择",
+      "pos": [
+        390,
+        100
+      ],
+      "size": [
+        230,
+        78
+      ]
+    },
+    {
+      "id": "registered-sources",
+      "type": "backend",
+      "label": "公开来源服务",
+      "sublabel": "dshPromptSources 协议 1",
+      "pos": [
+        740,
+        100
+      ],
+      "size": [
+        230,
+        78
+      ]
+    },
+    {
+      "id": "source-plugins",
+      "type": "external",
+      "label": "来源提供方",
+      "sublabel": "DSH / Tavern / 可选 Manager",
+      "pos": [
+        740,
+        590
+      ],
+      "size": [
+        230,
+        78
+      ]
+    },
+    {
+      "id": "durable-history",
+      "type": "database",
+      "label": "DSH durable history",
+      "sublabel": "原生历史 / 进阶请求记录",
+      "pos": [
+        1090,
+        590
+      ],
+      "size": [
+        230,
+        78
+      ]
+    },
+    {
+      "id": "optional-core-addon",
+      "type": "backend",
+      "label": "可选 core 扩展",
+      "sublabel": "共享 assembler / 准备后核心",
+      "pos": [
+        1090,
+        100
+      ],
+      "size": [
+        230,
+        78
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "id": "assembly-panel-assembly-api",
+      "to": "assembly-api",
+      "label": "独立 HTTP API",
+      "variant": "emphasis",
+      "from": "assembly-panel"
+    },
+    {
+      "id": "assembly-api-assembly-runtime",
+      "to": "assembly-runtime",
+      "label": "应用与只读预览",
+      "variant": "default",
+      "from": "assembly-api",
+      "labelDy": 63
+    },
+    {
+      "id": "assembly-runtime-dsh-request",
+      "to": "dsh-request",
+      "label": "公开原生接口",
+      "variant": "default",
+      "from": "assembly-runtime",
+      "labelDy": 63
+    },
+    {
+      "id": "assembly-api-strategy-file",
+      "to": "strategy-file",
+      "label": "保存与迁移合并",
+      "variant": "default",
+      "from": "assembly-api"
+    },
+    {
+      "id": "registered-sources-assembly-runtime",
+      "to": "assembly-runtime",
+      "label": "规则解析",
+      "variant": "default",
+      "from": "registered-sources",
+      "labelAt": [
+        855,
+        254
+      ]
+    },
+    {
+      "id": "source-plugins-assembly-runtime",
+      "to": "assembly-runtime",
+      "label": "公开只读 adapter",
+      "variant": "default",
+      "from": "source-plugins"
+    },
+    {
+      "id": "dsh-request-durable-history",
+      "to": "durable-history",
+      "label": "DSH 记录实际请求",
+      "variant": "default",
+      "from": "dsh-request",
+      "labelAt": [
+        1205,
+        505
+      ]
+    },
+    {
+      "id": "optional-core-hook",
+      "from": "optional-core-addon",
+      "to": "dsh-request",
+      "label": "协议 1 钩子",
+      "variant": "dashed",
+      "labelAt": [
+        1205,
+        254
+      ]
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "可独立运行",
+      "items": [
+        "无 Tavern / Manager 包依赖；新会话无隐式策略。"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "后端选择",
+      "items": [
+        "标准使用 stock rc.2；进阶需显式 addon 与协议 1。"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "历史边界",
+      "items": [
+        "标准 user 贡献留在原生历史；进阶 request-only 正文仅为日志证据。"
+      ]
+    }
+  ]
+}

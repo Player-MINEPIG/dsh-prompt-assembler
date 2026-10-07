@@ -2,6 +2,9 @@
 
 ## 0.2.0
 
+- 标准默认 native 后端使用官方 sections/context/pre-step；进阶 Host 钩子和核心准备工具拆为显式可选 core-extension 包，共享 store/registry/装配原语，旧策略不自动转换。
+- Standard native execution uses public sections/context/pre-step. The advanced Host hook and preparation tooling are a separately packed optional core-extension, sharing store/registry/primitives without converting legacy strategies.
+
 - 装配入口保留在侧栏，移除会话右上角快捷入口；独立与 Tavern 内嵌面板共用刷新事件，同步策略库及当前应用状态，保留未保存草稿。
 - Assembly remains available from the sidebar; the session-header shortcut is removed. Standalone and embedded Tavern panels share refresh events for library and applied state while preserving unsaved drafts.
 - 提供方卸载时撤销其内置预设注册，保留旧会话的已应用快照并说明提供方缺失；不把旧快照重新加入全局列表。
@@ -13,13 +16,13 @@
 - 侧栏提供当前会话（含首条消息之前的会话）及策略库；用策略创建会话时在打开之前完成绑定，无全局默认策略。
 - `dshPromptAssembler` 公开 store/runtime/registry、Tavern 只读接入与旧存储迁移；`dshPromptSources` 为共享来源服务。根导出保留可组合库 API，无 Tavern/Manager 包依赖。
 - 旧 `assembly-presets.json` 非破坏迁移保留 mode scope 与原文件；历史读取兼容 `pmp-dsh-tavern` owner，当前记录使用 `dsh-prompt-assembler`。卸载保留策略存储和 DSH durable history。
-- 显式协议 1 核心准备继续独立于插件安装；stock rc.2 缺少钩子时支持编辑/预览，并以 HTTP 409 拒绝应用。
+- 显式协议 1 核心准备继续独立于插件安装；标准策略使用 stock rc.2 公开接口；进阶缺 addon/钩子时以 HTTP 409 拒绝应用。
 
 - Standalone DSH `0.2.0-rc.2` Host plugin owns strategy storage, registry, request hook, secure API and browser entry. `dsh.bundle` / `dsh.client` metadata and a committed client build support GitHub installation.
 - Sidebar current-session assembly includes sessions before their first message; the strategy library binds new sessions before opening them, without a global default.
 - `dshPromptAssembler` exposes store/runtime/registry, Tavern read-object attachment and legacy migration; `dshPromptSources` shares source registration. Root exports remain composable library APIs, without Tavern/Manager package dependencies.
 - Non-destructive legacy `assembly-presets.json` migration retains mode scopes and the original file. Historical reads accept prior `pmp-dsh-tavern` ownership; current records use `dsh-prompt-assembler`. Removal preserves strategy storage and DSH durable history.
-- Explicit protocol 1 core preparation remains separate from installation. Stock rc.2 supports editing/preview and rejects application with HTTP 409 when the hook is absent.
+- Explicit protocol 1 core preparation remains separate from installation. Standard strategies use stock rc.2 public interfaces; advanced application requires the addon and protocol 1.
 
 ## 0.1.0
 

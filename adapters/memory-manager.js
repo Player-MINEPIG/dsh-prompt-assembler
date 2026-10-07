@@ -24,10 +24,11 @@ export function registerRequestSource(manager,registry,usage){
   return {blocks,diagnostics}
  }})
 }
-export function observeTavernRequest(manager,session,options){
+export function observeTavernRequest(manager,session,options,nativeAssembly){
  const request=session?.snapshotEvents?.().findLast(e=>e.type==='request/assembly'),data=request?.data
- if(!data||!['pmp-dsh-tavern','dsh-prompt-assembler'].includes(data.metadata?.owner)||hash(data.messages)!==hash(options.messages))return
- const assembly=data.metadata.assembly
+ const coreVerified=data&&['pmp-dsh-tavern','dsh-prompt-assembler'].includes(data.metadata?.owner)&&hash(data.messages)===hash(options.messages)
+ if(!coreVerified&&!nativeAssembly)return
+ const assembly=coreVerified?data.metadata.assembly:nativeAssembly
  if(assembly.preview)return
  const facts=assembly.diagnostics?.filter(d=>d.code==='MEMORY_RESOURCE_VERSION')??[]
  const flatten=nodes=>nodes.flatMap(n=>[n,...flatten(n.children??[])])
@@ -35,8 +36,11 @@ export function observeTavernRequest(manager,session,options){
  for(const fact of facts){
   const node=nodes.find(n=>n.source?.sourceId===SOURCE_ID&&n.source.resourceId===fact.entityId&&(n.id.endsWith(':'+fact.blockId)||n.name===fact.blockId))
   if(!node)continue
-  const requestId=`${session.id}:${request.seq}`
-  manager.recordTrace({adapterId:fact.adapterId,id:fact.entityId,eventId:requestId,requestId,phase:'applied',sessionId:session.id,turn:data.turn,turnKind:'unknown',revision:fact.resourceRevision,configRevision:fact.configRevision,strategyRevision:fact.strategyRevision,detail:'已进入 DSH 请求（llm/stream 观察；不代表网络送达）'})
+  const events=session.snapshotEvents()
+  const boundary=coreVerified?request.seq:events.findLast(e=>e.type==='step/start')?.seq
+  if(!Number.isSafeInteger(boundary))continue
+  const requestId=coreVerified ? `${session.id}:${boundary}` : `${session.id}:native:${boundary}`
+  manager.recordTrace({adapterId:fact.adapterId,id:fact.entityId,eventId:requestId,requestId,phase:'applied',sessionId:session.id,turn:coreVerified?data.turn:events.findLast(e=>e.type==='turn/start')?.data.turn,turnKind:'unknown',revision:fact.resourceRevision,configRevision:fact.configRevision,strategyRevision:fact.strategyRevision,detail:'已进入 DSH 请求（llm/stream 观察；不代表网络送达）'})
  }
 }
 
@@ -47,7 +51,7 @@ export function connectMemoryManager(ctx, registry) {
     scope.effect(() => { const stop = registerRequestSource(manager, registry, { trigger: manager.trigger }); manager.requestSourceAvailable = true; return () => { manager.requestSourceAvailable = false; stop() } })
     scope.on('llm/stream', async function*(options, next) {
       const session = scope.get('agents')?.get(options.sessionId)?.session
-      try { observeTavernRequest(manager, session, options) } catch (error) { manager.diagnostics.push({ code: 'REQUEST_OBSERVATION_FAILED', message: error.message }) }
+      try { observeTavernRequest(manager, session, options, scope.get('dshPromptAssembler')?.runtime.observeNativeRequest(options, session)) } catch (error) { manager.diagnostics.push({ code: 'REQUEST_OBSERVATION_FAILED', message: error.message }) }
       yield* next()
     })
   })

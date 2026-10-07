@@ -1,0 +1,36 @@
+{
+  "name": "dsh-prompt-assembler-core",
+  "version": "0.2.0",
+  "type": "module",
+  "description": "Optional protocol-1 request assembly backend; requires an explicitly prepared DSH core.",
+  "main": "src/plugin.js",
+  "exports": {
+    ".": "./src/plugin.js",
+    "./backend": "./src/backend.js",
+    "./scripts/*": "./scripts/*",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "src",
+    "scripts",
+    "cordis.patch.yml",
+    "README.md",
+    "README_en.md",
+    "LICENSE"
+  ],
+  "peerDependencies": {
+    "dsh-prompt-assembler": "0.2.0"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "license": "MIT",
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  },
+  "dependencies": {
+    "esbuild": "0.28.2"
+  }
+}

@@ -1,3 +1,5 @@
+import corePlugin from '../core-extension/src/plugin.js'
+import { CoreRequestBackend } from '../core-extension/src/backend.js'
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { createRequire } from 'node:module'
@@ -24,9 +26,10 @@ test('standalone DSH Host assembles native and third-party user text, records re
     ctx.llm.registerAdapter(['offline'], new Provider())
     const registry = createDshRegistry(), store = new AssemblyPresetStore(directory), stop = registerNotes(registry, { read: async () => [{ id: 'place', text: 'DOCK' }] })
     const runtime = new RequestAssembler({ ctx, store, registry, resources: { assembledFor: () => ({ assemblyInput: { nativeVariables: { provider: 'offline' } } }), compile: () => ({ assemblyInput: {} }) } })
+    runtime.registerRequestBackend(new CoreRequestBackend(runtime))
     ctx.on('agent/assemble-request', (payload, next) => runtime.execute(payload, next))
     const agent = (await ctx.agents.create({ sessionId: 'native', agentOptions: { provider: 'offline', model: 'offline' } })).agent
-    const strategy = store.save({ ...BUILTINS[0], rules: [...BUILTINS[0].rules, { id: 'native-text', kind: 'dsh.text', inputMode: 'text', text: 'DSH {{provider}}' }, { id: 'notes', kind: 'example.notes', role: 'user', inputMode: 'text', text: 'Location [[place]]' }] })
+    const strategy = store.save({ ...BUILTINS[0], backend: 'core', rules: [...BUILTINS[0].rules, { id: 'native-text', kind: 'dsh.text', inputMode: 'text', text: 'DSH {{provider}}' }, { id: 'notes', kind: 'example.notes', role: 'user', inputMode: 'text', text: 'Location [[place]]' }] })
     store.apply(agent.id, strategy.id)
     for (const value of ['ONE', 'TWO']) { agent.followup(llm.createUserMessage({ content: [{ type: 'text', text: value }], source: { kind: 'user' } })); await agent.whenIdle() }
     assert.deepEqual(errors, []); assert.equal(requests.length, 2)
@@ -60,6 +63,7 @@ test('standalone assembler connects Manager retrieval and applied evidence witho
     const registry = createDshRegistry(), store = new AssemblyPresetStore(join(directory, 'assembly'))
     ctx.provide('dshPromptSources', registry); connectMemoryManager(ctx, registry)
     const runtime = new RequestAssembler({ ctx, store, registry, resources: { assembledFor: () => ({ assemblyInput: {} }), compile: () => ({ assemblyInput: {} }) } })
+    runtime.registerRequestBackend(new CoreRequestBackend(runtime))
     ctx.on('agent/assemble-request', (payload, next) => runtime.execute(payload, next))
     const configPath = join(directory, 'config.json')
     writeFileSync(configPath, JSON.stringify({ schemaVersion: 1, revision: 1, entries: [{ id: 'example:resource', adapterId: 'example', type: 'text', whitelist: [{ global: true }], blacklist: [], retrieve: { on: 'before_model_request', rule: true, strategy: [{ operation: 'memory.read_content' }, { operation: 'memory.to_text' }] } }], presets: {} }))
@@ -68,7 +72,7 @@ test('standalone assembler connects Manager retrieval and applied evidence witho
     manager.registerAdapter({ id: 'example', authority: 'example', list: async () => [], read: async () => ({ id: 'example:resource', type: 'text', content: 'MANAGER WITHOUT TAVERN', revision: 4 }) })
     assert.equal(ctx.get('tavernRequestSources'), undefined)
     const agent = (await ctx.agents.create({ sessionId: 'manager', agentOptions: { provider: 'offline', model: 'offline' } })).agent
-    const strategy = store.save({ ...BUILTINS[0], rules: [...BUILTINS[0].rules, { id: 'memory', kind: 'memory-manager.resources', role: 'system' }] }); store.apply(agent.id, strategy.id)
+    const strategy = store.save({ ...BUILTINS[0], backend: 'core', rules: [...BUILTINS[0].rules, { id: 'memory', kind: 'memory-manager.resources', role: 'system' }] }); store.apply(agent.id, strategy.id)
     const turn = async text => { agent.followup(llm.createUserMessage({ content: [{ type: 'text', text }], source: { kind: 'user' } })); await agent.whenIdle(); assert.deepEqual(errors, []) }
     await turn('ONE')
     assert.ok(requests[0].some(m => textOf(m).includes('MANAGER WITHOUT TAVERN')))

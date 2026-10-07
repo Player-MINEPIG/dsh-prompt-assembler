@@ -100,6 +100,16 @@ export const BUILTINS = Object.freeze([
   { id: 'builtin-snapshots', ...normalizePreset({ format: FORMAT, version: 1, name: '追加快照 / Append snapshots', rules: [DEFAULT_RULES[0], DEFAULT_RULES[1], DEFAULT_RULES[2], DEFAULT_RULES[3], DEFAULT_RULES[5], DEFAULT_RULES[6], { ...DEFAULT_RULES[4], lifetime: 'snapshot' }, DEFAULT_RULES[7]] }) },
 ])
 
+export const NATIVE_RULES = Object.freeze([
+  ...DEFAULT_RULES.filter(r => !['history', 'input', 'phi'].includes(r.kind)).map(r => ({ ...r, role: r.kind === 'native-system' ? 'preserve' : 'system' })),
+  { ...DEFAULT_RULES[7], role: 'system' }, DEFAULT_RULES[5], DEFAULT_RULES[6],
+])
+export const NATIVE_BUILTINS = Object.freeze([
+  { id: 'builtin-native-st', ...normalizePreset({ format: FORMAT, version: 1, backend: 'native', name: 'ST 风格（原生） / ST style (native)', rules: NATIVE_RULES }) },
+  { id: 'builtin-native-cache', ...normalizePreset({ format: FORMAT, version: 1, backend: 'native', name: '缓存友好（原生） / Cache friendly (native)', rules: [...NATIVE_RULES.filter(r => !['worldbook', 'phi'].includes(r.kind)), { ...DEFAULT_RULES[4], role: 'user', delivery: 'context' }, { ...DEFAULT_RULES[7], role: 'user', delivery: 'pre-step' }] }) },
+  { id: 'builtin-native-phi', ...normalizePreset({ format: FORMAT, version: 1, backend: 'native', name: '后置提醒（原生） / Final reminder (native)', rules: [...NATIVE_RULES.filter(r => r.kind !== 'phi'), { ...DEFAULT_RULES[7], role: 'user', delivery: 'pre-step' }] }) },
+])
+
 export function renderTavernText({ text, context, variables, block, diagnostics, identity }) {
   for (const match of text.matchAll(/\{\{\s*([^{}]+?)\s*\}\}/g)) if (!Object.hasOwn(block.literalMacros ?? {}, match[1]) && !/^(user|char|lastusermessage|lastcharmessage|trim|random::|roll |setvar::|getvar::|\/\/)/i.test(match[1])) diagnostics.push({ code: 'UNSUPPORTED_MACRO', macro: match[1], owner: identity })
   const data = context.assets.character?.data ?? {}

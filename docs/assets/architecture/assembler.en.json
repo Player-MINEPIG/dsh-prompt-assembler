@@ -1,0 +1,236 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "Prompt Assembler architecture",
+    "locale": "en",
+    "quality_profile": "showcase",
+    "viewBox": [
+      1380,
+      760
+    ]
+  },
+  "components": [
+    {
+      "id": "assembly-panel",
+      "type": "frontend",
+      "label": "Assembly panel",
+      "sublabel": "Sidebar / secure fetch",
+      "pos": [
+        40,
+        330
+      ],
+      "size": [
+        230,
+        78
+      ]
+    },
+    {
+      "id": "assembly-api",
+      "type": "backend",
+      "label": "Preset API and store",
+      "sublabel": "Applied snapshots / session ID",
+      "pos": [
+        390,
+        330
+      ],
+      "size": [
+        230,
+        78
+      ]
+    },
+    {
+      "id": "assembly-runtime",
+      "type": "backend",
+      "label": "Assembly runtime",
+      "sublabel": "Shared registry / native default",
+      "pos": [
+        740,
+        330
+      ],
+      "size": [
+        230,
+        78
+      ]
+    },
+    {
+      "id": "dsh-request",
+      "type": "external",
+      "label": "DSH request execution",
+      "sublabel": "Native freeze / llm/stream",
+      "pos": [
+        1090,
+        330
+      ],
+      "size": [
+        230,
+        78
+      ]
+    },
+    {
+      "id": "strategy-file",
+      "type": "database",
+      "label": "assembly-presets.json",
+      "sublabel": "Library and session selections",
+      "pos": [
+        390,
+        100
+      ],
+      "size": [
+        230,
+        78
+      ]
+    },
+    {
+      "id": "registered-sources",
+      "type": "backend",
+      "label": "Public source service",
+      "sublabel": "dshPromptSources protocol 1",
+      "pos": [
+        740,
+        100
+      ],
+      "size": [
+        230,
+        78
+      ]
+    },
+    {
+      "id": "source-plugins",
+      "type": "external",
+      "label": "Source providers",
+      "sublabel": "DSH / Tavern / optional Manager",
+      "pos": [
+        740,
+        590
+      ],
+      "size": [
+        230,
+        78
+      ]
+    },
+    {
+      "id": "durable-history",
+      "type": "database",
+      "label": "DSH durable history",
+      "sublabel": "Native history / advanced records",
+      "pos": [
+        1090,
+        590
+      ],
+      "size": [
+        230,
+        78
+      ]
+    },
+    {
+      "id": "optional-core-addon",
+      "type": "backend",
+      "label": "Optional core addon",
+      "sublabel": "Peer assembler / prepared core",
+      "pos": [
+        1090,
+        100
+      ],
+      "size": [
+        230,
+        78
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "id": "assembly-panel-assembly-api",
+      "to": "assembly-api",
+      "label": "Independent HTTP API",
+      "variant": "emphasis",
+      "from": "assembly-panel"
+    },
+    {
+      "id": "assembly-api-assembly-runtime",
+      "to": "assembly-runtime",
+      "label": "Apply / read-only preview",
+      "variant": "default",
+      "from": "assembly-api",
+      "labelDy": 63
+    },
+    {
+      "id": "assembly-runtime-dsh-request",
+      "to": "dsh-request",
+      "label": "Public native interfaces",
+      "variant": "default",
+      "from": "assembly-runtime",
+      "labelDy": 63
+    },
+    {
+      "id": "assembly-api-strategy-file",
+      "to": "strategy-file",
+      "label": "Save / migration merge",
+      "variant": "default",
+      "from": "assembly-api"
+    },
+    {
+      "id": "registered-sources-assembly-runtime",
+      "to": "assembly-runtime",
+      "label": "Resolve rules",
+      "variant": "default",
+      "from": "registered-sources",
+      "labelAt": [
+        855,
+        254
+      ]
+    },
+    {
+      "id": "source-plugins-assembly-runtime",
+      "to": "assembly-runtime",
+      "label": "Public read-only adapters",
+      "variant": "default",
+      "from": "source-plugins"
+    },
+    {
+      "id": "dsh-request-durable-history",
+      "to": "durable-history",
+      "label": "DSH records actual request",
+      "variant": "default",
+      "from": "dsh-request",
+      "labelAt": [
+        1205,
+        505
+      ]
+    },
+    {
+      "id": "optional-core-hook",
+      "from": "optional-core-addon",
+      "to": "dsh-request",
+      "label": "Protocol 1 hook",
+      "variant": "dashed",
+      "labelAt": [
+        1205,
+        254
+      ]
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "Standalone",
+      "items": [
+        "No Tavern / Manager package dependency; no implicit strategy."
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "Backend choice",
+      "items": [
+        "Standard works on stock rc.2; advanced explicitly requires addon + protocol 1."
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "History boundary",
+      "items": [
+        "Native user contributions persist; advanced request-only bodies remain log evidence."
+      ]
+    }
+  ]
+}

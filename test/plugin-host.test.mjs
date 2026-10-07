@@ -1,3 +1,5 @@
+import corePlugin from '../core-extension/src/plugin.js'
+import { CoreRequestBackend } from '../core-extension/src/backend.js'
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { createRequire } from 'node:module'
@@ -27,10 +29,11 @@ test('installable assembler owns first request, source removal and native histor
     }
     ctx.llm.registerAdapter(['offline'], new Provider())
     const handle = ctx.plugin(plugin, { storageDir: directory }); await handle
+    await ctx.plugin(corePlugin)
     const core = ctx.get('dshPromptAssembler')
     assert.ok(core); assert.equal(ctx.get('tavernRequestSources'), undefined)
     const stop = registerNotes(core.registry, { read: async () => [{ id: 'place', text: 'DOCK' }] })
-    const strategy = core.store.save({ ...BUILTINS[0], rules: [...BUILTINS[0].rules, { id: 'native-text', kind: 'dsh.text', inputMode: 'text', text: 'DSH INSERT' }, { id: 'notes', kind: 'example.notes', role: 'user', inputMode: 'text', text: 'Location [[place]]' }] })
+    const strategy = core.store.save({ ...BUILTINS[0], backend: 'core', rules: [...BUILTINS[0].rules, { id: 'native-text', kind: 'dsh.text', inputMode: 'text', text: 'DSH INSERT' }, { id: 'notes', kind: 'example.notes', role: 'user', inputMode: 'text', text: 'Location [[place]]' }] })
     // Apply before Agent creation / the first model request.
     core.store.apply('native', strategy.id)
     const agent = (await ctx.agents.create({ sessionId: 'native', agentOptions: { provider: 'offline', model: 'offline' } })).agent

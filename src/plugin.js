@@ -25,6 +25,7 @@ export function apply(ctx, config = {}) {
   const sessionReads = { run: (session, fn) => provider?.sessionReads ? provider.sessionReads.run(session, fn) : fn() }
   const runtime = new RequestAssembler({ ctx, store, registry, resources, sessionReads,
     afterAssembly: (...args) => provider?.afterAssembly?.(...args) })
+  runtime.validateResult = (...args) => provider?.validateResult?.(...args)
   const face = {
     registry, store, runtime,
     migrateLegacy: root => store.migrateLegacy(root),
@@ -34,7 +35,7 @@ export function apply(ctx, config = {}) {
       provider = options
       const previous = { builtins: store.builtins, defaultPresetId: store.defaultPresetId }
       store.builtins = [...BUILTINS, ...(options.builtins ?? []).filter(p => !BUILTINS.some(b => b.id === p.id))]
-      store.defaultPresetId = options.defaultPresetId ?? BUILTINS[0].id
+      store.defaultPresetId = runtime.requestAssemblyAvailable() && options.coreDefaultPresetId ? options.coreDefaultPresetId : options.defaultPresetId ?? BUILTINS[0].id
       return () => { if (provider !== options) return; provider = null; Object.assign(store, previous) }
     },
   }
@@ -43,24 +44,21 @@ export function apply(ctx, config = {}) {
   // Capture the complete result after all providers, without emitting events or
   // storing an extra history. This is the snapshot used by native DSH text.
   ctx.on('system-prompt/assemble', async (assembly, context, next) => {
-    const result = await next()
-    if (context.agent) nativeSnapshots.set(context.agent, { assemblyInput: {}, officialAssembly: structuredClone(result) })
-    return result
+    try {
+      const result = await next()
+      if (context.agent) nativeSnapshots.set(context.agent, { assemblyInput: {}, officialAssembly: structuredClone(result) })
+      return await runtime.nativeAssembly(result, context)
+    } finally {
+      // Claimed inputs are needed only for this assembly, including failed or aborted attempts.
+      if (context.agent && !context.dshAssemblerRaw && !context.tavernAssemblyPreview) runtime.claimed.delete(context.agent)
+    }
   })
-  ctx.on('agent/assemble-request', async (payload, next) => {
-    const result = await runtime.execute(payload, next)
-    provider?.validateResult?.(result, payload.agent)
-    return result
-  })
+  ctx.on('agent/inbox/claimed', payload => runtime.claim(payload))
   ctx.on('agent/created', ({ agent }) => {
     const parent = agent.session?.header?.parentSession
     if (parent) store.copySelection(parent, agent.id)
   })
-  ctx.on('agent/pre-step', async (payload, next) => {
-    const decision = await next()
-    if (decision?.kind === 'reject' || payload.signal?.aborted) return decision
-    return runtime.available() && runtime.startsSeries(payload.agent) ? { ...decision, startsRequestSeries: true } : decision
-  })
+  ctx.on('agent/pre-step', (payload, next) => runtime.nativePreStep(payload, next))
   if (typeof ctx.inject === 'function') {
     connectMemoryManager(ctx, registry)
     ctx.inject(['webServer'], scope => {

@@ -16,7 +16,7 @@ const result = await assembleRequestAsync({ registry, preset, nativeMessages, in
 stop()
 ```
 
-示例 `myNotesStore.read({sessionId,signal})` 返回 `{id,text}[]`，接入方自行实现。注册不会加入策略或写入历史。`result.messages` 是逻辑贡献；实际 DSH 请求还需 `projectSystemSnapshots`，以及显式准备的协议 1 pre-freeze `agent/assemble-request` 钩子。Stock DSH `0.2.0-rc.2` 没有该钩子，插件安装不会修改核心。不要用逻辑消息直接替代原生 durable history。
+示例 `myNotesStore.read({sessionId,signal})` 返回 `{id,text}[]`，接入方自行实现。注册不会加入策略或写入历史。`result.messages` 是逻辑贡献。标准 Host 通过共享 runtime 的官方 sections/context/pre-step 接入，不直接发送该数组。进阶完整请求替换才需要 `projectSystemSnapshots` 和显式准备的协议 1 pre-freeze `agent/assemble-request` 钩子。Stock DSH `0.2.0-rc.2` 没有该钩子，插件安装不会修改核心。不要用逻辑消息直接替代原生 durable history。
 
 ## 来源及解析器
 
@@ -24,7 +24,7 @@ stop()
 
 `resolve(context,rule)` 获取来源内容，与 `parseText(context,rule)` 是独立能力，至少实现一个。来源只有分散内容而不能提供独立模块时，可只注册 `parseText`；也可显式设置 `supportsModule:false` 保留旧 resolver 的兼容用途。此类来源不进入模块添加菜单，但仍出现在文本解析器菜单。`moduleAvailable({sessionId})` 可选，是同步、只读的 metadata 布尔判断：当前会话没有独立内容时返回 false；不是使用权限，不执行检索或正文解析。`registry.list({sessionId})` 的 descriptor 同时返回 `supportsModule`、`moduleAvailable`、`acceptsText`。
 
-用户通过“添加自定义文本”选解析器，生成 `inputMode:'text'` 规则；该路径只调用来源的 `parseText`，接受 `{blocks,macros?,diagnostics?}`，位置、角色、深度及快照仍由 assembler 管理。选择解析器不添加或恢复对应来源模块，多个文本规则可使用同一解析器。第三方文本不会隐式运行 ST、EJS 或 JavaScript。`renderText({text,context,variables,block,diagnostics,identity})` 可选，必须同步返回字符串；默认保持正文，在已声明的来源宏引用展开之后运行。
+用户通过“添加自定义文本”选解析器，生成 `inputMode:'text'` 规则；该路径只调用来源的 `parseText`，接受 `{blocks,macros?,diagnostics?}`，位置、角色、深度及快照由选中后端管理。选择解析器不添加或恢复对应来源模块，多个文本规则可使用同一解析器。第三方文本不会隐式运行 ST、EJS 或 JavaScript。`renderText({text,context,variables,block,diagnostics,identity})` 可选，必须同步返回字符串；默认保持正文，在已声明的来源宏引用展开之后运行。
 
 Tavern 的统一 `tavern.text` 解析器按固定顺序处理：先对手填正文执行只读 EJS，再识别 history/input/world-info 引用，最后展开角色、用户等内容宏及 ST 宏。引用来的文本不再次执行 EJS；EJS helper 的访问许可与来源租约不变。没有模板运行时遇到 EJS 会明确失败，不把代码当作普通正文发送。ST setvar/getvar 在本请求内共享临时变量，顺序可能影响结果；它们不是 MVU 持久变量。
 
@@ -48,13 +48,13 @@ Tavern 的存储模板仅在当前会话存在启用且支持的资源时可作�
 
 按模块列表放置时，明确列出的输出块由列表控制位置与深度；引用与正文宏不能搬走或重新启用它。未列出的依赖按引用方位置输出，未引用的注册来源不会自动出现。referenceOnly 字段可由引用方消费，例如角色 PHI。ST 放置由 Tavern adapter 保留插槽和深度语义；同深度 injection_order 升序。原生系统更新边界与工具调用/结果必须完整；非法顺序拒绝。
 
-`role:'preserve'` 保留来源的 role（未给出时 system）；用户可覆盖 system/user/assistant，原生模块只支持 preserve/request。深度 0 为末尾，正数从原生非 system 消息末尾计数，工具事务中间向后调整。`request` 每次重算，`snapshot` 变化时保留原文和历史锚点；来源禁用、卸载或改为 request 后旧快照不再注入，已有日志正文仍可读。
+`role:'preserve'` 保留来源的 role（未给出时 system）；进阶策略可覆盖 system/user/assistant；标准策略遵循 [BACKENDS](BACKENDS.md) 的投递与角色边界，原生模块只支持 preserve/request。深度 0 为末尾，正数从原生非 system 消息末尾计数，工具事务中间向后调整。`request` 每次重算，`snapshot` 变化时保留原文和历史锚点；来源禁用、卸载或改为 request 后旧快照不再注入，已有日志正文仍可读。
 
 ## 内置接入与宿主组合
 
 - `createDshRegistry()` 提供原生基础指令、历史、本步输入和 `dsh.text`。后者用原生 `{{变量名}}` 插值，缺变量明确拒绝；不接受 ST 特有宏。DSH Skill 的 pre-step metadata、tool 正文、slash 继续由 DSH 运行，不复制注入。
 - `adapters/tavern` 提供 `registerTavernSources`、`parseTavernText`、模板与 MVU 注册函数，以及兼容 preset。Tavern 手填内容与 preset 共用 history/input/world-info 引用解析和 ST 宏，来源文本原文只读；资源编辑仍在 Tavern。
-- `adapters/memory-manager` 的 `connectMemoryManager(ctx,registry)` 随 `dshMemoryManager` 服务出现/卸载注册来源。Manager 的 `requestAssemblyResources()` 返回分离配置快照；`trigger` 执行只读检索，排除由来源自己管理的 MVU/世界书/模板，避免重复注入。 observer 只有核对持久 `request/assembly`、实际消息哈希与节点身份后才记录 applied；不代表网络送达。
+- `adapters/memory-manager` 的 `connectMemoryManager(ctx,registry)` 随 `dshMemoryManager` 服务出现/卸载注册来源。Manager 的 `requestAssemblyResources()` 返回分离配置快照；`trigger` 执行只读检索，排除由来源自己管理的 MVU/世界书/模板，避免重复注入。 observer 核对冻结实际消息与 source 节点；进阶使用 request/assembly 哈希，标准使用 system 全文、context section 或 pre-step 消息身份，然后才记录 applied；不代表网络送达。
 
 独立插件在 Host 中组合自己的 store、registry、runtime、HTTP 与浏览器界面。package `main` 为 `src/plugin.js`；`./plugin` 提供 Host 入口，`./client` 提供浏览器入口；根导出仍为库原语。`dsh.bundle` 指向 `cordis.patch.yml`，`dsh.client` 指向提交的 `dist/client.js`。共享来源服务是 `dshPromptSources`。
 
@@ -62,13 +62,15 @@ Tavern 的存储模板仅在当前会话存在启用且支持的资源时可作�
 
 `attachTavern({resources,sessionReads,mode,builtins,defaultPresetId,afterAssembly})` 接收来源拥有的公开只读资源对象、读取租约及兼容配置，返回 disposer。Tavern 通过 `registerTavernSources` 将来源注册到共享 registry；注册与卸载跟随来源的 scoped context，不重复注册 DSH 内置来源。assembler 不依赖 Tavern/Manager 包，不读取其内部文件。来源内容、解析权限与资源编辑仍归来源。Tavern 要求独立安装并挂载的 assembler 服务，保留旧 service/HTTP 转发到同一 owned store/runtime；新接入使用 assembler 服务与 API。不要给同一请求同时安装两个独立策略 hook。
 
-`migrateLegacy(root)` 校验旧 `assembly-presets.json`，只合并当前存储缺少的 ID；当前 assembler 条目优先，旧文件不改写。旧 `play:` / `native:` scope 保留。独立选择先查原始 session ID，再回退到显式 `native:<id>`、`play:<id>`，包括显式 null；没有旧选择的新会话不回退到默认策略。尚未重新应用的旧选择按 Tavern 当前 mode 读取；在独立插件中重新应用后，以 session ID 统一绑定，重装 Tavern 或切换视图不会恢复旧选择。`adapters/tavern-runtime` 继续提供兼容组合原语。
+`migrateLegacy(root)` 校验旧 `assembly-presets.json`，只合并当前存储缺少的 ID；当前 assembler 条目优先，旧文件不改写。旧 `play:` / `native:` scope 保留。独立选择先查原始 session ID，再回退到显式 `native:<id>`、`play:<id>`，包括显式 null；独立运行且未挂 Tavern 时没有默认策略。尚未重新应用的旧选择按 Tavern 当前 mode 读取；在独立插件中重新应用后，以 session ID 统一绑定，重装 Tavern 或切换视图不会恢复旧选择。`adapters/tavern-runtime` 继续提供兼容组合原语。
 
-当前请求 metadata owner 为 `dsh-prompt-assembler`，历史读取仍接受旧 `pmp-dsh-tavern` 快照。移除来源或卸载插件不转换原生历史，不将旧装配正文复制进历史；插件卸载保留自己的策略存储与 DSH durable history。
+Tavern 默认使用原生 ST 风格；显式挂载 addon 可选进阶默认。现有统一/旧 scope 快照保留原后端；独立运行没有隐式默认。
 
-独立宿主使用 `RequestAssembler({ctx,store,resources,registry,sessionReads,owner})`。resources 提供只读 `compile({agent,sessionId,resolveOnly:true})` 和当前 `assembledFor(agent)` 快照（assemblyInput、officialAssembly、diagnostics），可设 maxProfileBytes。库调用方在 DSH 资源装配后、冻结请求前调用 execute，并接入 store.copySelection 的会话继承。Preview 使用当前官方 systemPrompt 和独立 Session；`createSessionReadContext` 仅共享一次读取租约，不附着冷 Session。不要同时给同一请求安装两个独立策略 hook。
+当前请求 metadata owner 为 `dsh-prompt-assembler`，历史读取仍接受旧 `pmp-dsh-tavern` 快照。移除来源或卸载插件不转换原生历史，标准 user 贡献已在原生历史中，进阶不将旧装配正文复制进历史；插件卸载保留自己的策略存储与 DSH durable history。
 
-独立插件把 API 放在 Host 的认证、同源校验与适用的 desktop 令牌边界内，并在浏览器使用安全 fetch。库的 HTTP factory 负责 JSON/规则原语，不负责认证。调用方在已认证路径下调用 `createAssemblyApi({store,runtime,agents,sessions,inspect,notify,root})`。UI 用 `AssemblyPanel({sessionId,fetcher,apiRoot,locale,traceRoot?,refreshEvent,close})`；desktop 必须传入其安全 fetch wrapper。核心能力检查为 `agentLoop.requestAssemblyVersion===1`。缺少能力时编辑与只读预览仍可用，应用非空策略返回 HTTP 409（`REQUEST_ASSEMBLY_CORE_REQUIRED`）；核心须通过 [安装说明](INSTALLATION.md)中的准备工具显式准备。
+进阶库调用方先显式注册 `CoreRequestBackend`；标准 Host 接入复用插件的公开接口钩子。独立宿主使用 `RequestAssembler({ctx,store,resources,registry,sessionReads,owner})`。resources 提供只读 `compile({agent,sessionId,resolveOnly:true})` 和当前 `assembledFor(agent)` 快照（assemblyInput、officialAssembly、diagnostics），可设 maxProfileBytes。库调用方在 DSH 资源装配后、冻结请求前调用 execute，并接入 store.copySelection 的会话继承。Preview 使用当前官方 systemPrompt 和独立 Session；`createSessionReadContext` 仅共享一次读取租约，不附着冷 Session。不要同时给同一请求安装两个独立策略 hook。
+
+独立插件把 API 放在 Host 的认证、同源校验与适用的 desktop 令牌边界内，并在浏览器使用安全 fetch。库的 HTTP factory 负责 JSON/规则原语，不负责认证。调用方在已认证路径下调用 `createAssemblyApi({store,runtime,agents,sessions,inspect,notify,root})`。UI 用 `AssemblyPanel({sessionId,fetcher,apiRoot,locale,traceRoot?,refreshEvent,close})`；desktop 必须传入其安全 fetch wrapper。core 能力要求 addon 挂载及 `agentLoop.requestAssemblyVersion===1`；缺任一拒绝进阶应用，标准策略检查 native 能力；核心须通过 [安装说明](INSTALLATION.md)中的准备工具显式准备。
 
 ## 第三方验收
 
@@ -86,3 +88,5 @@ Tavern 的 preset/custom/template 保留旧手填解析兼容入口；新界面�
 `AssemblyPresetStore.applySnapshot(sessionId, presetOrNull)` 验证并保存独立策略快照，不写入预设库。适用于先保存插件草稿、再创建真实 DSH 会话的调用方；`null` 解除装配策略。与 `apply` 相同，保存后该会话的快照成为请求装配的权威，不随库中同名预设修改而变化。
 
 嵌入 `AssemblyPanel` 的调用方可传 `selectionTarget: { id, editable, getSelection(), applyAssembly(presetIdOrNull) }`，以异步方式读写插件自己的开场配置；`applyAssembly` 返回 `{ selection }`。此时不传 `sessionId`，面板按 target 身份挂载、显示其已保存快照，并继续使用装配器的规则库。应用/重置/禁用交给调用方持久保存，首次发送时再用 `applySnapshot` 接入真实会话。该 target 不模拟 DSH 会话；展开预览和请求轨迹仅对真实 `sessionId` 开放。
+
+Host 启用与旧策略迁移遵循[后端规则](BACKENDS.md)。上文 depth/snapshot/projectSystemSnapshots/协议 1 的合同属于进阶库路径。标准生命周期为 nativeAssembly/nativePreStep；execute 仅在 addon 显式 registerRequestBackend 后委托。应用使用 requireAvailable(preset) 检查。

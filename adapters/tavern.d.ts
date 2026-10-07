@@ -10,3 +10,5 @@ export const DEFAULT_RULES: readonly Rule[]
 export function registerTavernTemplateSource(registry: RequestSourceRegistry, service: { parseText?(context: SourceContext, rule: Readonly<Rule>): SourceOutput | Promise<SourceOutput>; hasModule?(scope: { sessionId?: string }): boolean; resolve(context: SourceContext): SourceOutput | Promise<SourceOutput>; validateResolved(context: SourceContext): void }): () => void
 export function registerTavernMvuSource(registry: RequestSourceRegistry, service: { resolveRequest(context: SourceContext): SourceOutput | Promise<SourceOutput>; validateResolved(context: SourceContext): void }): () => void
 export function diagnoseTavernAssembly(assembly: import('../src/index.js').AssemblyResult, context: SourceContext): void
+
+export const NATIVE_BUILTINS: readonly import("../src/index.js").Preset[]

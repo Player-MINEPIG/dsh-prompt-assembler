@@ -1,58 +1,46 @@
 # Installation and operation
 
-[中文](INSTALLATION.md) · [README](../README_en.md) · [Integration contract](INTEGRATION_en.md)
+[中文](INSTALLATION.md) · [README](../README_en.md) · [Backend behavior](BACKENDS_en.md)
 
-## Compatibility target
+Target DSH `0.2.0-rc.2`, Node `^22.19.0 || >=24` for the Host; library-only use supports Node >=20. Verify other DSH versions separately.
 
-The exact Host target is DSH `0.2.0-rc.2`, running Node `^22.19.0 || >=24`. The assembly library runs independently on Node >=20. Other DSH versions require their own service, client-slot and protocol verification.
-
-## Install the plugin
+## Standard installation
 
 ```sh
 dsh plugin --profile web add github:Player-MINEPIG/dsh-prompt-assembler#main
 ```
 
-The private `Player-MINEPIG/dsh-prompt-assembler` repository requires authorized GitHub access. It is not yet eligible as a publicly accessible plugin-directory entry; no npm package is published in this work. GitHub installation uses package metadata: `main: src/plugin.js`, `dsh.bundle: cordis.patch.yml`, and `dsh.client` pointing at prebuilt `dist/client.js`. The client bundle is committed, with no source build at installation.
+The repository is public. Standard metadata provides `main:src/plugin.js`, `dsh.bundle:cordis.patch.yml` and prebuilt `dist/client.js`. Stock rc.2 needs no core changes. Stop/restart the intended Host, then use the sidebar. Saving and applying are separate; new sessions bind before opening. Standalone use has no global default and does not require Tavern. Repository visibility does not establish npm, tag/release or plugin-directory publication.
 
-Restart the Host for the selected profile and open its browser UI. The sidebar offers current-session assembly and the strategy library, including blank sessions. Saving a strategy and applying it to a session are separate operations. Creating a session using a strategy binds it before opening it; there is no global default. Tavern is optional: native DSH and third-party registry sources work independently.
+## Optional advanced extension
 
-## Explicitly prepare the request hook
-
-Stock rc.2 core lacks the protocol 1 `agent/assemble-request` seam. The plugin checks `agentLoop.requestAssemblyVersion === 1` and never modifies core during installation. Without prepared core, edit/import/export and read-only preview work. Applying a non-null strategy returns HTTP 409 with `REQUEST_ASSEMBLY_CORE_REQUIRED`.
-
-Install development dependencies in the plugin source checkout, then generate separate output from exact rc.2 source:
+Pack core-extension separately from the same checkout, then explicitly enable its tgz:
 
 ```sh
 npm ci
-node scripts/prepare-request-assembly.mjs <DSH-0.2.0-rc.2-source> <separate-output>
+npm run build
+npm pack ./core-extension --ignore-scripts --pack-destination .local/packages
+node core-extension/scripts/prepare-request-assembly.mjs <DSH-0.2.0-rc.2-source> <separate-output>
+dsh plugin --profile web add /path/to/dsh-prompt-assembler-core-0.2.0.tgz
 ```
 
-Replace the angle-bracket placeholders. The tool verifies the `dsh-session` and `dsh-agent-loop` versions and pinned source digests. It rejects different source and overlapping input/output directories. It writes separate output and `receipt.json`, without modifying the source checkout or installed DSH. Review the output, stop the intended Host, back up its profile and original core, then replace the corresponding builds through that environment's existing core installation procedure and restart. This tool is not an installer. Runtime replacement must be authorized for the intended environment.
+Replace placeholder paths. The addon peers with `dsh-prompt-assembler@0.2.0`, sharing its store/UI. Preparation verifies pinned Session/AgentLoop versions and source digests, writes separate output and a receipt, and refuses overlapping paths. It does not modify source or installed core. Review output, stop/back up the authorized Host, then replace builds through that environment's core installation procedure. Plugin installation, preparation and runtime replacement are separate actions.
 
-Prepared core invokes assembly before freezing the request and records a log-only `request/assembly` snapshot. This stores the actual request surface without rewriting native message history or proving provider delivery.
+Mounting requires `agentLoop.requestAssemblyVersion===1`. Prepared core alone does not enable advanced strategies; the addon must also be mounted. Missing either permits editing/preview but returns 409 on core application. The standard tarball excludes preparation tooling and the addon bundle; root `scripts/prepare-request-assembly.mjs` is only a source-development compatibility entry.
 
-## Storage, migration and removal
+## Storage and removal
 
-Strategies and session selections belong to the assembler's own Host store at `dshHomePath('dsh-prompt-assembler')`, in `assembly-presets.json`. Explicitly migrate a legacy Tavern `assembly-presets.json` using `dshPromptAssembler.migrateLegacy(root)`, where `root` identifies the old store directory. Migration preserves the original file and old `play:` / `native:` mode scopes. Current owned entries win; migration merges only absent IDs. Standalone selection checks the raw session ID, then explicit `native:<id>` and `play:<id>` entries, including explicit null. New sessions without a legacy selection receive no implicit default. Reapplying binds the raw Session ID ahead of legacy mode choices, including after Tavern is reinstalled. It does not copy source resources into strategies or convert DSH history. Run migration only in an authorized runtime.
+Strategies/session snapshots live in `dshHomePath('dsh-prompt-assembler')/assembly-presets.json`. Explicit `migrateLegacy(root)` merges absent IDs and retains old files and play/native scopes. Unified session selection, including null, wins over legacy mode fallback. Missing backend remains core, without automatic conversion. Standalone use has no default. Attached Tavern uses standard ST style for unbound play sessions and new openings; explicitly installed addons can retain the advanced default. Existing snapshots remain unchanged.
 
-Current request records use owner `dsh-prompt-assembler`; historical reads still accept prior `pmp-dsh-tavern` snapshots. The preset catalog contains only currently registered built-ins and user-saved presets. Removing a provider withdraws its built-ins from that catalog; an applied session snapshot remains with an unavailable-provider notice and cannot be reapplied as a built-in to another session. Removing the plugin preserves strategy storage and DSH durable history, and native DSH can continue using original sessions. Prepared core is a separate change: restore the retained original core build if returning to stock rc.2, and verify the preserved durable history.
+Provider removal withdraws its sources/catalog entries while retaining applied snapshots/storage. Standard user contributions remain native history; advanced request-only contributions stop, while request/assembly remains readable. Disable or switch core strategies before removing the addon; retained core selections fail explicitly. Returning to stock uses the original retained core builds. Migrations and real-profile writes require an authorized environment.
 
 ## Verification
 
 ```sh
 npm ci
 npm run check
-```
-
-Standard CI runs these commands. Host tests skip without an external prepared core. Run real Host checks separately and explicitly:
-
-```sh
-DSH_ASSEMBLER_CORE_ROOT=<prepared-runtime> node --test test/host.test.mjs test/plugin-host.test.mjs
+DSH_ASSEMBLER_STOCK_ROOT=<stock-runtime> node --test test/native-backend.test.mjs
 DSH_ASSEMBLER_CORE_ROOT=<prepared-runtime> DSH_ASSEMBLER_MANAGER_ROOT=<manager-checkout> node --test test/host.test.mjs test/plugin-host.test.mjs
 ```
 
-`test/plugin-host.test.mjs` exercises the installable plugin on the actual prepared Host; `test/host.test.mjs` covers library composition and optional Manager integration. These fixtures use temporary sessions and an offline synthetic provider. They cover assembly, durable records, source removal and optional Manager integration; they do not establish real-provider, user-data or browser acceptance. Browser and desktop checks should cover sidebar entry, sessions before their first message, strategy binding before new-session opening, save/apply/preview, secure fetch, switching and removal. Record a specific gap when the necessary runtime is unavailable.
-
-## Public directory requirements
-
-Before a later `awesome-dsh-plugin` submission, provide complete `dsh.bundle`, callable plugin behavior, accurate installation instructions, a repository at least one day old, and readable source when public. The current private repository cannot serve as a publicly accessible entry. Submit a directory entry only after separate authorization; it is outside this plugin preparation.
+Host fixtures use temporary sessions and offline synthetic providers, covering native/advanced assembly, durable evidence, removal and optional Manager. Skipped fixtures do not establish acceptance. Browser/desktop checks separately cover sidebar, blank sessions, save/apply/preview, secure fetch, switching and removal. Real providers/user profiles require their own authorized acceptance. Directory submissions and tag/release/npm publication require explicit authorization.

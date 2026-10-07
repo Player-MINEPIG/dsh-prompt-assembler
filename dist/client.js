@@ -50,26 +50,78 @@ function normalizePreset(value) {
   if (!value || value.format !== FORMAT || value.version !== 1) throw new TypeError("Unsupported assembly preset format/version");
   if (typeof value.name !== "string" || !value.name.trim() || value.name.length > 200) throw new TypeError("Preset name is required (max 200 characters)");
   if (!Array.isArray(value.rules) || value.rules.length > 128) throw new TypeError("Expected at most 128 assembly rules");
+  if (value.backend !== void 0 && !["native", "core"].includes(value.backend)) throw new TypeError("Invalid assembly backend");
   const ids = /* @__PURE__ */ new Set(), kinds = /* @__PURE__ */ new Set();
   const rules = value.rules.map((rule) => {
     if (!rule || !/^[a-zA-Z0-9_-]{1,80}$/.test(rule.id) || ids.has(rule.id)) throw new TypeError("Rule ids must be unique");
     if (typeof rule.kind !== "string" || !/^[a-zA-Z0-9][a-zA-Z0-9_.:/-]{0,159}$/.test(rule.kind)) throw new TypeError("Invalid or duplicate module");
     ids.add(rule.id);
     kinds.add(rule.kind);
+    if (rule.delivery !== void 0 && !["context", "pre-step"].includes(rule.delivery)) throw new TypeError("Invalid native user delivery");
     const role = ["custom", "dsh.text"].includes(rule.kind) ? rule.role === "preserve" ? "system" : rule.role ?? "user" : rule.role ?? "preserve", lifetime = rule.lifetime ?? "request";
     if (!["preserve", "system", "user", "assistant"].includes(role)) throw new TypeError("Invalid role");
     if (!["request", "snapshot"].includes(lifetime)) throw new TypeError("Invalid lifetime");
     if (rule.depth !== void 0 && rule.depth !== null && (!Number.isInteger(rule.depth) || rule.depth < 0 || rule.depth > 1e4)) throw new TypeError("Invalid insertion depth");
     if (typeof (rule.text ?? "") !== "string" || (rule.text ?? "").length > 524288) throw new TypeError("Custom text exceeds limit");
     if (rule.inputMode !== void 0 && !["source", "text"].includes(rule.inputMode)) throw new TypeError("Invalid rule inputMode");
-    return { ...rule.inputMode === "text" ? { inputMode: "text" } : {}, id: rule.id, kind: rule.kind, enabled: rule.enabled !== false, role, lifetime, depth: rule.depth ?? null, text: rule.text ?? "", name: typeof rule.name === "string" ? rule.name.slice(0, 200) : "" };
+    return { ...rule.delivery ? { delivery: rule.delivery } : {}, ...rule.inputMode === "text" ? { inputMode: "text" } : {}, id: rule.id, kind: rule.kind, enabled: rule.enabled !== false, role, lifetime, depth: rule.depth ?? null, text: rule.text ?? "", name: typeof rule.name === "string" ? rule.name.slice(0, 200) : "" };
   });
-  return { format: FORMAT, version: 1, name: value.name.trim(), placement: value.placement === "st" ? "st" : "modules", rules };
+  return { ...value.backend ? { backend: value.backend } : {}, format: FORMAT, version: 1, name: value.name.trim(), placement: value.placement === "st" ? "st" : "modules", rules };
 }
-var BUILTINS = Object.freeze([{ id: "builtin-native", ...normalizePreset({ format: FORMAT, version: 1, name: "DSH \u539F\u751F / DSH native", rules: DEFAULT_RULES }) }]);
+var BUILTINS = Object.freeze([{ id: "builtin-native", ...normalizePreset({ format: FORMAT, version: 1, name: "DSH \u539F\u751F / DSH native", backend: "native", rules: DEFAULT_RULES }) }]);
+
+// src/native-policy.js
+var fail = (message, detail) => {
+  throw Object.assign(new Error(message), { status: 409, code: "ASSEMBLY_NATIVE_UNSUPPORTED", detail });
+};
+function presetBackend(preset) {
+  return preset?.backend ?? "core";
+}
+function validateNativePreset(value) {
+  const preset = normalizePreset(value);
+  if (presetBackend(preset) !== "native") fail("This strategy requires the optional core assembly extension.", { backend: "core" });
+  for (const kind of ["history", "input"]) {
+    const rule = preset.rules.find((r) => r.kind === kind);
+    if (!rule?.enabled) fail(`Native assembly must preserve ${kind}.`, { ruleId: rule?.id, kind });
+  }
+  let phase = "system", afterInputMessages = false;
+  for (const rule of preset.rules.filter((r) => r.enabled)) {
+    if (rule.kind === "history") {
+      if (phase !== "system") fail("Native history cannot be moved after current input.");
+      phase = "before-input";
+      continue;
+    }
+    if (rule.kind === "input") {
+      if (phase !== "before-input") fail("Current input must follow native history.");
+      phase = "after-input";
+      continue;
+    }
+    if (rule.lifetime === "snapshot" || rule.depth !== null) fail("Retained request snapshots and insertion depth require core assembly.", { ruleId: rule.id });
+    if (rule.role === "assistant") fail("Assistant-role contributions require core assembly.", { ruleId: rule.id });
+    if (rule.role === "user") {
+      if (phase === "system") fail("Native user contributions must follow native history.", { ruleId: rule.id });
+      if (phase === "before-input" && rule.delivery !== "pre-step") fail("User context snapshots follow current input; use pre-step before input.", { ruleId: rule.id });
+      if (phase === "after-input") {
+        if (rule.delivery === "pre-step") afterInputMessages = true;
+        else if (afterInputMessages) fail("Native context snapshots precede post-input pre-step messages; reorder these contributions.", { ruleId: rule.id });
+      }
+    } else if (phase !== "system") fail("Native system contributions must precede native history.", { ruleId: rule.id });
+  }
+  if (preset.placement !== "modules") fail("ST slot/depth placement requires core assembly; choose a native strategy.");
+  return preset;
+}
 
 // src/client.js
 var labels = {
+  backend: ["\u63A5\u5165\u65B9\u5F0F", "Backend"],
+  backendNative: ["\u6807\u51C6\u7248 \xB7 \u5B98\u65B9\u63A5\u53E3", "Standard \xB7 public interfaces"],
+  backendCore: ["\u8FDB\u9636\u7248 \xB7 \u6838\u5FC3\u6269\u5C55", "Advanced \xB7 core extension"],
+  nativeHint: ["\u7CFB\u7EDF\u5185\u5BB9\u6392\u5728\u5386\u53F2\u524D\uFF1Buser \u5185\u5BB9\u4F7F\u7528\u6301\u4E45 context \u6216 pre-step\u3002\u539F\u751F\u5386\u53F2\u4E0E\u672C\u6B65\u8F93\u5165\u5FC5\u987B\u4FDD\u7559\uFF0C\u4E0D\u80FD\u4EFB\u610F\u91CD\u6392\u3002", "System content precedes history. User content uses durable context or pre-step messages. Native history and current input remain enabled and in order."],
+  coreHint: ["\u6B64\u7B56\u7565\u8981\u6C42\u53EF\u9009\u6838\u5FC3\u88C5\u914D\u6269\u5C55\u4E0E\u914D\u5957 DSH \u6838\u5FC3\uFF1B\u6807\u51C6\u5B89\u88C5\u4E0D\u4F1A\u81EA\u52A8\u542F\u7528\u3002", "This strategy requires the optional core assembly extension and its prepared DSH core. Standard installation does not enable it."],
+  delivery: ["user \u5199\u5165\u65B9\u5F0F", "User delivery"],
+  context: ["\u5185\u5BB9\u53D8\u5316\u65F6\u5199\u5165\u4E0A\u4E0B\u6587\u5FEB\u7167", "Context snapshot when content changes"],
+  "pre-step": ["\u6BCF\u4E2A\u5B9E\u9645\u6A21\u578B\u6B65\u9AA4\u5199\u5165\u6D88\u606F", "Message at each actual model step"],
+  nativeRetentionHint: ["\u4E24\u79CD user \u5199\u5165\u65B9\u5F0F\u90FD\u4F1A\u8FDB\u5165 DSH \u5386\u53F2\uFF1B\u5173\u95ED\u6765\u6E90\u505C\u6B62\u540E\u7EED\u8D21\u732E\uFF0C\u65E7\u6B63\u6587\u4FDD\u7559\u3002", "Both user delivery modes enter DSH history. Disabling stops future contributions; earlier text remains."],
   "harness:identity": ["DSH \u8EAB\u4EFD\u6307\u4EE4", "DSH identity"],
   "deployment:persona-prefix": ["\u90E8\u7F72\u524D\u7F6E\u6307\u4EE4", "Deployment prefix"],
   "deployment:persona-suffix": ["\u90E8\u7F72\u540E\u7F6E\u6307\u4EE4", "Deployment suffix"],
@@ -110,8 +162,11 @@ var labels = {
   depth_prompt: ["\u89D2\u8272\u6DF1\u5EA6\u63D0\u793A", "Character depth prompt"],
   defaultHint: ["\u5185\u7F6E\u7B56\u7565\u4E0D\u80FD\u6539\u540D\u6216\u5220\u9664\uFF1B\u4FEE\u6539\u89C4\u5219\u540E\u4FDD\u5B58\u4E3A\u526F\u672C\u3002", "Built-ins cannot be renamed or deleted; save rule changes as a copy."],
   dropHere: ["\u677E\u5F00\u4EE5\u79FB\u52A8\uFF1A", "Drop to move: "],
+  nativePreviewScope: ["\u4EE5\u4E0B\u662F\u5F53\u524D\u7B56\u7565\u7684\u903B\u8F91\u6392\u5217\uFF0C\u4E0D\u662F\u5B8C\u6574\u7684\u5B9E\u9645\u8BF7\u6C42\u3002DSH \u4F1A\u4FDD\u5B58 user \u8D21\u732E\uFF1B\u540E\u7EED\u8BF7\u6C42\u8FD8\u53EF\u80FD\u5305\u542B\u5DF2\u4FDD\u5B58\u7684\u65E7\u8D21\u732E\u3002\u9884\u89C8\u4E0D\u542B\u5F85\u53D1\u9001\u8F93\u5165\u3002", "This shows the current strategy\u2019s logical order, not a complete actual request. DSH saves user contributions, so later requests may also contain earlier contributions. Pending input is excluded."],
+  logicalMessages: ["\u903B\u8F91\u6392\u5217", "Logical order"],
   actual: ["\u67E5\u770B\u6700\u8FD1\u5B9E\u9645\u8BF7\u6C42", "View latest actual request"],
-  noActual: ["\u6682\u65E0\u65B0\u7248\u88C5\u914D\u8BF7\u6C42\u8BB0\u5F55", "No request assembly record yet"],
+  noActual: ["\u6682\u65E0\u8FDB\u9636\u88C5\u914D\u8BF7\u6C42\u8BB0\u5F55", "No advanced request assembly record yet"],
+  noActualNative: ["\u6807\u51C6\u7248\u6CBF\u7528 DSH \u539F\u751F\u5386\u53F2\uFF1B\u5F53\u524D\u88C5\u914D\u53EF\u9884\u89C8\uFF0C\u5DF2\u8BB0\u5F55\u7684 system/context \u6B63\u6587\u53EF\u5728 Tavern Trace \u67E5\u770B\u3002", "Standard mode uses native DSH history. Preview the current assembly; read recorded system/context text in Tavern Trace."],
   actualNotice: ["\u4EE5\u4E0B\u662F\u8F68\u8FF9\u4FDD\u5B58\u7684\u5B9E\u9645\u8BF7\u6C42\uFF0C\u4FEE\u6539\u5F53\u524D\u9884\u8BBE\u4E0D\u4F1A\u6539\u53D8\u5B83\u3002", "This is the recorded request. Editing the preset does not change it."],
   addSource: ["\u6DFB\u52A0\u6A21\u5757\uFF08\u5F53\u524D\u6709\u72EC\u7ACB\u5185\u5BB9\uFF09", "Add a module (current independent content)"],
   chooseSource: ["\u9009\u62E9\u6765\u6E90\u2026", "Choose source\u2026"],
@@ -254,7 +309,7 @@ function AssemblyPanelContent({ selectionTarget, sessionId, sessionLabel: sessio
     if (confirmation) dialog.current?.querySelector(".dta-confirm button")?.focus();
   }, [confirmation]);
   const [sources, setSources] = (0, import_react.useState)([]), [addParser, setAddParser] = (0, import_react.useState)("custom"), [addKind, setAddKind] = (0, import_react.useState)(""), [defaultId, setDefaultId] = (0, import_react.useState)(BUILTINS[0].id);
-  const [items, setItems] = (0, import_react.useState)([]), [draft, setDraft] = (0, import_react.useState)(null), [selection, setSelection] = (0, import_react.useState)(null), [capable, setCapable] = (0, import_react.useState)(false);
+  const [items, setItems] = (0, import_react.useState)([]), [draft, setDraft] = (0, import_react.useState)(null), [selection, setSelection] = (0, import_react.useState)(null), [capable, setCapable] = (0, import_react.useState)(false), [capabilities, setCapabilities] = (0, import_react.useState)(null);
   const [status, setStatus] = (0, import_react.useState)(""), [error, setError] = (0, import_react.useState)(false), [busy, setBusy] = (0, import_react.useState)(false), [tab, setTab] = (0, import_react.useState)("rules"), [preview, setPreview] = (0, import_react.useState)(null), [dirty, setDirty] = (0, import_react.useState)(false), [expanded, setExpanded] = (0, import_react.useState)({});
   const file = (0, import_react.useRef)(), stage = (0, import_react.useRef)(), dialog = (0, import_react.useRef)(), generation = (0, import_react.useRef)(0), mounted = (0, import_react.useRef)(true);
   (0, import_react.useLayoutEffect)(() => {
@@ -317,6 +372,7 @@ function AssemblyPanelContent({ selectionTarget, sessionId, sessionLabel: sessio
       setItems(data.presets);
       setSelection(data.selection);
       setCapable(data.capability);
+      setCapabilities(data.capabilities ?? null);
       setSources(data.sources ?? []);
       setDefaultId(data.defaultPresetId ?? data.presets[0]?.id);
       setAddParser(data.sources?.some((s) => s.id === "tavern.text") ? "tavern.text" : data.sources?.find((s) => s.acceptsText && !s.textParserAliasFor)?.id ?? "");
@@ -339,6 +395,7 @@ function AssemblyPanelContent({ selectionTarget, sessionId, sessionLabel: sessio
       setItems(data.presets);
       setSelection(data.selection);
       setCapable(data.capability);
+      setCapabilities(data.capabilities ?? null);
       setSources(data.sources ?? []);
     });
     window.addEventListener(refreshEvent, refresh);
@@ -389,7 +446,7 @@ function AssemblyPanelContent({ selectionTarget, sessionId, sessionLabel: sessio
     setTimeout(() => URL.revokeObjectURL(a.href), 0);
   }
   const button = (label, onClick, disabled = false, cls, pressed) => (0, import_react.createElement)("button", { type: "button", onClick, disabled: busy || disabled, className: cls, "aria-pressed": pressed }, t(label));
-  const select = (value, values, onChange, disabled = false) => (0, import_react.createElement)("select", { value, disabled, onChange: (e) => onChange(e.target.value) }, ...values.map((v) => (0, import_react.createElement)("option", { key: v, value: v }, t(v))));
+  const select = (value, values, onChange, disabled = false) => (0, import_react.createElement)("select", { value, disabled: busy || disabled, onChange: (e) => onChange(e.target.value) }, ...values.map((v) => (0, import_react.createElement)("option", { key: v, value: v }, t(v))));
   const nodeName = (node) => {
     if (labels[node.name]) return t(node.name);
     const standard = { "Main Prompt": "main", "Post-History Instructions": "jailbreak", "Character Description": "charDescription", "Character Personality": "charPersonality", "Persona Description": "personaDescription", "Chat History": "history", "World Info (before)": "worldbook", "World Info (after)": "worldbook" };
@@ -407,11 +464,20 @@ function AssemblyPanelContent({ selectionTarget, sessionId, sessionLabel: sessio
     const source = sourceDescriptor(kind);
     if (!source) return;
     const id = `source-${crypto.randomUUID()}`;
-    edit({ rules: [...draft.rules, { id, kind, ...inputMode ? { inputMode } : {}, enabled: true, role: inputMode === "text" && source.roles.includes("user") ? "user" : source.roles[0], lifetime: source.lifetimes[0], depth: null, text: "", name: "" }] });
+    const role = draft.backend === "native" ? inputMode === "text" && source.roles.includes("user") ? "user" : source.roles.includes("system") ? "system" : source.roles[0] : inputMode === "text" && source.roles.includes("user") ? "user" : source.roles[0];
+    const added = { id, kind, ...inputMode ? { inputMode } : {}, ...draft.backend === "native" && role === "user" ? { delivery: "context" } : {}, enabled: true, role, lifetime: draft.backend === "native" ? "request" : source.lifetimes[0], depth: null, text: "", name: "" };
+    const rules = [...draft.rules];
+    const index = draft.backend !== "native" ? -1 : role !== "user" ? rules.findIndex((r) => r.kind === "history") : rules.findIndex((r, i) => i > rules.findIndex((x) => x.kind === "input") && r.role === "user" && r.delivery === "pre-step");
+    rules.splice(index < 0 ? rules.length : index, 0, added);
+    edit({ rules });
     setExpanded((old) => ({ ...old, [id]: true }));
   };
   const sourceInfo = (kind) => sourceDescriptor(kind)?.generationRequiresPlugin === false ? t("nativeSource") : t("removed");
   async function actualRequest() {
+    if (selection?.backend === "native") {
+      setStatus(t("noActualNative"));
+      return;
+    }
     const show = (record) => {
       if (!record?.messages) return false;
       const result = record.metadata?.assembly ?? { diagnostics: [], nodes: record.messages.map((m, index) => ({ id: m.id ?? `actual-${index}`, module: m.role === "system" ? "native-system" : "history", name: m.role === "system" ? "native-system" : m.role, role: m.role, source: { plugin: m.source?.plugin ?? "DSH", field: m.source?.kind }, stability: "snapshot", lifetime: "native", locked: true, text: (m.content ?? []).map((b) => b.type === "text" ? b.text : `[${b.type}]`).join("\n") })) };
@@ -422,7 +488,7 @@ function AssemblyPanelContent({ selectionTarget, sessionId, sessionLabel: sessio
     };
     if (!traceRoot) {
       const data = await api(`/actual?sessionId=${encodeURIComponent(sessionId)}`);
-      if (!show(data.request)) setStatus(t("noActual"));
+      if (!show(data.request)) setStatus(t(data.backend === "native" ? "noActualNative" : "noActual"));
       return;
     }
     const response = await fetcher(`${traceRoot}/sessions/${encodeURIComponent(sessionId)}/assemblies`);
@@ -435,7 +501,7 @@ function AssemblyPanelContent({ selectionTarget, sessionId, sessionLabel: sessio
       if (!mounted.current) return;
       if (show(record)) return;
     }
-    setStatus(t("noActual"));
+    setStatus(t(draft?.backend === "native" ? "noActualNative" : "noActual"));
   }
   const safeClose = async () => {
     if (registerBeforeLeave || await discard()) close();
@@ -468,6 +534,16 @@ function AssemblyPanelContent({ selectionTarget, sessionId, sessionLabel: sessio
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
   }, [dirty, busy, registerBeforeLeave]);
+  const nativeDraft = draft?.backend === "native";
+  let nativeError = null;
+  if (nativeDraft) {
+    try {
+      validateNativePreset(draft);
+    } catch (error2) {
+      nativeError = error2.message;
+    }
+  }
+  const draftAvailable = capabilities ? nativeDraft ? capabilities.native && !nativeError : capabilities.core : capable;
   const displayRows = tab === "rules" ? draft?.rules ?? [] : preview?.nodes ?? [];
   function dragHandle(row, index, movable = true) {
     const reset = () => {
@@ -506,7 +582,13 @@ function AssemblyPanelContent({ selectionTarget, sessionId, sessionLabel: sessio
         const at = boundary(e) ?? dropIndex ?? index + 1;
         reset();
         const rules = reorderAtBoundary(draft.rules, index, at);
-        edit({ rules });
+        try {
+          if (nativeDraft) validateNativePreset({ ...draft, rules });
+          edit({ rules });
+        } catch (error2) {
+          setError(true);
+          setStatus(error2.message);
+        }
       },
       onPointerCancel: reset
     }, movable ? "\u283F" : "\u{1F512}");
@@ -527,21 +609,22 @@ function AssemblyPanelContent({ selectionTarget, sessionId, sessionLabel: sessio
       (0, import_react.createElement)(
         "div",
         { className: "dta-summary" },
-        dragHandle(rule, index),
-        (0, import_react.createElement)("input", { type: "checkbox", checked: rule.enabled, disabled: busy, "aria-label": sourceName(rule.kind), onChange: (e) => editRule(rule.id, { enabled: e.target.checked }) }),
+        dragHandle(rule, index, !nativeDraft || !["history", "input"].includes(rule.kind)),
+        (0, import_react.createElement)("input", { type: "checkbox", checked: rule.enabled, disabled: busy || nativeDraft && ["history", "input"].includes(rule.kind), "aria-label": sourceName(rule.kind), onChange: (e) => editRule(rule.id, { enabled: e.target.checked }) }),
         (0, import_react.createElement)("span", { className: "dta-name", role: "button", tabIndex: 0, "aria-expanded": !!expanded[rule.id], onClick: () => toggle(rule.id), onKeyDown: (e) => {
           if (["Enter", " "].includes(e.key)) {
             e.preventDefault();
             toggle(rule.id);
           }
         } }, rule.name || sourceName(rule.kind), (0, import_react.createElement)("small", { className: "dta-origin" }, originName(sourcePlugin(rule.kind)))),
-        summaryMetadata(ruleStability(rule), ["native-system", "history", "input"].includes(rule.kind) ? "nativeRetention" : rule.lifetime, rule.role)
+        summaryMetadata(ruleStability(rule), ["native-system", "history", "input"].includes(rule.kind) ? "nativeRetention" : nativeDraft && rule.role === "user" ? rule.delivery ?? "context" : rule.lifetime, rule.role)
       ),
       expanded[rule.id] && (0, import_react.createElement)(
         "div",
         { className: "dta-detail" },
-        (0, import_react.createElement)("div", { className: "dta-properties" }, (0, import_react.createElement)("div", null, t("source"), (0, import_react.createElement)("small", null, originName(sourcePlugin(rule.kind))), (0, import_react.createElement)("small", null, sourceInfo(rule.kind))), (0, import_react.createElement)("div", null, t("stability"), (0, import_react.createElement)("small", null, t(ruleStability(rule)))), (0, import_react.createElement)("label", null, t("lifetime"), ["native-system", "history", "input"].includes(rule.kind) ? (0, import_react.createElement)("small", null, t("nativeRetention")) : select(rule.lifetime, sourceDescriptor(rule.kind)?.lifetimes ?? ["request", "snapshot"], (v) => editRule(rule.id, { lifetime: v }), sourceDescriptor(rule.kind)?.lifetimes.length === 1))),
-        (0, import_react.createElement)("div", { className: "dta-grid" }, (0, import_react.createElement)("label", null, t("role"), select(rule.role, sourceDescriptor(rule.kind)?.roles ?? ["preserve", "system", "user", "assistant"], (v) => editRule(rule.id, { role: v }), sourceDescriptor(rule.kind)?.roles.length === 1)), sourceDescriptor(rule.kind)?.depth !== false && (0, import_react.createElement)("label", null, t("depth"), (0, import_react.createElement)("input", { type: "number", min: 0, max: 1e4, value: rule.depth ?? "", onChange: (e) => editRule(rule.id, { depth: e.target.value === "" ? null : Number(e.target.value) }) }))),
+        (0, import_react.createElement)("div", { className: "dta-properties" }, (0, import_react.createElement)("div", null, t("source"), (0, import_react.createElement)("small", null, originName(sourcePlugin(rule.kind))), (0, import_react.createElement)("small", null, sourceInfo(rule.kind))), (0, import_react.createElement)("div", null, t("stability"), (0, import_react.createElement)("small", null, t(ruleStability(rule)))), (0, import_react.createElement)("label", null, t("lifetime"), ["native-system", "history", "input"].includes(rule.kind) ? (0, import_react.createElement)("small", null, t("nativeRetention")) : nativeDraft && rule.role === "user" ? (0, import_react.createElement)("small", null, t(rule.delivery ?? "context")) : select(rule.lifetime, nativeDraft ? ["request"] : sourceDescriptor(rule.kind)?.lifetimes ?? ["request", "snapshot"], (v) => editRule(rule.id, { lifetime: v }), sourceDescriptor(rule.kind)?.lifetimes.length === 1))),
+        nativeDraft && rule.role === "user" && (0, import_react.createElement)("label", null, t("delivery"), select(rule.delivery ?? "context", ["context", "pre-step"], (delivery) => editRule(rule.id, { delivery }))),
+        (0, import_react.createElement)("div", { className: "dta-grid" }, (0, import_react.createElement)("label", null, t("role"), select(rule.role, (sourceDescriptor(rule.kind)?.roles ?? ["preserve", "system", "user", "assistant"]).filter((role) => !nativeDraft || role !== "assistant"), (v) => editRule(rule.id, { role: v }), sourceDescriptor(rule.kind)?.roles.length === 1)), sourceDescriptor(rule.kind)?.depth !== false && (0, import_react.createElement)("label", null, t("depth"), (0, import_react.createElement)("input", { type: "number", min: 0, max: 1e4, value: rule.depth ?? "", disabled: busy || nativeDraft, onChange: (e) => editRule(rule.id, { depth: e.target.value === "" ? null : Number(e.target.value) }) }))),
         textInput ? (0, import_react.createElement)(
           "div",
           { className: "dta-fields" },
@@ -555,7 +638,7 @@ function AssemblyPanelContent({ selectionTarget, sessionId, sessionLabel: sessio
           button("remove", () => edit({ rules: draft.rules.filter((r) => r.id !== rule.id) }))
         ) : (0, import_react.createElement)("div", { className: "dta-fields" }, moduleGuide(rule.kind), rule.kind === "phi" ? (0, import_react.createElement)("label", null, t("additional-phi"), (0, import_react.createElement)("textarea", { value: rule.text, onChange: (e) => editRule(rule.id, { text: e.target.value }) })) : !["native-system", "history", "input", "preset", "character", "persona", "worldbook"].includes(rule.kind) && button("remove", () => edit({ rules: draft.rules.filter((r) => r.id !== rule.id) }))),
         !sourceDescriptor(rule.kind) && (0, import_react.createElement)("small", { role: "status" }, t("missingSource")),
-        (0, import_react.createElement)("small", null, t("audit"))
+        (0, import_react.createElement)("small", null, t(nativeDraft ? "nativeRetentionHint" : "audit"))
       )
     );
   }
@@ -564,13 +647,14 @@ function AssemblyPanelContent({ selectionTarget, sessionId, sessionLabel: sessio
     return (0, import_react.createElement)("div", { className: "dta-module-guide" }, ...[["contains", "contains", "unknownContains"], ["origin", "contentOrigin", "unknownOrigin"], ["editable", "editable", "unknownEditable"], ["editAt", "editAt", "unknownEditAt"]].map(([key, label, fallback]) => (0, import_react.createElement)("p", { key }, (0, import_react.createElement)("strong", null, t(label) + "\uFF1A"), guide?.[key]?.[locale] ?? t(fallback))), (0, import_react.createElement)("small", null, t("modulePreviewHelp")));
   }
   function nodeRow(node, index) {
+    const retention = node.nativeDelivery ?? (node.lifetime === "native" ? "nativeRetention" : node.lifetime);
     return (0, import_react.createElement)(
       "article",
       { key: node.id, className: "dta-row", style: { "--assembly-color": sourceColor(node.source.plugin) } },
       (0, import_react.createElement)("div", { className: "dta-summary" }, (0, import_react.createElement)("span", { className: "dta-name", role: "button", tabIndex: 0, onClick: () => toggle(node.id), onKeyDown: (e) => {
         if (e.key === "Enter") toggle(node.id);
-      }, "aria-expanded": !!expanded[node.id], title: node.name }, nodeName(node), (0, import_react.createElement)("small", { className: "dta-origin" }, `${originName(node.source.plugin)} \xB7 ${t("previewDepth")}: ${node.depth == null ? t("listPosition") : node.depth}`)), summaryMetadata(node.stability, node.lifetime === "native" ? "nativeRetention" : node.lifetime, node.role)),
-      expanded[node.id] && (0, import_react.createElement)("div", { className: "dta-detail" }, (0, import_react.createElement)("div", { className: "dta-properties" }, (0, import_react.createElement)("div", null, t("source"), (0, import_react.createElement)("small", null, `${node.source.plugin} / ${node.source.resourceId ?? ""} / ${node.source.field}`), (0, import_react.createElement)("small", null, sourceInfo(node.module))), (0, import_react.createElement)("div", null, t("stability"), (0, import_react.createElement)("small", null, t(node.stability))), (0, import_react.createElement)("div", null, t("lifetime"), (0, import_react.createElement)("small", null, t(node.lifetime)), (0, import_react.createElement)("small", null, t("recorded")))), (0, import_react.createElement)("div", { className: "dta-preview-depth" }, `${t("previewDepth")}: ${node.depth == null ? t("listPosition") : node.depth}`), node.locked && (0, import_react.createElement)("small", null, `${t("locked")}: ${node.lockReason}`), ...(node.children ?? []).map((child) => (0, import_react.createElement)("div", { key: child.id, className: "dta-child", style: { borderLeftColor: sourceColor(child.source?.plugin) } }, `\u{1F512} ${nodeName(child)}`, (0, import_react.createElement)("small", null, child.lockReason), (0, import_react.createElement)("small", null, [originName(child.source?.plugin), child.source?.resourceId, child.source?.field, child.source?.sourceKind].filter(Boolean).join(" / ")), (0, import_react.createElement)("pre", null, child.text))), (0, import_react.createElement)("pre", null, node.text))
+      }, "aria-expanded": !!expanded[node.id], title: node.name }, nodeName(node), (0, import_react.createElement)("small", { className: "dta-origin" }, `${originName(node.source.plugin)} \xB7 ${t("previewDepth")}: ${node.depth == null ? t("listPosition") : node.depth}`)), summaryMetadata(node.stability, retention, node.role)),
+      expanded[node.id] && (0, import_react.createElement)("div", { className: "dta-detail" }, (0, import_react.createElement)("div", { className: "dta-properties" }, (0, import_react.createElement)("div", null, t("source"), (0, import_react.createElement)("small", null, `${node.source.plugin} / ${node.source.resourceId ?? ""} / ${node.source.field}`), (0, import_react.createElement)("small", null, sourceInfo(node.module))), (0, import_react.createElement)("div", null, t("stability"), (0, import_react.createElement)("small", null, t(node.stability))), (0, import_react.createElement)("div", null, t("lifetime"), (0, import_react.createElement)("small", null, t(retention)), (0, import_react.createElement)("small", null, t(preview?.backend === "native" ? "nativeRetentionHint" : "recorded")))), (0, import_react.createElement)("div", { className: "dta-preview-depth" }, `${t("previewDepth")}: ${node.depth == null ? t("listPosition") : node.depth}`), node.locked && (0, import_react.createElement)("small", null, `${t("locked")}: ${node.lockReason}`), ...(node.children ?? []).map((child) => (0, import_react.createElement)("div", { key: child.id, className: "dta-child", style: { borderLeftColor: sourceColor(child.source?.plugin) } }, `\u{1F512} ${nodeName(child)}`, (0, import_react.createElement)("small", null, child.lockReason), (0, import_react.createElement)("small", null, [originName(child.source?.plugin), child.source?.resourceId, child.source?.field, child.source?.sourceKind].filter(Boolean).join(" / ")), (0, import_react.createElement)("pre", null, child.text))), (0, import_react.createElement)("pre", null, node.text))
     );
   }
   return (0, import_react.createElement)("div", { ref: stage, className: `dta-stage${standalone ? " dta-standalone" : ""}` }, (0, import_react.createElement)(
@@ -633,6 +717,9 @@ function AssemblyPanelContent({ selectionTarget, sessionId, sessionLabel: sessio
           setPreview(null);
         }), !draft.id || draft.builtin), dirty && (0, import_react.createElement)("span", null, t("dirty"))),
         (0, import_react.createElement)("h3", { className: "dta-section-title" }, t("rulesSection")),
+        (0, import_react.createElement)("label", { className: "dta-toolbar" }, t("backend"), (0, import_react.createElement)("select", { "aria-label": t("backend"), value: draft.backend ?? "core", onChange: (e) => edit({ backend: e.target.value }) }, (0, import_react.createElement)("option", { value: "native" }, t("backendNative")), (0, import_react.createElement)("option", { value: "core" }, t("backendCore")))),
+        (0, import_react.createElement)("div", { className: "dta-notice" }, t(nativeDraft ? "nativeHint" : "coreHint")),
+        nativeError && (0, import_react.createElement)("div", { className: "dta-notice", role: "alert" }, nativeError),
         (0, import_react.createElement)("div", { className: "dta-tabs" }, (0, import_react.createElement)("button", { "aria-pressed": tab === "rules", onClick: () => setTab("rules") }, t("rules")), button("preview", () => run(async () => {
           setDragFrom(null);
           setDropIndex(null);
@@ -644,14 +731,14 @@ function AssemblyPanelContent({ selectionTarget, sessionId, sessionLabel: sessio
         tab === "rules" ? (0, import_react.createElement)(
           "div",
           null,
-          (0, import_react.createElement)("label", { className: "dta-toolbar" }, t("placement"), select(draft.placement, ["modules", "st"], (placement) => edit({ placement }))),
+          (0, import_react.createElement)("label", { className: "dta-toolbar" }, t("placement"), select(draft.placement, nativeDraft ? ["modules"] : ["modules", "st"], (placement) => edit({ placement }))),
           draft.placement === "st" && (0, import_react.createElement)("small", null, t("stHelp")),
           ...draft.rules.flatMap((row, i) => [placeholder(i), ruleRow(row, i)]),
           placeholder(draft.rules.length),
           modules.length > 0 && (0, import_react.createElement)("div", { className: "dta-toolbar" }, (0, import_react.createElement)("label", { htmlFor: "dta-add-source" }, t("addSource")), (0, import_react.createElement)("select", { id: "dta-add-source", value: modules.some((s) => s.id === addKind) ? addKind : modules[0].id, onChange: (e) => setAddKind(e.target.value) }, ...modules.map((s) => (0, import_react.createElement)("option", { key: s.id, value: s.id }, `${originName(s.pluginId)} \xB7 ${sourceName(s.id)}`))), button("add", () => addRule(modules.some((s) => s.id === addKind) ? addKind : modules[0].id))),
           parsers.length > 0 && (0, import_react.createElement)("div", { className: "dta-toolbar" }, (0, import_react.createElement)("label", { htmlFor: "dta-add-parser" }, t("parser")), (0, import_react.createElement)("select", { id: "dta-add-parser", value: addParser, onChange: (e) => setAddParser(e.target.value) }, ...parsers.map((s) => (0, import_react.createElement)("option", { key: s.id, value: s.id }, `${originName(s.pluginId)} \xB7 ${sourceName(s.id)}`))), button("addText", () => addRule(addParser, "text"))),
           (0, import_react.createElement)("small", null, t("sourceHelp"))
-        ) : (0, import_react.createElement)("div", null, (0, import_react.createElement)("div", { className: "dta-notice" }, t(preview?.actual ? "actualNotice" : "previewScope")), !preview ? (0, import_react.createElement)("p", null, t("empty")) : (0, import_react.createElement)("div", null, ...preview.diagnostics.filter((d) => ["ASSEMBLY_EMPTY", "ASSEMBLY_SYSTEM_ONLY"].includes(d.code)).map((d) => (0, import_react.createElement)("div", { key: d.code, className: "dta-notice", role: "alert" }, t(d.code === "ASSEMBLY_EMPTY" ? "emptyRequest" : "systemOnly"))), ...preview.nodes.map(nodeRow), (0, import_react.createElement)("details", null, (0, import_react.createElement)("summary", null, `${t("result")} (${preview.messages.length})`), ...preview.messages.map((m, i) => (0, import_react.createElement)("div", { key: `${m.id}:${i}`, className: "dta-child" }, `${i + 1} \xB7 ${m.role}`, (0, import_react.createElement)("pre", null, (m.content ?? []).map((b) => b.type === "text" ? b.text : `[${b.type}]`).join("\n"))))), preview.diagnostics.length > 0 && (0, import_react.createElement)("details", null, (0, import_react.createElement)("summary", null, t("diagnostics")), (0, import_react.createElement)("pre", null, JSON.stringify(preview.diagnostics, null, 2))))),
+        ) : (0, import_react.createElement)("div", null, (0, import_react.createElement)("div", { className: "dta-notice" }, t(preview?.actual ? "actualNotice" : preview?.backend === "native" ? "nativePreviewScope" : "previewScope")), !preview ? (0, import_react.createElement)("p", null, t("empty")) : (0, import_react.createElement)("div", null, ...preview.diagnostics.filter((d) => ["ASSEMBLY_EMPTY", "ASSEMBLY_SYSTEM_ONLY"].includes(d.code)).map((d) => (0, import_react.createElement)("div", { key: d.code, className: "dta-notice", role: "alert" }, t(d.code === "ASSEMBLY_EMPTY" ? "emptyRequest" : "systemOnly"))), ...preview.nodes.map(nodeRow), (0, import_react.createElement)("details", null, (0, import_react.createElement)("summary", null, `${t(preview.backend === "native" ? "logicalMessages" : "result")} (${preview.messages.length})`), ...preview.messages.map((m, i) => (0, import_react.createElement)("div", { key: `${m.id}:${i}`, className: "dta-child" }, `${i + 1} \xB7 ${m.role}`, (0, import_react.createElement)("pre", null, (m.content ?? []).map((b) => b.type === "text" ? b.text : `[${b.type}]`).join("\n"))))), preview.diagnostics.length > 0 && (0, import_react.createElement)("details", null, (0, import_react.createElement)("summary", null, t("diagnostics")), (0, import_react.createElement)("pre", null, JSON.stringify(preview.diagnostics, null, 2))))),
         (0, import_react.createElement)("small", { style: { marginTop: 20 } }, t("tools")),
         (0, import_react.createElement)("h3", { className: "dta-section-title" }, t("applicationSection")),
         (0, import_react.createElement)("div", { className: "dta-notice" }, `${t("applied")}: ${selection?.name ?? t("legacy")}`, selection?.id?.startsWith("builtin-") && !items.some((p) => p.id === selection.id) && (0, import_react.createElement)("small", null, t("withdrawnPreset")), !capable && (0, import_react.createElement)("small", null, t("unavailable"))),
@@ -659,14 +746,14 @@ function AssemblyPanelContent({ selectionTarget, sessionId, sessionLabel: sessio
           const preset = dirty || !draft.id ? await save() : draft;
           if (!mounted.current) return;
           await onCreateSession(preset.id);
-        }), !capable, "primary"))),
+        }), !draftAvailable, "primary"))),
         (0, import_react.createElement)("div", { className: "dta-toolbar" }, button("apply", () => run(async () => {
           const preset = dirty || !draft.id ? await save() : draft;
           const data = await api("/selection", "PUT", { sessionId, id: preset.id });
           setSelection(data.selection);
           setStatus(t("appliedStatus"));
           window.dispatchEvent(new window.Event(refreshEvent));
-        }), !sessionId && !selectionTarget || !capable || selectionTarget?.editable === false, "primary"), button("reset", async () => {
+        }), !sessionId && !selectionTarget || !draftAvailable || selectionTarget?.editable === false, "primary"), button("reset", async () => {
           if (!await discard()) return;
           run(async () => {
             const data = await api("/selection", "PUT", { sessionId, id: defaultId });

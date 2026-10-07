@@ -8,3 +8,5 @@ export { projectSystemSnapshots } from './system-snapshots.js'
 
 // The package root is both a Cordis plugin and the composable library.
 export { name, inject, apply, default } from './plugin.js'
+
+export { presetBackend, validateNativePreset } from './native-policy.js'

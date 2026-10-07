@@ -12,7 +12,6 @@
     "./*": "./src/*.js",
     "./adapters/*": "./adapters/*.js",
     "./package.json": "./package.json",
-    "./scripts/*": "./scripts/*",
     "./plugin": "./src/plugin.js",
     "./plugin-client": "./dist/client.js",
     "./client": "./dist/client.js",
@@ -21,7 +20,6 @@
   "files": [
     "src",
     "adapters",
-    "scripts",
     "docs",
     "README.md",
     "README_en.md",
@@ -30,13 +28,15 @@
     "cordis.patch.yml",
     "CHANGELOG.md",
     "SECURITY.md",
-    "SECURITY_en.md"
+    "SECURITY_en.md",
+    "scripts/build-client.mjs"
   ],
   "scripts": {
     "test": "node --test",
     "pack:check": "npm pack --dry-run --cache .npm-cache",
     "check": "npm run build && npm test && npm run pack:check",
-    "build": "node scripts/build-client.mjs"
+    "build": "node scripts/build-client.mjs",
+    "pack:core": "npm pack ./core-extension --ignore-scripts --cache .npm-cache"
   },
   "engines": {
     "node": ">=20"

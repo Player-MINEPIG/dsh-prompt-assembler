@@ -2,9 +2,9 @@ export type Json = null | boolean | number | string | Json[] | { [key: string]: 
 export type Role = 'preserve' | 'system' | 'user' | 'assistant'
 export type Lifetime = 'request' | 'snapshot'
 export type Stability = 'asset' | 'conversation' | 'evaluation' | 'assembly' | 'snapshot'
-export interface Rule { id: string; kind: string; enabled: boolean; role: Role; lifetime: Lifetime; depth: number | null; text: string; name: string; inputMode?: 'source' | 'text' }
+export interface Rule { id: string; kind: string; enabled: boolean; role: Role; lifetime: Lifetime; depth: number | null; text: string; name: string; inputMode?: 'source' | 'text'; delivery?: 'context' | 'pre-step' }
 export type RuleInput = Pick<Rule, 'id' | 'kind'> & Partial<Omit<Rule, 'id' | 'kind'>>
-export interface Preset { format: 'dsh-tavern-request-assembly'; version: 1; name: string; placement: 'st' | 'modules'; rules: Rule[]; id?: string }
+export interface Preset { backend?: 'native' | 'core'; format: 'dsh-tavern-request-assembly'; version: 1; name: string; placement: 'st' | 'modules'; rules: Rule[]; id?: string }
 export type PresetInput = Omit<Preset, 'rules' | 'placement'> & { placement?: Preset['placement']; rules: RuleInput[] }
 export interface NativeMessage { id: string; role: string; content: Array<{ type: string; [key: string]: unknown }>; source?: { kind?: string; [key: string]: unknown }; [key: string]: unknown }
 /** Detached and deeply frozen at runtime. Resolvers must be read-only in both modes. */
@@ -84,7 +84,7 @@ export class AssemblyPresetStore {
 }
 export class RequestAssembler {
   constructor(options: { ctx: { get(name: string): any }; store: any; resources: any; registry?: RequestSourceRegistry; sessionReads?: any; owner?: string; afterAssembly?: AssemblyOptions['afterAssembly'] });
-  sources(sessionId?: string): Descriptor[]; available(): boolean; requireAvailable(): void; selected(id: string): Preset | null;
+  sources(sessionId?: string): Descriptor[]; available(): boolean; capabilities(): {native: boolean; core: boolean; coreExtensionInstalled: boolean; defaultBackend: 'native'; nativeHistoryControl: false; nativeRoles: string[]; nativeUserDelivery: string[]; nativeUserEntersHistory: true}; requireAvailable(preset?: Preset): void; requestAssemblyAvailable(sessionId?: string): boolean; registerRequestBackend(backend: { id: 'core'; available(): boolean; execute(payload: any, next: () => Promise<any>): Promise<any>; startsSeries?(agent: any): boolean }): () => void; selected(id: string): Preset | null;
   execute(payload: any, next: () => Promise<any>): Promise<any>; preview(input: any): Promise<AssemblyResult>;
 }
 export function projectSystemSnapshots(logical: AssemblyResult, nativeMessages: NativeMessage[], maxBytes?: number, options?: { preview?: boolean; systemPromptUpdate?: string }): AssemblyResult
@@ -94,3 +94,6 @@ export const inject: string[]
 export function apply(ctx: any, config: { storageDir: string; security?: Record<string, unknown> }): { registry: RequestSourceRegistry; store: AssemblyPresetStore; runtime: RequestAssembler; migrateLegacy(root: string): boolean; attachTavern(options: Record<string, unknown>): () => void }
 declare const plugin: { name: typeof name; inject: typeof inject; apply: typeof apply }
 export default plugin
+
+export function presetBackend(preset?: Preset | null): 'native' | 'core'
+export function validateNativePreset(preset: PresetInput): Preset
