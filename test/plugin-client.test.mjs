@@ -172,3 +172,20 @@ test('browser bundle keeps React external and has no Tavern client dependency', 
   assert.match(result.outputFiles[0].text, /require\("react"\)/)
   assert.ok(Object.keys(result.metafile.inputs).every(path => !path.includes('/tavern/')))
 })
+
+ test('opening draft previews are enabled without a Session and do not mistake absent input for an invalid request', async () => {
+  const ui = dom(), calls = []
+  const target = {id:'draft', getSelection:async()=>null, previewAssembly:async current=>{
+    calls.push(current)
+    return {preview:{scope:'opening-draft',nodes:[],messages:[],diagnostics:[{code:'ASSEMBLY_SYSTEM_ONLY'}]}}
+  }}
+  try {
+    await act(async()=>ui.root.render(h(AssemblyPanel,{selectionTarget:target,standalone:true,locale:'en',close(){},fetcher:async()=>json(library)})))
+    assert.equal(button(ui.document,'Preview current configuration').disabled,false)
+    assert.equal(button(ui.document,'View latest actual request').disabled,true)
+    await act(async()=>button(ui.document,'Preview current configuration').click())
+    assert.equal(calls.length,1);assert.equal(calls[0].id,preset.id)
+    assert.match(ui.document.body.textContent,/opening draft’s logical order/)
+    assert.equal(ui.document.querySelector('[role="alert"]'),null)
+  } finally {await ui.close()}
+ })
