@@ -1,5 +1,3 @@
-import corePlugin from '../core-extension/src/plugin.js'
-import { CoreRequestBackend } from '../core-extension/src/backend.js'
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { createRequire } from 'node:module'
@@ -15,6 +13,7 @@ import { BUILTINS as TAVERN_BUILTINS } from '../adapters/tavern.js'
 const root = process.env.DSH_ASSEMBLER_CORE_ROOT
 // Mount the actual installable plugin, not a hand-composed runtime.
 test('installable assembler owns first request, source removal and native history without Tavern', { skip: !root }, async () => {
+  const { default: corePlugin } = await import('../core-extension/src/plugin.js')
   const require = createRequire(join(resolve(root), 'package.json')), load = name => import(pathToFileURL(require.resolve(name)).href)
   const { Context } = await load('@deepseek-ai/cordis'), { SystemPrompt } = await load('@deepseek-ai/dsh-system-prompt'), llm = await load('@deepseek-ai/dsh-llm')
   const ctx = new Context(), directory = mkdtempSync(join(tmpdir(), 'assembler-plugin-')), requests = [], errors = []

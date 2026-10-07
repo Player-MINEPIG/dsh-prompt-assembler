@@ -6,8 +6,7 @@ import { join, resolve } from 'node:path'
 import { createRequire } from 'node:module'
 import { pathToFileURL } from 'node:url'
 import plugin, { BUILTINS, AssemblyPresetStore, RequestAssembler, createDshRegistry, textOf } from '../src/index.js'
-import corePlugin from '../core-extension/src/plugin.js'
-import { CoreRequestBackend } from '../core-extension/src/backend.js'
+import { CoreRequestBackend } from '../src/core-backend.js'
 import { NATIVE_BUILTINS, BUILTINS as advanced, registerTavernSources } from '../adapters/tavern.js'
 import { validateNativePreset } from '../src/native-policy.js'
 const input = (id, text = id) => ({ id, role: 'user', content: [{type:'text',text}], source:{kind:'user'} })
@@ -35,6 +34,7 @@ test('protocol availability alone never enables advanced execution; optional bac
 
 const stock=process.env.DSH_ASSEMBLER_STOCK_ROOT
 for(const inHistory of [false,true])test(`standard install on stock rc.2: ${inHistory?'in-history':'head'} route, durable user delivery, unload and detached restore`,{skip:!stock,timeout:15000},async()=>{
+  const { default: corePlugin } = await import('../core-extension/src/plugin.js')
   const require=createRequire(join(resolve(stock),'package.json')),load=name=>import(pathToFileURL(require.resolve(`@deepseek-ai/${name}`)))
   const {Context}=await load('cordis'),{SystemPrompt}=await load('dsh-system-prompt'),llm=await load('dsh-llm'),sessions=await load('dsh-session')
   const ctx=new Context(),root=mkdtempSync(join(tmpdir(),'assembler-native-')),requests=[],errors=[]
