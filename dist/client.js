@@ -706,7 +706,7 @@ var labels = {
   retry: ["\u91CD\u8BD5", "Retry"],
   cancel: ["\u53D6\u6D88", "Cancel"],
   confirm: ["\u786E\u8BA4", "Confirm"],
-  withdrawnPreset: ["\u8BE5\u5185\u7F6E\u9884\u8BBE\u7684\u63D0\u4F9B\u65B9\u672A\u6CE8\u518C\u3002\u6B64\u4F1A\u8BDD\u5DF2\u5E94\u7528\u7684\u65E7\u914D\u7F6E\u4ECD\u4FDD\u7559\uFF1B\u66F4\u6539\u65F6\u8BF7\u9009\u62E9\u5F53\u524D\u53EF\u7528\u7B56\u7565\u3002", "The provider of this built-in preset is not registered. This session retains its applied configuration; choose an available strategy to change it."],
+  withdrawnPreset: ["\u8BE5\u5185\u7F6E\u7B56\u7565\u5DF2\u4E0D\u5728\u5F53\u524D\u76EE\u5F55\u4E2D\u3002\u6B64\u4F1A\u8BDD\u5DF2\u5E94\u7528\u7684\u65E7\u914D\u7F6E\u4ECD\u4FDD\u7559\uFF1B\u66F4\u6539\u65F6\u8BF7\u9009\u62E9\u5F53\u524D\u53EF\u7528\u7B56\u7565\u3002", "This built-in strategy is no longer in the current catalog. This session retains its applied configuration; choose an available strategy to change it."],
   placementTip: ["\u5C0F\u8D34\u58EB\uFF1A\u5982\u679C\u6A21\u578B\u51FA\u73B0\u6389\u683C\u5F0F\u3001\u4E0D\u9075\u5FAA\u6307\u4EE4\u7B49\u95EE\u9898\uFF0C\u53EF\u4EE5\u5C1D\u8BD5\u5C06\u76F8\u5173\u7684\u683C\u5F0F\u8981\u6C42\u6216\u884C\u4E3A\u6307\u4EE4\u540E\u7F6E\uFF0C\u5E76\u901A\u8FC7\u88C5\u914D\u7ED3\u679C\u786E\u8BA4\u5B9E\u9645\u4F4D\u7F6E\u3002", "Tip: If the model drops formatting or misses instructions, try placing the relevant format requirements or behavior instructions later, then check their actual position in the assembly result."],
   librarySection: ["\u7B56\u7565\u5E93", "Strategy library"],
   applicationSection: ["\u4F1A\u8BDD\u5E94\u7528", "Session application"],

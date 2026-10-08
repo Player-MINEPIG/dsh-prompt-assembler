@@ -53,7 +53,7 @@ const labels = {
   contentMode: ['内容方式', 'Content mode'], sourceMode: ['来源内容', 'Source content'], textMode: ['手填内容（来源解析）', 'User text (source parser)'],
   'dsh.text': ['DSH 自定义文本', 'DSH custom text'],
   retry: ['重试', 'Retry'], cancel: ['取消', 'Cancel'], confirm: ['确认', 'Confirm'],
-  withdrawnPreset: ['该内置预设的提供方未注册。此会话已应用的旧配置仍保留；更改时请选择当前可用策略。', 'The provider of this built-in preset is not registered. This session retains its applied configuration; choose an available strategy to change it.'],
+  withdrawnPreset: ['该内置策略已不在当前目录中。此会话已应用的旧配置仍保留；更改时请选择当前可用策略。', 'This built-in strategy is no longer in the current catalog. This session retains its applied configuration; choose an available strategy to change it.'],
   placementTip: ['小贴士：如果模型出现掉格式、不遵循指令等问题，可以尝试将相关的格式要求或行为指令后置，并通过装配结果确认实际位置。', 'Tip: If the model drops formatting or misses instructions, try placing the relevant format requirements or behavior instructions later, then check their actual position in the assembly result.'],
   librarySection: ['策略库', 'Strategy library'], applicationSection: ['会话应用', 'Session application'], rulesSection: ['装配规则与预览', 'Assembly rules and preview'], interfaceSettings: ['界面设置', 'Interface settings'],
   createSession: ['使用此策略新建会话', 'Create a session with this strategy'], session: ['会话', 'Session'], newSession: ['新会话', 'New Session'],
