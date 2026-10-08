@@ -2,6 +2,11 @@ import { createElement as h } from 'react'
 import { SortableList } from './sortable-list.js'
 import { configurePosition, positionRows, priorityOrder } from './resource-positions.js'
 
+
+export function SummaryMetadata({ items, className = '' }) {
+  return h('dl', { className: `dta-summary-meta ${className}`, style: { '--dta-meta-columns': items.length } }, ...items.map(item => h('div', { key: item.label }, h('dt', null, item.label), h('dd', { className: item.className }, item.content))))
+}
+
 /** Configuration comes from provider capabilities, never from activated preview blocks. */
 export function ResourcePositionEditor({ preset, sources, locale = 0, busy, onChange, sourceColor, originName, sourceName = id => sources.find(s => s.id === id)?.name ?? id }) {
   const t = (zh, en) => locale === 0 ? zh : en
@@ -37,14 +42,12 @@ export function ResourcePositionEditor({ preset, sources, locale = 0, busy, onCh
       renderItem: (row, index, handle) => h('article', { className: 'dta-position-row', 'data-position-key': row.key, style: { '--assembly-color': sourceColor(row.source.pluginId) } },
       h('div', { className: 'dta-position-summary' }, handle,
         h('input', { type: 'checkbox', checked: row.enabled, disabled: busy || row.missing || row.position.configurable === false || preset.backend === 'native' && ['history', 'input'].includes(row.sourceId), 'aria-label': `${t('启用位置', 'Enable position')}: ${title(row)}`, onChange: e => update(row, { enabled: e.target.checked }) }),
-        h('div', null, h('strong', null, title(row)), h('small', { className: 'dta-origin' }, `${originName(row.source.pluginId)} · ${sourceName(row.sourceId)}`))),
-      h('div', { className: 'dta-position-body' },
-        h('small', { className: 'dta-position-stability' }, `${t('稳定性', 'Stability')}: ${row.sourceId === 'worldbook' ? t('常驻条目随资源修改而变化；其他条目可能随对话触发变化。', 'Constant entries change with assets; other entries may change with conversation activation.') : ({ asset: t('源正文随资源修改变化；宏和引用内容可能随请求变化。', 'Source text changes with asset edits; macros and referenced content may change per request.'), conversation: t('可能随对话变化', 'May change with conversation'), evaluation: t('每次求值可能变化', 'May change on each evaluation'), assembly: t('由官方装配决定', 'Determined by native assembly'), snapshot: t('已保存的快照', 'Saved snapshot') })[row.source.stability] ?? t('来源未声明', 'Not declared by the provider')}`),
-        row.position.macros?.length > 0 && h('small', null, `${t('预设宏 / 插槽', 'Preset macros / slots')}: ${row.position.macros.map(m => `{{${m}}}`).join(' · ')}`),
-        h('small', null, row.missing ? t('来源未注册；保留配置，装配时按缺失定位规则处理。', 'Provider unavailable; configuration is retained and uses the missing-target policy.') : row.source.moduleAvailable === false ? t('当前没有可用内容；配置仍可保存，资源可用后生效。', 'No content is currently available; save the policy for when resources become available.') : fixed(row) ? t('位置由运行时管理', 'Position managed by runtime') : row.placement === 'list' ? t('用户排列；轮到该策略时只排列尚未定位的资源', 'User order; applied only to resources not placed by an earlier strategy') : t('跟随预设插槽或资源自身位置', 'Follow preset slots or resource-defined position')),
-        row.position.note && h('small', null, row.position.note[locale]),
-        !fixed(row) && row.position.configurable !== false && row.placement === 'list' && h('div', { className: 'dta-position-actions' },
-          row.placement === 'list' && h('button', { disabled: busy, onClick: () => update(row, { placement: 'source' }) }, t('跟随资源位置', 'Follow source position'))))) })
+        h('div', { className: 'dta-position-name' }, h('strong', null, title(row)), h('small', { className: 'dta-origin' }, `${originName(row.source.pluginId)} · ${sourceName(row.sourceId)}`)),
+        h(SummaryMetadata, { className: 'dta-position-meta', items: [
+          { label: t('稳定性', 'Stability'), className: 'dta-position-stability', content: row.sourceId === 'worldbook' ? t('常驻条目随资源变化；其他条目随对话触发。', 'Constant entries follow asset changes; other entries follow conversation activation.') : ({ asset: t('源正文随资源变化；宏与引用可能随请求变化。', 'Source text follows assets; macros and references may vary per request.'), conversation: t('可能随对话变化', 'May change with conversation'), evaluation: t('每次求值可能变化', 'May change on each evaluation'), assembly: t('由官方装配决定', 'Determined by native assembly'), snapshot: t('已保存的快照', 'Saved snapshot') })[row.source.stability] ?? t('来源未声明', 'Not declared by provider') },
+          { label: t('位置说明', 'Placement'), content: h('div', null, row.missing ? t('来源未注册；保留配置。', 'Provider unavailable; configuration retained.') : row.source.moduleAvailable === false ? t('当前无内容；资源可用后生效。', 'No content is currently available; applies when resources are available.') : fixed(row) ? t('由运行时管理', 'Managed by runtime') : row.placement === 'list' ? t('用户排列；只处理尚未定位的资源。', 'User order; applies to resources not yet placed.') : t('跟随预设插槽或资源位置', 'Follow preset slots or resource position'), row.position.note && h('p', { className: 'dta-position-note' }, row.position.note[locale]), !fixed(row) && row.position.configurable !== false && row.placement === 'list' && h('div', { className: 'dta-position-actions' }, h('button', { disabled: busy, onClick: () => update(row, { placement: 'source' }) }, t('跟随资源位置', 'Follow source position')))) },
+          ...(row.position.macros?.length ? [{ label: t('预设宏 / 插槽', 'Preset macros / slots'), content: row.position.macros.map(m => `{{${m}}}`).join(' · ') }] : []),
+        ] }))) })
   )
 }
 export function PositionDecisions({ preview, sources, locale = 0, sourceName = id => sources.find(s => s.id === id)?.name ?? id }) {

@@ -18,7 +18,7 @@ export function SortableList({ items, itemKey, itemName, canMove = () => true, o
   const placeholder = index => dragFrom !== null && dropIndex === index ? h('div', { key: `drop-${index}`, className: 'dta-drop-placeholder', role: 'status' }, `${locale === 0 ? '松开放到这里：' : 'Drop here: '}${itemName(items[dragFrom])}`) : null
   return h('div', { className, 'data-sort-list': true, 'aria-label': label }, ...items.flatMap((item, index) => {
     const movable = canMove(item)
-    const handle = h('button', { type: 'button', className: 'dta-handle dta-sort-handle', disabled: busy || !movable, title: locale === 0 ? '按住拖动，松开放入占位框' : 'Hold to drag; release in the placeholder', 'aria-label': `${handleLabel}: ${itemName(item)}`, 'aria-pressed': dragFrom === index,
+    const handle = h('button', { type: 'button', className: 'dta-handle dta-sort-handle', disabled: busy || !movable, title: locale === 0 ? movable ? '按住拖动，松开放入占位框' : '位置由运行时管理' : movable ? 'Hold to drag; release in the placeholder' : 'Position managed by runtime', 'aria-label': `${handleLabel}: ${itemName(item)}`, 'aria-pressed': dragFrom === index,
       onPointerDown: event => { if (event.button !== 0) return; event.preventDefault(); event.stopPropagation(); event.currentTarget.setPointerCapture(event.pointerId); setDragFrom(index); selectBoundary(index + 1) },
       onPointerMove: event => { if (event.currentTarget.hasPointerCapture(event.pointerId)) selectBoundary(boundary(event)) },
       onPointerUp: event => {
@@ -30,7 +30,7 @@ export function SortableList({ items, itemKey, itemName, canMove = () => true, o
         if (at !== null && at !== index && at !== index + 1) onMove(item, items[at] ?? null)
       },
       onPointerCancel: reset, onLostPointerCapture: reset,
-    }, h('span', { 'aria-hidden': true, className: 'dta-grip-icon' }, movable ? '⠿' : '🔒'), h('span', null, locale === 0 ? movable ? '拖动' : '固定' : movable ? 'Drag' : 'Fixed'))
+    }, h('span', { 'aria-hidden': true, className: 'dta-grip-icon' }, '⠿'))
     return [placeholder(index), h('div', { key: itemKey(item), className: 'dta-sort-item', 'data-sort-index': index, 'data-dragging': dragFrom === index }, renderItem(item, index, handle))]
   }), placeholder(items.length))
 }

@@ -419,12 +419,17 @@ for (const backend of ['native', 'core']) test(`result cards explain native hist
     await act(() => button(ui.document, 'Assembly result').click())
     const notes = [...ui.document.querySelectorAll('.dta-history-note')].map(n => n.textContent)
     assert.equal(notes.length, nodes.length)
+    for (const note of ui.document.querySelectorAll('.dta-history-note')) {
+      assert.equal(note.tagName, 'DD')
+      assert.equal(note.previousElementSibling.textContent, 'Native history')
+      assert.equal(note.closest('dl').querySelectorAll('dt').length, 4)
+    }
     if (backend === 'native') {
-      assert.match(notes[0], /DSH records system instruction updates/)
-      assert.match(notes[1], /changed context creates a snapshot/)
-      assert.match(notes[2], /saved as an injected message each step/)
+      assert.match(notes[0], /Yes · System instruction updates/)
+      assert.match(notes[1], /Yes · Save changed context/)
+      assert.match(notes[2], /Yes · Injection saved each step/)
     } else {
-      assert.ok(notes.every(n => n.includes('Does not enter native message history')))
+      assert.ok(notes.every(n => n.startsWith('No ·')))
       assert.match(notes[3], /retained separately/)
     }
   } finally { await ui.close() }
