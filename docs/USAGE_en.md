@@ -4,7 +4,7 @@
 
 ## Backend selection
 
-Choose Standard for public DSH interfaces, or Advanced for the optional addon and prepared core. Legacy strategies remain advanced. Standard history/input cannot be disabled or moved out of order; no arbitrary depth or assistant contributions. User context and pre-step both persist in history. Standard mode has three Tavern presets for ST style, cache-friendly ordering and a final PHI reminder. See [backend rules](BACKENDS_en.md).
+Choose Standard for public DSH interfaces, or Advanced for the optional addon and prepared core. Legacy strategies remain advanced. Standard history/input cannot be disabled or moved out of order; no arbitrary depth or assistant contributions. User context and pre-step both persist in history. Standard mode offers five Tavern presets: ST style, cache-friendly ordering, final PHI, preset roles first and preset slots first. See [backend rules](BACKENDS_en.md).
 
 ## Entry and interface
 

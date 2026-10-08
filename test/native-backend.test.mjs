@@ -127,3 +127,48 @@ test('native API rejects unsupported application without changing the applied se
   assert.equal(assembled.agent, undefined); assert.equal(assembled.scope, undefined)
   assert.equal(result.backend,'native'); assert.equal(result.pendingInputsIncluded,false)
  })
+
+for (const inHistory of [false, true]) test(`native preset ordering uses public stock Host seams (${inHistory ? 'in-history' : 'head'})`, { skip: !stock, timeout: 15000 }, async () => {
+  const require = createRequire(join(resolve(stock), 'package.json')), load = name => import(pathToFileURL(require.resolve(`@deepseek-ai/${name}`)))
+  const { Context } = await load('cordis'), { SystemPrompt } = await load('dsh-system-prompt'), llm = await load('dsh-llm')
+  const ctx = new Context(), root = mkdtempSync(join(tmpdir(), 'native-order-host-')), requests = [], errors = []
+  try {
+    await ctx.plugin(SystemPrompt, { includeHarnessIdentity: false, personaPrefix: 'OFFICIAL' })
+    for (const name of ['session', 'agent', 'session-projection', 'llm', 'tools', 'agent-loop']) await ctx.plugin((await load(`dsh-${name}`)).default, name === 'agent-loop' ? { agents: [] } : {})
+    ctx.provide('sessionController', {}); ctx.on('agent/error', e => errors.push(e.error))
+    class Provider extends llm.LlmAdapter {
+      async resolveModel(provider, id) { return { provider, id, name: id, ...inHistory ? { systemPromptUpdate: 'in-history' } : {} } }
+      async *stream(request) {
+        assert.ok(Object.isFrozen(request)); assert.deepEqual(request.messages, ctx.sessions.get(request.sessionId).deriveMessages())
+        requests.push(structuredClone(request.messages))
+        yield { type: 'block-start', index: 0, blockType: 'text' }; yield { type: 'text-delta', index: 0, text: 'ANSWER' }
+        yield { type: 'block-end', index: 0, block: { type: 'text', text: 'ANSWER' } }; yield { type: 'finish', reason: { kind: 'stop' } }
+      }
+    }
+    ctx.llm.registerAdapter(['offline'], new Provider())
+    await ctx.plugin(plugin, { storageDir: root })
+    const face = ctx.get('dshPromptAssembler'); registerTavernSources(face.registry)
+    let prompts = [{ identifier: 'mixed', name: 'Mixed', enabled: true, role: 'user', content: 'OPEN{{history}}MIDDLE{{input}}CLOSE' }]
+    face.runtime.resources = { compile: () => ({ assemblyInput: { preset: { id: 'fixture', prompts } } }) }
+    const selected = face.store.save({ ...NATIVE_BUILTINS.find(p => p.placement === 'native-slots'), name: 'Slots' })
+    face.store.apply('ordered', selected.id)
+    const agent = (await ctx.agents.create({ sessionId: 'ordered', agentOptions: { provider: 'offline', model: 'offline' } })).agent
+    const turn = async text => { agent.followup(llm.createUserMessage({ content: [{ type: 'text', text }], source: { kind: 'user' } })); await agent.whenIdle(); assert.deepEqual(errors, []) }
+    await turn('ONE')
+    assert.match(textOf(requests[0][0]), /OFFICIAL\n\nOPEN$/)
+    assert.deepEqual(requests[0].slice(1).map(textOf), ['MIDDLE', 'ONE', 'CLOSE'])
+    const firstIds = requests[0].slice(1).map(m => m.id)
+    prompts = [{ ...prompts[0], content: 'NEW OPEN{{history}}MIDDLE{{input}}CLOSE' }]
+    await turn('TWO')
+    assert.match(textOf(requests[1][0]), /NEW OPEN$/)
+    assert.equal(requests[1].filter(m => m.role === 'system').length, 1)
+    assert.deepEqual(requests[1].slice(-3).map(textOf), ['MIDDLE', 'TWO', 'CLOSE'])
+    assert.deepEqual(requests[1].filter(m => firstIds.includes(m.id)).map(m => m.id), firstIds)
+    face.store.applySnapshot('ordered', { ...selected, placement: 'native-roles' })
+    prompts = [{ identifier: 's', enabled: true, role: 'system', content: 'ROLE SYSTEM' }, { identifier: 'u', enabled: true, role: 'user', content: 'ROLE USER' }]
+    await turn('THREE')
+    assert.match(textOf(requests[2][0]), /ROLE SYSTEM$/)
+    assert.equal(requests[2].at(-1).role, 'user'); assert.match(textOf(requests[2].at(-1)), /ROLE USER$/)
+    assert.ok(!agent.session.snapshotEvents().some(e => e.type === 'request/assembly'))
+  } finally { await ctx.fiber.dispose(); rmSync(root, { recursive: true, force: true }) }
+})

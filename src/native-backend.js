@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import { assembleRequestAsync, textOf } from './assemble.js'
 
-import { presetBackend, validateNativePreset } from './native-policy.js'
+import { adaptiveNativePlacement, presetBackend, validateNativePreset } from './native-policy.js'
 const fail = (message, detail) => { throw Object.assign(new Error(message), { status: 409, code: 'ASSEMBLY_NATIVE_UNSUPPORTED', detail }) }
 export { presetBackend, validateNativePreset } from './native-policy.js'
 
@@ -25,7 +25,7 @@ export async function assembleNative(runtime, { preset, agent, sessionId = agent
   const logical = await assembleRequestAsync({ registry: runtime.registry, afterAssembly: runtime.afterAssembly, sessionId,
     turn: events.findLast(e => e.type === 'turn/start')?.data.turn ?? null,
     step: (events.findLast(e => e.type === 'step/start')?.data.step ?? 0) + 1,
-    signal, preset, assets: { ...snapshot.assemblyInput, diagnostics: snapshot.diagnostics,
+    signal, preset, assets: { ...snapshot.assemblyInput, ...(adaptiveNativePlacement(preset) ? { includeGreetingReference: false } : {}), diagnostics: snapshot.diagnostics,
       officialSections: assembly.sections, nativeVariables: assembly.variables ?? {} },
     nativeMessages, inputIds: inputs.map(m => m.id), preview, maxBytes: runtime.resources.maxProfileBytes })
   const nativeIds = new Set(nativeMessages.map(m => m.id))
@@ -40,10 +40,10 @@ export async function assembleNative(runtime, { preset, agent, sessionId = agent
     const name = `${node.source?.plugin ?? 'dsh-prompt-assembler'}:part:${String(ordinal++).padStart(4, '0')}:${node.module}:${field}`
     if (node.role === 'system') { sections.push({ name, text: node.text, interpolate: false }); node.nativeSectionName = name }
     else if (node.role === 'user') {
-      const delivery = rule?.delivery ?? 'context'
+      const delivery = node.nativeDelivery ?? rule?.delivery ?? 'context'
       node.nativeDelivery = delivery
       const historyIndex = preset.rules.findIndex(r => r.kind === 'history')
-      if (preset.rules.findIndex(r => r.id === node.ruleId) < historyIndex) fail('Preserved user-role source content must follow native history.', { ruleId: node.ruleId })
+      if (!adaptiveNativePlacement(preset) && preset.rules.findIndex(r => r.id === node.ruleId) < historyIndex) fail('Preserved user-role source content must follow native history.', { ruleId: node.ruleId })
       if (delivery === 'context') {
         let variable = `dsh_prompt_assembler_context_${ordinal}`
         while (Object.hasOwn(variables, variable)) variable += "_"
@@ -53,7 +53,7 @@ export async function assembleNative(runtime, { preset, agent, sessionId = agent
         const message = { id: randomUUID(), role: 'user', content: [{ type: 'text', text: node.text }], source: { kind: 'user' } }
         const inputIndex = preset.rules.findIndex(r => r.kind === 'input')
         node.nativeMessageId = message.id
-        ;(preset.rules.findIndex(r => r.id === node.ruleId) < inputIndex ? beforeInput : afterInput).push(message)
+        ;(node.nativePlacement ? node.nativePlacement === 'before-input' ? beforeInput : afterInput : preset.rules.findIndex(r => r.id === node.ruleId) < inputIndex ? beforeInput : afterInput).push(message)
       }
     } else fail('This source returned a role unsupported by native assembly.', { ruleId: node.ruleId, role: node.role })
   }
@@ -62,10 +62,10 @@ export async function assembleNative(runtime, { preset, agent, sessionId = agent
   const expected = nativeMessages.filter(m => m.role !== 'system')
   if (JSON.stringify(finalNative.map(m => m.id)) !== JSON.stringify(expected.map(m => m.id))) fail('Native conversation order must remain unchanged.')
   const result = { ...assembly, sections, contexts: [...assembly.contexts, ...contexts], variables }
-  // Public request-series reconciliation removes retained effective system
-  // updates when the native-system source is omitted. Original log events remain.
-  const reconcileSystem = !preset.rules.some(r => r.kind === 'native-system' && r.enabled)
-    && (agent?.session?.deriveMessages?.() ?? []).some(m => m.role === 'system' && textOf(m) !== renderOfficialSections(result))
+  // Public request-series reconciliation keeps adaptive system prefixes before
+  // history and removes omitted official updates. Original log events remain.
+  const reconcileSystem = (adaptiveNativePlacement(preset) || !preset.rules.some(r => r.kind === 'native-system' && r.enabled))
+    && (agent?.session?.deriveMessages?.() ?? []).some((m, index) => m.role === 'system' && (textOf(m) !== renderOfficialSections(result) || adaptiveNativePlacement(preset) && index > 0))
   const plan = { logical, contributed, beforeInput, afterInput, assembly: result, snapshot, backend: 'native', reconcileSystem }
   runtime.validateResult?.({ messages: logical.messages, metadata: { assembly: logical } }, agent)
   // The Tavern recorder reads this exact waterfall result before agent/request.

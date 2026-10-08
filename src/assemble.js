@@ -1,4 +1,6 @@
 import { createHash, randomUUID } from 'node:crypto'
+import { adaptiveNativePlacement } from './native-policy.js'
+import { projectNativeOrder } from './native-order.js'
 import { normalizePreset } from './model.js'
 
 const hash = value => createHash('sha256').update(JSON.stringify(value)).digest('hex')
@@ -46,6 +48,8 @@ export async function assembleRequestAsync(options) {
 }
 function assembleResolved({ preset: suppliedPreset, previous = null, snapshots = [], maxBytes = 2 * 1024 * 1024, afterAssembly }, request, resolution) {
   const { preset, assets, nativeMessages, inputIds, preview } = request
+  const adaptive = adaptiveNativePlacement(preset)
+  if (!adaptive && ['native-roles', 'native-slots'].includes(preset.placement)) throw new TypeError('Native placement requires the native backend')
   const rules = preset.rules.filter(r => r.enabled), entries = resolution.resolved
   const listed = new Set(preset.rules.map(rule => rule.id)), listPlacement = preset.placement === 'modules'
   const byRule = new Map(entries.map(e => [e.rule.id, e])), bySource = new Map(entries.map(e => [e.descriptor.id, e]))
@@ -111,7 +115,7 @@ function assembleResolved({ preset: suppliedPreset, previous = null, snapshots =
     if (block.type === 'reference') {
       for (const target of targets(block)) {
         const targetRule = block.useOwnerRule ? effectiveRule : target.entry.rule
-        emit(target.entry, target.block, targetRule, { owner: identity, placementRule: reference?.placementRule ?? effectiveRule.id, locked: block.lock !== false, reason: `reference:${block.owner ?? block.id}` }, next)
+        emit(target.entry, target.block, targetRule, { owner: identity, placementRule: reference?.placementRule ?? effectiveRule.id, locked: block.lock !== false, reason: `reference:${block.owner ?? block.id}`, sourceId: reference?.sourceId ?? entry.descriptor.id, authoredRole: reference?.authoredRole ?? (entry.descriptor.id === 'preset' ? block.role ?? 'system' : undefined) }, next)
       }
       return
     }
@@ -119,7 +123,7 @@ function assembleResolved({ preset: suppliedPreset, previous = null, snapshots =
     let messages, rendered, children = structuredClone(block.children ?? []), role, lifetime, contentHash
     if (block.type === 'native') {
       messages = block.messageIds.map(id => { const msg = nativeById.get(id); if (!msg) throw new TypeError(`Unknown native message: ${id}`); requiredNative.add(id); return msg })
-      if (!messages.length) return
+      if (!messages.length && !(adaptive && ['history', 'input'].includes(entry.descriptor.id))) return
       rendered = messages.map(textOf).join('\n\n'); role = 'preserve'; lifetime = 'native'; contentHash = hash(messages)
     } else {
       const expanded = block.text.replace(/\{\{\s*([^{}]+?)\s*\}\}/g, (whole, name) => {
@@ -133,7 +137,9 @@ function assembleResolved({ preset: suppliedPreset, previous = null, snapshots =
       rendered = entry.renderText({ text: expanded, context: request, variables, block, diagnostics, identity })
       if (typeof rendered !== 'string') throw new TypeError('renderText must synchronously return text')
       if (!rendered) return
-      role = targetRule.role === 'preserve' ? block.role ?? 'system' : targetRule.role
+      role = adaptive && (entry.descriptor.id === 'preset' || reference?.authoredRole)
+        ? reference?.authoredRole ?? block.role ?? 'system'
+        : targetRule.role === 'preserve' ? block.role ?? 'system' : targetRule.role
       lifetime = targetRule.lifetime; contentHash = hash({ text: rendered, role })
       messages = [message(role, rendered, `tavern-${hash({ id: identity, contentHash }).slice(0, 32)}`)]
     }
@@ -144,14 +150,20 @@ function assembleResolved({ preset: suppliedPreset, previous = null, snapshots =
     const depth = controlled && block.type !== 'native' ? placementRule.depth
       : block.depth ?? (listed.has(entry.rule.id) ? targetRule.depth : entry.rule.depth)
     const node = { id: identity, ruleId: targetRule.id, module: targetRule.kind, name: block.name || block.id, role, text: rendered, messages, source: origin(entry, block),
+      ...(adaptive ? { placementSource: reference?.sourceId ?? null } : {}),
       stability: block.stability ?? entry.descriptor.stability,
       lifetime, recorded: true, locked: reference?.locked ?? false, lockReason: reference?.locked ? reference.reason : null, children, hash: contentHash, depth, order: block.order ?? 100, changed: previous?.nodes?.find(n => n.id === identity)?.hash !== contentHash }
+    if (adaptive && depth != null) throw Object.assign(new Error(`Native ordering cannot insert at depth: ${node.name}`), { code: 'ASSEMBLY_NATIVE_UNSUPPORTED', status: 409, detail: { ruleId: node.ruleId, field: node.source.field } })
     if (depth != null) deferred.push(node)
     else (plans.get(block.targetSourceId ? targetRule.id : reference?.placementRule ?? targetRule.id) ?? []).push(node)
   }
   // Evaluate in list order; explicit claims already exclude fallback duplicates.
   for (const { entry, block } of roots) emit(entry, block)
   for (const rule of rules) nodes.push(...plans.get(rule.id))
+  if (adaptive) {
+    projectNativeOrder(nodes, preset, diagnostics)
+    for (const node of nodes) if (node.lifetime !== 'native') { node.hash = hash({ text: node.text, role: node.role }); node.changed = previous?.nodes?.find(n => n.id === node.id)?.hash !== node.hash }
+  }
   // Resolve placement before lifetime so depth rules and list rules share retention.
   // Preserve authored order within each depth, independent of the preset list.
   const depthGroups = new Map()
@@ -248,7 +260,7 @@ function assembleResolved({ preset: suppliedPreset, previous = null, snapshots =
   // Duplicate immutable snapshots can refer to the same content; ids must still be unique per request.
   const ids = new Set()
   messages = messages.map(m => { if (!ids.has(m.id)) { ids.add(m.id); return m }; return { ...m, id: randomUUID() } })
-  expanded = expanded.map(node => ({ ...node, start: messages.findIndex(m => m.id === (node.messages?.[0]?.id)), count: node.messages?.length ?? node.count,
+  expanded = expanded.map(node => ({ ...node, start: node.messages?.length ? messages.findIndex(m => m.id === node.messages[0].id) : node.start, count: node.messages?.length ?? node.count,
     requestMessageIds: (node.messages ?? []).map(m => m.id),
   })).sort((a, b) => a.start - b.start)
   const result = { messages, nodes: expanded.map(({ messages: omitted, ...node }) => node), snapshots: nextSnapshots,

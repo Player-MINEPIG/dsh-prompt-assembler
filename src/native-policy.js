@@ -1,5 +1,6 @@
 import { normalizePreset } from './model.js'
 const fail = (message, detail) => { throw Object.assign(new Error(message), { status: 409, code: 'ASSEMBLY_NATIVE_UNSUPPORTED', detail }) }
+export const adaptiveNativePlacement = preset => preset?.backend === 'native' && ['native-roles', 'native-slots'].includes(preset.placement)
 export function presetBackend(preset) { return preset?.backend ?? 'core' }
 
 /** Reject unsupported layouts before changing the applied snapshot. Legacy layouts are never converted. */
@@ -9,6 +10,12 @@ export function validateNativePreset(value) {
   for (const kind of ['history', 'input']) {
     const rule = preset.rules.find(r => r.kind === kind)
     if (!rule?.enabled) fail(`Native assembly must preserve ${kind}.`, { ruleId: rule?.id, kind })
+  }
+  if (adaptiveNativePlacement(preset)) {
+    for (const rule of preset.rules.filter(r => r.enabled)) {
+      if (rule.lifetime === 'snapshot' || rule.depth !== null || rule.role === 'assistant') fail('Native ordering does not support snapshots, depth or assistant contributions.', { ruleId: rule.id })
+    }
+    return preset
   }
   let phase = 'system', afterInputMessages = false
   for (const rule of preset.rules.filter(r => r.enabled)) {

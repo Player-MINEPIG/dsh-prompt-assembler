@@ -8,10 +8,10 @@ const unifiedChecks = new WeakMap()
 const textOf = m => (m.content ?? []).filter(b => b.type === 'text').map(b => b.text).join('\n')
 const text = (id, value, extra = {}) => ({ type: 'text', id, text: value ?? '', ...extra, stability: /\{\{\s*(random::|roll |getvar::)/i.test(value ?? '') ? 'evaluation' : /last(user|char)message/i.test(value ?? '') ? 'conversation' : extra.stability })
 const ref = (id, sourceId, blockIds, extra = {}) => ({ type: 'reference', id, sourceId, blockIds, ...extra })
-function references(blocks, id, name) {
-  if (['chatHistory', 'history'].includes(name)) { blocks.push(ref(`${id}:history`, 'history', undefined, { owner: id })); if (name === 'chatHistory') blocks.push(ref(`${id}:input`, 'input', undefined, { owner: id })) }
-  else if (name === 'input') blocks.push(ref(`${id}:input`, 'input', undefined, { owner: id }))
-  else { if (name !== 'worldInfoAfter') blocks.push(ref(`${id}:before`, 'worldbook', undefined, { group: 'before', owner: id })); if (name !== 'worldInfoBefore') blocks.push(ref(`${id}:after`, 'worldbook', undefined, { group: 'after', owner: id })) }
+function references(blocks, id, name, extra = {}) {
+  if (['chatHistory', 'history'].includes(name)) { blocks.push(ref(`${id}:history`, 'history', undefined, { owner: id, ...extra })); if (name === 'chatHistory') blocks.push(ref(`${id}:input`, 'input', undefined, { owner: id, ...extra })) }
+  else if (name === 'input') blocks.push(ref(`${id}:input`, 'input', undefined, { owner: id, ...extra }))
+  else { if (name !== 'worldInfoAfter') blocks.push(ref(`${id}:before`, 'worldbook', undefined, { group: 'before', owner: id, ...extra })); if (name !== 'worldInfoBefore') blocks.push(ref(`${id}:after`, 'worldbook', undefined, { group: 'after', owner: id, ...extra })) }
 }
 // Tavern-authored text uses one reference parser, whether supplied by a preset
 // or a custom rule. Source resolvers still own their own compilation semantics.
@@ -21,7 +21,7 @@ function tavernText(blocks, id, raw, extra) {
   let offset = 0
   for (const match of matches) {
     blocks.push(text(`${id}:text:${offset}`, raw.slice(offset, match.index), extra))
-    references(blocks, `${id}:${offset}`, match[1]); offset = match.index + match[0].length
+    references(blocks, `${id}:${offset}`, match[1], { role: extra?.role }); offset = match.index + match[0].length
   }
   blocks.push(text(`${id}:text:${offset}`, raw.slice(offset), extra))
 }
@@ -57,8 +57,8 @@ export function registerTavernSources(registry, { worldbookPolicy, worldbookVali
       if (!p.enabled) continue
       const id = `preset:${p.identifier}`
       if (p.marker) {
-        if (markerFields[p.identifier]) { const [sourceId, field] = markerFields[p.identifier]; blocks.push(ref(id, sourceId, [field], { honorEnabled: false, useOwnerRule: true, owner: id })) }
-        else if (['chatHistory', 'worldInfoBefore', 'worldInfoAfter'].includes(p.identifier)) references(blocks, id, p.identifier)
+        if (markerFields[p.identifier]) { const [sourceId, field] = markerFields[p.identifier]; blocks.push(ref(id, sourceId, [field], { honorEnabled: false, useOwnerRule: true, owner: id, role: p.role })) }
+        else if (['chatHistory', 'history', 'input', 'worldInfoBefore', 'worldInfoAfter'].includes(p.identifier)) references(blocks, id, p.identifier, { role: p.role })
         else diagnostics.push({ code: 'UNSUPPORTED_MARKER', owner: id })
         continue
       }
@@ -66,7 +66,7 @@ export function registerTavernSources(registry, { worldbookPolicy, worldbookVali
       const field = p.identifier === 'main' ? 'system' : p.identifier === 'jailbreak' ? 'phi' : null
       if (field && fields[field] && !p.st?.forbid_overrides) { raw = fields[field].replace(/\{\{\s*original\s*\}\}/gi, raw); claims.push({ sourceId: 'character', blockId: field }) }
       const src = { resourceId: assets.preset?.id, field: p.identifier }
-      const toPhi = preset.placement !== 'st' && p.identifier === 'jailbreak' && preset.rules.some(r => r.kind === 'phi' && r.enabled)
+      const toPhi = !['st', 'native-roles', 'native-slots'].includes(preset.placement) && p.identifier === 'jailbreak' && preset.rules.some(r => r.kind === 'phi' && r.enabled)
       tavernText(blocks, id, raw, { name: p.name, role: p.role, source: src, claims, ...(toPhi ? { targetSourceId: 'phi' } : {}), ...(p.injectionPosition === 1 ? { depth: p.injectionDepth ?? 0, order: p.injectionOrder ?? p.st?.injection_order ?? 100 } : {}) })
     }
     return { blocks, diagnostics }
@@ -108,6 +108,8 @@ export const NATIVE_BUILTINS = Object.freeze([
   { id: 'builtin-native-st', ...normalizePreset({ format: FORMAT, version: 1, backend: 'native', name: 'ST 风格（原生） / ST style (native)', rules: NATIVE_RULES }) },
   { id: 'builtin-native-cache', ...normalizePreset({ format: FORMAT, version: 1, backend: 'native', name: '缓存友好（原生） / Cache friendly (native)', rules: [...NATIVE_RULES.filter(r => !['worldbook', 'phi'].includes(r.kind)), { ...DEFAULT_RULES[4], role: 'user', delivery: 'context' }, { ...DEFAULT_RULES[7], role: 'user', delivery: 'pre-step' }] }) },
   { id: 'builtin-native-phi', ...normalizePreset({ format: FORMAT, version: 1, backend: 'native', name: '后置提醒（原生） / Final reminder (native)', rules: [...NATIVE_RULES.filter(r => r.kind !== 'phi'), { ...DEFAULT_RULES[7], role: 'user', delivery: 'pre-step' }] }) },
+  { id: 'builtin-native-roles', ...normalizePreset({ format: FORMAT, version: 1, backend: 'native', name: '预设身份优先（原生） / Preset roles first (native)', placement: 'native-roles', rules: DEFAULT_RULES }) },
+  { id: 'builtin-native-slots', ...normalizePreset({ format: FORMAT, version: 1, backend: 'native', name: '预设插槽优先（原生） / Preset slots first (native)', placement: 'native-slots', rules: DEFAULT_RULES }) },
 ])
 
 export function renderTavernText({ text, context, variables, block, diagnostics, identity }) {

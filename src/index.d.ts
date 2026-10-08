@@ -4,7 +4,7 @@ export type Lifetime = 'request' | 'snapshot'
 export type Stability = 'asset' | 'conversation' | 'evaluation' | 'assembly' | 'snapshot'
 export interface Rule { id: string; kind: string; enabled: boolean; role: Role; lifetime: Lifetime; depth: number | null; text: string; name: string; inputMode?: 'source' | 'text'; delivery?: 'context' | 'pre-step' }
 export type RuleInput = Pick<Rule, 'id' | 'kind'> & Partial<Omit<Rule, 'id' | 'kind'>>
-export interface Preset { backend?: 'native' | 'core'; format: 'dsh-tavern-request-assembly'; version: 1; name: string; placement: 'st' | 'modules'; rules: Rule[]; id?: string }
+export interface Preset { backend?: 'native' | 'core'; format: 'dsh-tavern-request-assembly'; version: 1; name: string; placement: 'st' | 'modules' | 'native-roles' | 'native-slots'; rules: Rule[]; id?: string }
 export type PresetInput = Omit<Preset, 'rules' | 'placement'> & { placement?: Preset['placement']; rules: RuleInput[] }
 export interface NativeMessage { id: string; role: string; content: Array<{ type: string; [key: string]: unknown }>; source?: { kind?: string; [key: string]: unknown }; [key: string]: unknown }
 /** Detached and deeply frozen at runtime. Resolvers must be read-only in both modes. */

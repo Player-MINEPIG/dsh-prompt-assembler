@@ -256,3 +256,23 @@ test('unannotated system messages no longer pretend to be official base instruct
     assert.ok(!ui.document.body.textContent.includes('Native instructions'))
   }finally{await ui.close()}
 })
+
+test('native panel exposes role/slot modes, saves the selected mode and displays role adjustments', async () => {
+  const { NATIVE_BUILTINS } = await import('../adapters/tavern.js')
+  const ui = dom(), saved = [], draft = { ...NATIVE_BUILTINS.find(p => p.placement === 'native-roles'), id: 'test', builtin: false }
+  try {
+    const fetcher = async (url, options) => {
+      if (url.endsWith('/preview')) return json({ preview: { backend: 'native', nodes: [], messages: [], diagnostics: [{ code: 'NATIVE_ROLE_ADJUSTED', name: 'Opening', from: 'user', to: 'system' }] } })
+      if (options.method === 'POST' || options.method === 'PUT') { saved.push(JSON.parse(options.body)); return json({ preset: draft }) }
+      return json({ ...library, presets: [draft], defaultPresetId: draft.id, capabilities: { native: true, core: false } })
+    }
+    await act(async () => ui.root.render(h(AssemblyPanel, { standalone: true, locale: 'en', sessionId: 'test', close() {}, fetcher })))
+    const select = [...ui.document.querySelectorAll('select')].find(s => [...s.options].some(o => o.value === 'native-slots'))
+    assert.deepEqual([...select.options].map(o => o.value), ['modules', 'native-roles', 'native-slots'])
+    await act(async () => { select.options[2].selected = true; select.dispatchEvent(new window.Event('change', { bubbles: true })) })
+    await act(async () => button(ui.document, 'Save rules').click())
+    assert.equal(saved[0].placement, 'native-slots')
+    await act(async () => button(ui.document, 'Preview current configuration').click())
+    assert.match(ui.document.body.textContent, /Opening · Role adjusted: user → system/)
+  } finally { await ui.close() }
+})
