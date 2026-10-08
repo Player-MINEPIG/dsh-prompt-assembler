@@ -66,7 +66,7 @@ The standalone plugin composes its own store, registry, runtime, HTTP API and br
 
 `migrateLegacy(root)` validates legacy `assembly-presets.json` and merges only IDs absent from the current store. Current assembler entries win and the old file remains unchanged. Old `play:` / `native:` scopes survive. Standalone selection checks the raw session ID, then explicit `native:<id>` and `play:<id>` entries, including explicit null. Standalone sessions without Tavern or a legacy selection receive no implicit default. Until reapplied, a legacy selection follows the active Tavern mode. Applying through the independent plugin binds the raw Session ID, so reinstalling Tavern or switching views cannot restore an older mode choice. `adapters/tavern-runtime` continues to offer compatibility composition primitives.
 
-Attached Tavern uses native ST style by default; an explicitly mounted addon can select its advanced default. Existing unified/legacy snapshots retain their backend. Standalone use has no implicit default.
+Attached Tavern uses standard preset slots first by default; installing the addon does not change that default. Existing unified/legacy snapshots retain their backend. Standalone use has no implicit default.
 
 Current request metadata uses owner `dsh-prompt-assembler`; historical reads still accept prior `pmp-dsh-tavern` snapshots. Removing a source or the plugin does not convert history; standard user contributions already persist, while advanced assembly bodies are not copied into native messages. Plugin removal retains strategy storage and DSH durable history.
 

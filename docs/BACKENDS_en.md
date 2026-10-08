@@ -19,13 +19,26 @@ Standard system text contributes to official assembly. DSH decides whether updat
 
 User `delivery:context` is a native snapshot after current input: changed text appends, unchanged text reuses the snapshot. `delivery:pre-step` accepts a user message at an actual step, before or after current input. After input, context always precedes pre-step; reversed layouts are rejected. Contributions within one delivery region can be reordered. **Both enter durable history.** Disabling/removing a source stops future contributions; old bodies remain historical. Context withdrawal uses DSH's invalidation message; pre-step does not retract earlier messages. Arbitrary depth, disabled history/input and post-history system contributions are refused with `ASSEMBLY_NATIVE_UNSUPPORTED`, without implicit conversion in Module order.
 
-Tavern supplies `builtin-native-st` (system assets before history, approximate ST order), `builtin-native-cache` (changing lore as post-input context and PHI as a final pre-step), and `builtin-native-phi` (system assets with a final user PHI reminder). Cache hits and instruction influence depend on the model/provider; a final user reminder does not have final-system priority. Existing `builtin-st/cache/snapshots` remain advanced strategies.
+Tavern supplies distinct reference configurations that can be saved as custom strategies:
+
+| Built-in strategy | Effect |
+| --- | --- |
+| Preset slots first (standard) `builtin-native-slots` | RP default. Place referenced content at preset slots, adapting identity to native history/input boundaries; fall back to roles when slots are absent. |
+| Roles first (standard) `builtin-native-roles` | Preserve preset and lore entry roles. Within legal delivery regions, use preset slots, entry order, then module order. |
+| Lore and PHI last (standard) `builtin-native-cache` | Prefix assets become system contributions; append lore as user context after input, then PHI as user pre-step. |
+| PHI last (standard) `builtin-native-phi` | Keep lore and other assets as system contributions before history; append only PHI as final user pre-step. |
+| Preset slots first (advanced) `builtin-st` | Preserve supported preset slots, authored roles and message-level depth. Requires the core addon and compatible model capabilities. |
+| Lore and PHI last (advanced) `builtin-cache` | Module-order reference: prefix assets → history → input → current lore → PHI, preserving source roles with request-only bodies. |
+
+Slot templates use explicit resource-position priority: preset slots → user positions → resource positions → fallback order. Tail templates retain fixed module rules; they deliberately override the relevant module positions and do not promise to follow every preset slot. Cache hits and reminder effectiveness depend on the model/provider. Cache friendly has been renamed to describe actual placement. Native ST style was withdrawn because forcing assets to system is not ST ordering. Append snapshots duplicated the tail ordering and was withdrawn; advanced retention remains configurable in source rules.
+
+New RP sessions and Apply default strategy use standard slots even with the advanced addon installed. Existing built-in snapshots, custom strategies and explicit opt-outs remain unchanged; select and apply a template again to adopt its new definition. Standalone DSH sessions have no implicit RP strategy.
 
 A legacy strategy without `backend` remains core, retaining existing rule and revision semantics. Migration neither converts strategies nor removes applied snapshots. Missing core support returns 409 `REQUEST_ASSEMBLY_CORE_REQUIRED`; explicitly choose a standard preset or install the addon. Saving does not apply; applying captures a session snapshot. Both backends share one store, registry and UI.
 
 `runtime.capabilities()` separates native, core, coreExtensionInstalled, nativeRoles, nativeUserDelivery and nativeUserEntersHistory. `runtime.requireAvailable(preset)` checks the specified strategy. Legacy `available()` means any backend is available, not core authorization. A protocol marker alone does not enable advanced execution. Addon removal revokes its backend while preserving selections and storage.
 
-When native-system is disabled or omitted and retained effective system text differs from current assembly, public `startsRequestSeries` reconciliation asks DSH to update the effective system surface, preventing earlier in-history instructions from leaking into future requests. Original log events remain. Native ST-style modules override authored item roles and do not honor preset chat slots. User-only tails can use pre-step, but user contributions before existing history cannot be recreated with public append delivery; tail roles alone do not establish full advanced ST equivalence. Module placement is logical assembly policy; frozen DSH messages establish actual order.
+When native-system is disabled or omitted and retained effective system text differs from current assembly, public `startsRequestSeries` reconciliation asks DSH to update the effective system surface, preventing earlier in-history instructions from leaking into future requests. Original log events remain. The retained legacy native ST-style snapshot overrides authored roles and does not honor preset chat slots. User-only tails can use pre-step, but user contributions before existing history cannot be recreated with public append delivery; tail roles alone do not establish full advanced ST equivalence. Module placement is logical assembly policy; frozen DSH messages establish actual order.
 
 ## Preset-first ordering modes
 

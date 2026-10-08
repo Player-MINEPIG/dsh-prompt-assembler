@@ -29,15 +29,15 @@ node core-extension/scripts/switch-runtime.mjs install --runtime /path/to/runtim
 node core-extension/scripts/switch-runtime.mjs uninstall --runtime /path/to/runtime --home /path/to/dsh-home --profile web
 ```
 
-卸载只移除进阶 addon 并恢复标准核心。仍绑定进阶策略的会话切回标准 ST，原选择备份保留在 profile 的 `.assembler-core-switch/selections-before-uninstall.json`；自定义策略、标准选择、关闭状态及 DSH 会话日志保留。重新安装不自动恢复旧进阶选择。首次安装也保留已有显式选择；请在界面选择进阶 ST、缓存友好或后置指令策略以测试进阶行为。核心备份与切换 receipt 位于 profile 的 `.assembler-core-switch/`，回退前不要删除。两条指令只针对显式路径，要求目标 Host 已停止。
+卸载只移除进阶 addon 并恢复标准核心。仍绑定进阶策略的会话切回标准预设插槽优先，原选择备份保留在 profile 的 `.assembler-core-switch/selections-before-uninstall.json`；自定义策略、标准选择、关闭状态及 DSH 会话日志保留。重新安装不自动恢复旧进阶选择。首次安装也保留已有显式选择；请在界面选择进阶插槽或世界书与 PHI 后置策略以测试进阶行为。核心备份与切换 receipt 位于 profile 的 `.assembler-core-switch/`，回退前不要删除。两条指令只针对显式路径，要求目标 Host 已停止。
 
 扩展仅在 `agentLoop.requestAssemblyVersion===1` 时可挂载。只有准备后的核心、没有 addon，也不能应用 core 策略。两者缺任一，旧进阶策略仍可编辑/预览，但应用返回 409。标准包不包含准备工具或 addon bundle；root `scripts/prepare-request-assembly.mjs` 仅是源码开发兼容入口。
 
 ## 存储与卸载
 
-策略与 session 快照存于 `dshHomePath('dsh-prompt-assembler')/assembly-presets.json`。显式 `migrateLegacy(root)` 只合并缺少的 ID，保留旧文件和 play/native scope；统一 session 选择（含 null）优先于旧 mode 回退。旧策略缺 backend 仍为 core，不自动变成 native。独立运行无默认；Tavern 挂载时，无绑定 play 会话和新开场默认标准 ST 风格；显式安装 addon 后可保留进阶默认。已有明确快照不会因此改变。
+策略与 session 快照存于 `dshHomePath('dsh-prompt-assembler')/assembly-presets.json`。显式 `migrateLegacy(root)` 只合并缺少的 ID，保留旧文件和 play/native scope；统一 session 选择（含 null）优先于旧 mode 回退。旧策略缺 backend 仍为 core，不自动变成 native。独立运行无默认；Tavern 挂载时，无绑定 play 会话和新开场默认标准预设插槽优先；安装 addon 不改变默认方案。已有明确快照不会因此改变。
 
-卸载提供方撤销其来源与内置目录项，保留会话快照和策略文件。标准 user 贡献留在原生历史；进阶 request-only 贡献停止，已有 request/assembly 仍可读。一键卸载将旧 core 选择切回标准 ST；单独移除 addon 而不切换会明确报错。恢复 stock 核心使用切换工具保留的标准构建。迁移与真实 profile 写入只在授权环境执行。
+卸载提供方撤销其来源与内置目录项，保留会话快照和策略文件。标准 user 贡献留在原生历史；进阶 request-only 贡献停止，已有 request/assembly 仍可读。一键卸载将旧 core 选择切回标准预设插槽优先；单独移除 addon 而不切换会明确报错。恢复 stock 核心使用切换工具保留的标准构建。迁移与真实 profile 写入只在授权环境执行。
 
 ## 验证
 

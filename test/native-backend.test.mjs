@@ -14,7 +14,7 @@ const input = (id, text = id) => ({ id, role: 'user', content: [{type:'text',tex
 test('native layouts reject legacy core strategies, history switches, system tails and unsupported roles without rewriting', () => {
   for (const p of NATIVE_BUILTINS) assert.equal(validateNativePreset(p).backend, 'native')
   for (const p of advanced) assert.throws(() => validateNativePreset(p), {code:'ASSEMBLY_NATIVE_UNSUPPORTED'})
-  const p = structuredClone(NATIVE_BUILTINS[0]), before = JSON.stringify(p)
+  const p = structuredClone(NATIVE_BUILTINS.find(p => p.id === 'builtin-native-cache')), before = JSON.stringify(p)
   for (const mutate of [p => p.rules.find(r=>r.kind==='history').enabled=false, p=>p.rules.find(r=>r.kind==='input').enabled=false,
     p=>p.rules[1].role='assistant',p=>p.rules[1].depth=1,p=>p.rules[1].lifetime='snapshot',p=>p.rules.push({id:'tail',kind:'dsh.text',enabled:true,role:'system'})]) {
     const copy=structuredClone(p); mutate(copy); assert.throws(()=>validateNativePreset(copy),{code:'ASSEMBLY_NATIVE_UNSUPPORTED'})
@@ -111,7 +111,7 @@ test('native API rejects unsupported application without changing the applied se
       assert.equal(res.statusCode, 409); assert.equal(data.code, code); assert.deepEqual(readFileSync(store.path), before)
     }
     assert.equal(store.get(legacy.id).backend, undefined)
-    const mixed = structuredClone(NATIVE_BUILTINS[2]); mixed.rules.push({ id: 'context-last', kind: 'dsh.text', inputMode: 'text', text: 'X', role: 'user', delivery: 'context' })
+    const mixed = structuredClone(NATIVE_BUILTINS.find(p => p.id === 'builtin-native-phi')); mixed.rules.push({ id: 'context-last', kind: 'dsh.text', inputMode: 'text', text: 'X', role: 'user', delivery: 'context' })
     assert.throws(() => validateNativePreset(mixed), { code: 'ASSEMBLY_NATIVE_UNSUPPORTED' })
   } finally { rmSync(directory, { recursive: true, force: true }) }
 })

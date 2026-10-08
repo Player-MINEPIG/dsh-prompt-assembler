@@ -49,7 +49,7 @@ export async function switchRuntime({ action, runtime, home, profile = 'web', pr
   if (action === 'uninstall' && existsSync(storePath)) {
     selections = json(storePath)
     const { NATIVE_BUILTINS } = await import(pathToFileURL(join(profileDir, 'node_modules/dsh-prompt-assembler/adapters/tavern.js')))
-    const fallback = NATIVE_BUILTINS.find(p => p.id === 'builtin-native-st')
+    const fallback = NATIVE_BUILTINS.find(p => p.id === 'builtin-native-slots')
     for (const [id, selected] of Object.entries(selections.selections ?? {})) if (selected && (selected.backend ?? 'core') === 'core') {
       selections.selections[id] = structuredClone(fallback); migrated++
     }

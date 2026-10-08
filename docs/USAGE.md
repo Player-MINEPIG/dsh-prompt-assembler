@@ -5,7 +5,7 @@
 当前资源的块、插槽、稳定定位和兼容策略见[资源布局](RESOURCE_LAYOUT.md)。
 ## 接入方式
 
-选择“标准版”使用 DSH 公开接口，选择“进阶版”要求 addon 与准备后的核心。旧策略仍为进阶。标准版历史/输入必须保留且有序，不能任意 depth 或添加 assistant 贡献；user 的 context 与 pre-step 都进历史。Tavern 提供 ST 风格、缓存友好、后置 PHI、预设身份优先与预设插槽优先五个标准预设。见[后端规则](BACKENDS.md)。
+选择“标准版”使用 DSH 公开接口，选择“进阶版”要求 addon 与准备后的核心。旧策略仍为进阶。标准版历史/输入必须保留且有序，不能任意 depth 或添加 assistant 贡献；user 的 context 与 pre-step 都进历史。Tavern 提供插槽优先（RP 默认）、身份优先、世界书与 PHI 后置、PHI 后置四个标准参考方案。见[后端规则](BACKENDS.md)。
 
 ## 入口与界面
 

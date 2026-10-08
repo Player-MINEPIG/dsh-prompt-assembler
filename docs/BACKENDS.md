@@ -19,7 +19,20 @@
 
 user `delivery:context` 是输入之后的原生上下文快照，正文变化时新增，未变化复用；`delivery:pre-step` 是实际步骤前接受的 user 消息，可在本步输入前或后。输入后固定为 context→pre-step；相反顺序会被拒绝。相同投递区域内可排序。两者**都会进入 durable history**；关闭/卸载只停止未来贡献，旧正文继续作为历史存在。context 撤销使用 DSH 自己的失效说明，pre-step 不撤回旧消息。标准版不能任意 depth、不能禁用历史/输入、不能把 system 变成历史后的贡献；旧模块模式中不支持的配置返回 `ASSEMBLY_NATIVE_UNSUPPORTED`；下述插槽模式会明确显示角色适配。
 
-Tavern 保留三个原有标准预设：`builtin-native-st` 将各资产作为历史前的 system，近似 ST 顺序，不采用条目原角色或预设聊天插槽；`builtin-native-cache` 把变化世界书作为输入后 context，PHI 作为末尾 pre-step；`builtin-native-phi` 保留 system 资产，末尾追加 PHI user 提醒。缓存命中与指令影响仍由模型/provider 决定；末尾 user 提醒不等于末尾 system 优先级。原有 `builtin-st/cache/snapshots` 是进阶策略。
+Tavern 提供以下互有区别的参考方案，编辑后可另存为自己的策略：
+
+| 内置策略 | 效果 |
+| --- | --- |
+| 预设插槽优先（标准） `builtin-native-slots` | RP 默认。按预设插槽安排引用内容，身份适配原生历史/输入边界；无插槽时按身份回退。 |
+| 身份优先（标准） `builtin-native-roles` | 保留预设与世界书的条目身份；在合法投递区域内按预设插槽、条目顺序、模块顺序排列。 |
+| 世界书与 PHI 后置（标准） `builtin-native-cache` | 前部资产统一为 system；输入后追加世界书 user context，再追加 PHI user pre-step。 |
+| PHI 后置（标准） `builtin-native-phi` | 世界书等资产作为历史前 system；只有 PHI 作为末尾 user pre-step 提醒。 |
+| 预设插槽优先（进阶） `builtin-st` | 保留支持的预设插槽、原角色与消息级深度；要求 core addon，仍受模型能力约束。 |
+| 世界书与 PHI 后置（进阶） `builtin-cache` | 模块顺序参考：前部资产→历史→输入→当前世界书→PHI，保留来源角色，正文仅用于当前请求。 |
+
+插槽方案采用显式资源位置策略：预设插槽→用户指定位置→资源原位置→默认顺序。后置方案保留固定模块规则；它们有意覆盖相应模块位置，并不同时承诺遵循所有预设插槽。缓存命中与末尾提醒效果取决于模型/provider。“缓存友好”已改为描述实际位置的名称；“ST 风格（原生）”已撤出，避免将统一 system 误称为 ST。与后置排序重复的“追加快照”也已撤出，进阶保留方式仍可在来源规则中配置。
+
+新 RP 会话与“应用默认装配策略”使用标准插槽方案，即使安装了进阶 addon 也不自动切换。已应用的旧内置快照、自定义策略和关闭状态保持原样；重新选择并应用才采用新定义。独立 DSH 会话没有隐式 RP 策略。
 
 旧策略未写 `backend` 时仍解释为 core，原规则与 revision 保持原语义。迁移不转换策略，不删除已应用快照；缺扩展时明确返回 409 `REQUEST_ASSEMBLY_CORE_REQUIRED`。请显式选择一个标准预设或安装进阶扩展。保存草稿不应用；应用会复制会话快照。两个版本共用唯一 store/registry/UI，没有第二套历史或策略库。
 

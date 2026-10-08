@@ -64,7 +64,7 @@ Tavern 的存储模板仅在当前会话存在启用且支持的资源时可作�
 
 `migrateLegacy(root)` 校验旧 `assembly-presets.json`，只合并当前存储缺少的 ID；当前 assembler 条目优先，旧文件不改写。旧 `play:` / `native:` scope 保留。独立选择先查原始 session ID，再回退到显式 `native:<id>`、`play:<id>`，包括显式 null；独立运行且未挂 Tavern 时没有默认策略。尚未重新应用的旧选择按 Tavern 当前 mode 读取；在独立插件中重新应用后，以 session ID 统一绑定，重装 Tavern 或切换视图不会恢复旧选择。`adapters/tavern-runtime` 继续提供兼容组合原语。
 
-Tavern 默认使用原生 ST 风格；显式挂载 addon 可选进阶默认。现有统一/旧 scope 快照保留原后端；独立运行没有隐式默认。
+Tavern 默认使用标准预设插槽优先；安装 addon 不改变默认方案。现有统一/旧 scope 快照保留原后端；独立运行没有隐式默认。
 
 当前请求 metadata owner 为 `dsh-prompt-assembler`，历史读取仍接受旧 `pmp-dsh-tavern` 快照。移除来源或卸载插件不转换原生历史，标准 user 贡献已在原生历史中，进阶不将旧装配正文复制进历史；插件卸载保留自己的策略存储与 DSH durable history。
 

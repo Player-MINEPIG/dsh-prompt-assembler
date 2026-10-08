@@ -5,7 +5,7 @@
 See [resource layout](RESOURCE_LAYOUT_en.md) for current blocks, slots, stable positioning and legacy compatibility.
 ## Backend selection
 
-Choose Standard for public DSH interfaces, or Advanced for the optional addon and prepared core. Legacy strategies remain advanced. Standard history/input cannot be disabled or moved out of order; no arbitrary depth or assistant contributions. User context and pre-step both persist in history. Standard mode offers five Tavern presets: ST style, cache-friendly ordering, final PHI, preset roles first and preset slots first. See [backend rules](BACKENDS_en.md).
+Choose Standard for public DSH interfaces, or Advanced for the optional addon and prepared core. Legacy strategies remain advanced. Standard history/input cannot be disabled or moved out of order; no arbitrary depth or assistant contributions. User context and pre-step both persist in history. Standard mode offers four Tavern references: preset slots first (RP default), roles first, lore and PHI last, and PHI last. See [backend rules](BACKENDS_en.md).
 
 ## Entry and interface
 
@@ -47,7 +47,7 @@ In advanced mode, View latest actual request reads the latest durable request/as
 
 ## Removing and reinstalling providers
 
-The selectable catalog contains currently registered provider built-ins and saved user strategies. Tavern owns the ST compatible built-in; it is absent without Tavern. A session’s applied built-in snapshot survives with an unavailable-provider notice and never re-registers itself globally.
+The selectable catalog contains currently registered provider built-ins and saved user strategies. Tavern owns the preset-slot built-ins; it is absent without Tavern. A session’s applied built-in snapshot survives with an unavailable-provider notice and never re-registers itself globally.
 
 Reinstalling a provider restores its registrations. Existing selections, explicit disabled states and strategies reapplied independently take precedence over old configuration. Missing source modules report diagnostics and are omitted; saved user strategies remain and use the source again when it returns. Migration and removal do not rewrite native history.
 

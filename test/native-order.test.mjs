@@ -1,13 +1,13 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { assembleNative } from '../src/native-backend.js'
-import { NATIVE_BUILTINS, createDefaultRegistry } from '../adapters/tavern.js'
+import { NATIVE_BUILTINS, NATIVE_RULES, createDefaultRegistry } from '../adapters/tavern.js'
 import { normalizePreset } from '../src/model.js'
 import { textOf } from '../src/assemble.js'
 
 const msg = (id, role = 'user') => ({ id, role, content: [{ type: 'text', text: id }], source: { kind: role === 'user' ? 'user' : 'model' } })
 const prompt = (identifier, role, content) => ({ identifier, name: identifier, role, content, enabled: true })
-const base = placement => normalizePreset({ ...NATIVE_BUILTINS[0], placement })
+const base = placement => normalizePreset({ ...NATIVE_BUILTINS.find(p => p.id === 'builtin-native-roles'), rules: NATIVE_RULES, placement })
 async function plan(prompts, { placement = 'native-roles', history = [msg('OLD')], inputs = [msg('NOW')], rules, ...assets } = {}) {
   const preset = base(placement); if (rules) preset.rules = rules(preset.rules)
   const runtime = { registry: createDefaultRegistry(), resources: { compile: () => ({ assemblyInput: { ...assets, preset: { id: 'fixture', prompts } } }) } }

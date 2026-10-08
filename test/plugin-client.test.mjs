@@ -294,6 +294,7 @@ test('slot drag keeps mode and preset-owned rows fixed while moving independent 
 test('source configuration resolves ownership without presenting sources as draggable blocks', async()=>{
   const {NATIVE_BUILTINS}=await import('../adapters/tavern.js')
   const ui=dom(),draft=structuredClone(NATIVE_BUILTINS.find(p=>p.placement==='native-slots'))
+  delete draft.layout // Exercise compatibility rendering for an already-applied legacy snapshot.
   const controls={preset:'preset',persona:'preset',character:'mixed',worldbook:'independent',phi:'empty',history:'native',input:'native','native-system':'independent'}
   try{
     const fetcher=async(url)=>url.endsWith('/preview')?json({preview:{nodes:[],messages:[],diagnostics:[],placementControls:draft.rules.map(r=>({ruleId:r.id,control:controls[r.kind]}))}}):json({...library,presets:[draft],sources:[]})

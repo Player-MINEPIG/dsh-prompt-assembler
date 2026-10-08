@@ -125,10 +125,11 @@ export const DEFAULT_RULES = Object.freeze([
   { id: 'input', kind: 'input', enabled: true },
   { id: 'phi', kind: 'phi', enabled: true },
 ])
+// Slot references take precedence; unclaimed resources keep their own positions.
+const SLOT_LAYOUT = { version: 1, source: 'preset-slots', identity: 'position', fallback: 'source-order', overrides: [], priority: ['preset', 'user', 'resource', 'default'] }
 export const BUILTINS = Object.freeze([
-  { id: 'builtin-st', ...normalizePreset({ format: FORMAT, version: 1, name: 'ST 兼容 / ST compatible', placement: 'st', rules: DEFAULT_RULES }) },
-  { id: 'builtin-cache', ...normalizePreset({ format: FORMAT, version: 1, name: '缓存友好 / Cache friendly', rules: [DEFAULT_RULES[0], DEFAULT_RULES[1], DEFAULT_RULES[2], DEFAULT_RULES[3], DEFAULT_RULES[5], DEFAULT_RULES[6], DEFAULT_RULES[4], DEFAULT_RULES[7]] }) },
-  { id: 'builtin-snapshots', ...normalizePreset({ format: FORMAT, version: 1, name: '追加快照 / Append snapshots', rules: [DEFAULT_RULES[0], DEFAULT_RULES[1], DEFAULT_RULES[2], DEFAULT_RULES[3], DEFAULT_RULES[5], DEFAULT_RULES[6], { ...DEFAULT_RULES[4], lifetime: 'snapshot' }, DEFAULT_RULES[7]] }) },
+  { id: 'builtin-st', ...normalizePreset({ format: FORMAT, version: 1, name: '预设插槽优先（进阶） / Preset slots first (advanced)', layout: SLOT_LAYOUT, rules: DEFAULT_RULES }) },
+  { id: 'builtin-cache', ...normalizePreset({ format: FORMAT, version: 1, name: '世界书与 PHI 后置（进阶） / Lore and PHI last (advanced)', rules: [DEFAULT_RULES[0], DEFAULT_RULES[1], DEFAULT_RULES[2], DEFAULT_RULES[3], DEFAULT_RULES[5], DEFAULT_RULES[6], DEFAULT_RULES[4], DEFAULT_RULES[7]] }) },
 ])
 
 export const NATIVE_RULES = Object.freeze([
@@ -136,11 +137,10 @@ export const NATIVE_RULES = Object.freeze([
   { ...DEFAULT_RULES[7], role: 'system' }, DEFAULT_RULES[5], DEFAULT_RULES[6],
 ])
 export const NATIVE_BUILTINS = Object.freeze([
-  { id: 'builtin-native-st', ...normalizePreset({ format: FORMAT, version: 1, backend: 'native', name: 'ST 风格（原生） / ST style (native)', rules: NATIVE_RULES }) },
-  { id: 'builtin-native-cache', ...normalizePreset({ format: FORMAT, version: 1, backend: 'native', name: '缓存友好（原生） / Cache friendly (native)', rules: [...NATIVE_RULES.filter(r => !['worldbook', 'phi'].includes(r.kind)), { ...DEFAULT_RULES[4], role: 'user', delivery: 'context' }, { ...DEFAULT_RULES[7], role: 'user', delivery: 'pre-step' }] }) },
-  { id: 'builtin-native-phi', ...normalizePreset({ format: FORMAT, version: 1, backend: 'native', name: '后置提醒（原生） / Final reminder (native)', rules: [...NATIVE_RULES.filter(r => r.kind !== 'phi'), { ...DEFAULT_RULES[7], role: 'user', delivery: 'pre-step' }] }) },
-  { id: 'builtin-native-roles', ...normalizePreset({ format: FORMAT, version: 1, backend: 'native', name: '预设身份优先（原生） / Preset roles first (native)', placement: 'native-roles', rules: DEFAULT_RULES }) },
-  { id: 'builtin-native-slots', ...normalizePreset({ format: FORMAT, version: 1, backend: 'native', name: '预设插槽优先（原生） / Preset slots first (native)', placement: 'native-slots', rules: DEFAULT_RULES }) },
+  { id: 'builtin-native-slots', ...normalizePreset({ format: FORMAT, version: 1, backend: 'native', name: '预设插槽优先（标准） / Preset slots first (standard)', layout: SLOT_LAYOUT, rules: DEFAULT_RULES }) },
+  { id: 'builtin-native-roles', ...normalizePreset({ format: FORMAT, version: 1, backend: 'native', name: '身份优先（标准） / Roles first (standard)', placement: 'native-roles', rules: DEFAULT_RULES }) },
+  { id: 'builtin-native-cache', ...normalizePreset({ format: FORMAT, version: 1, backend: 'native', name: '世界书与 PHI 后置（标准） / Lore and PHI last (standard)', rules: [...NATIVE_RULES.filter(r => !['worldbook', 'phi'].includes(r.kind)), { ...DEFAULT_RULES[4], role: 'user', delivery: 'context' }, { ...DEFAULT_RULES[7], role: 'user', delivery: 'pre-step' }] }) },
+  { id: 'builtin-native-phi', ...normalizePreset({ format: FORMAT, version: 1, backend: 'native', name: 'PHI 后置（标准） / PHI last (standard)', rules: [...NATIVE_RULES.filter(r => r.kind !== 'phi'), { ...DEFAULT_RULES[7], role: 'user', delivery: 'pre-step' }] }) },
 ])
 
 export function renderTavernText({ text, context, variables, block, diagnostics, identity }) {

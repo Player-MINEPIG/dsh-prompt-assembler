@@ -19,7 +19,7 @@ function fixture(t){
  put(join(prepared,'receipt.json'),JSON.stringify({sourceVersion:'0.2.0-rc.2',requestAssemblyVersion:1}))
  put(join(profile,'package.json'),JSON.stringify({dependencies:{}}))
  put(join(profile,'node_modules/dsh-prompt-assembler/package.json'),JSON.stringify({version:'0.2.0',type:'module'}))
- put(join(profile,'node_modules/dsh-prompt-assembler/adapters/tavern.js'),`export const NATIVE_BUILTINS=[{id:'builtin-native-st',backend:'native',rules:[]}]`)
+ put(join(profile,'node_modules/dsh-prompt-assembler/adapters/tavern.js'),`export const NATIVE_BUILTINS=[{id:'builtin-native-slots',backend:'native',rules:[]}]`)
  const store=join(home,'dsh-prompt-assembler/assembly-presets.json')
  put(store,JSON.stringify({presets:{saved:{backend:'core',rules:[]}},selections:{old:{id:'old',rules:[]},native:{id:'n',backend:'native'},off:null}}))
  const history=join(home,'sessions/history');put(history,'DURABLE HISTORY')
