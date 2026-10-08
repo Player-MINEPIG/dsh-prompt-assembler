@@ -27,9 +27,11 @@ test('role priority handles empty history/input without fabricating messages and
   assert.deepEqual(result.logical.messages.map(textOf), ['LEAD'])
   assert.deepEqual(result.logical.nodes.map(n => n.source.module), ['history', 'preset', 'input'])
 })
-test('adaptive ordering rejects authored assistant and depth by readable item name', async () => {
+test('adaptive ordering rejects authored assistant and reports approximated source depth by item name', async () => {
   await assert.rejects(plan([prompt('Assistant entry', 'assistant', 'A')]), /Assistant entry/)
-  await assert.rejects(plan([{ ...prompt('Depth entry', 'system', 'D'), injectionPosition: 1, injectionDepth: 2 }]), /Depth entry/)
+  const depth = await plan([{ ...prompt('Depth entry', 'system', 'D'), injectionPosition: 1, injectionDepth: 2 }])
+  assert.ok(depth.logical.diagnostics.some(d => d.code === 'NATIVE_DEPTH_APPROXIMATED' && d.name === 'Depth entry' && d.depth === 2))
+  assert.deepEqual(depth.logical.messages.map(textOf), ['D','OLD','NOW'])
 })
 
 test('chatHistory slot brackets unchanged history/input, adapts roles, and leaves pre-step evidence', async () => {
@@ -66,4 +68,12 @@ test('missing or disabled preset slots fall back to roles, and repeated macros d
 test('opening previews do not add a synthetic assistant greeting to native history', async () => {
   const result = await plan([prompt('p', 'user', 'A{{chatHistory}}B')], { placement: 'native-slots', history: [], inputs: [], includeGreetingReference: true, character: { data: { firstMessage: 'REFERENCE ONLY' } } })
   assert.deepEqual(result.logical.messages.map(textOf), ['A', 'B'])
+})
+
+test('depth worldbook entries follow native priority without splitting tool history', async () => {
+  const history = [msg('OLD'), { ...msg('call', 'assistant'), content: [{type:'tool-call', id:'c', name:'probe', arguments:'{}'}] }, { ...msg('result','tool'), toolCallId:'c', source:{kind:'tool',callId:'c'} }]
+  const result = await plan([prompt('p','user','A{{chatHistory}}B')], { placement:'native-slots', history, loreEntries:[{id:'lore',comment:'Deep lore',content:'LORE',role:'system',requestedPosition:'at_depth',depth:2}] })
+  assert.ok(result.logical.diagnostics.some(d=>d.code==='NATIVE_DEPTH_APPROXIMATED'&&d.name==='Deep lore'))
+  assert.deepEqual(result.logical.messages.filter(m=>history.some(h=>h.id===m.id)),history)
+  assert.deepEqual(result.afterInput.map(textOf),['B','LORE'])
 })

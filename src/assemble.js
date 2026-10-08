@@ -147,13 +147,17 @@ function assembleResolved({ preset: suppliedPreset, previous = null, snapshots =
     const controlled = listPlacement && listed.has(placementRule.id)
     // Native block depth can anchor immutable system updates within native
     // history. Moving a module must not rewrite that internal message order.
-    const depth = controlled && block.type !== 'native' ? placementRule.depth
+    let depth = controlled && block.type !== 'native' ? placementRule.depth
       : block.depth ?? (listed.has(entry.rule.id) ? targetRule.depth : entry.rule.depth)
+    const nativeRequestedDepth = adaptive && depth != null ? depth : null
+    if (nativeRequestedDepth !== null) {
+      diagnostics.push({ code: 'NATIVE_DEPTH_APPROXIMATED', id: identity, name: block.name || block.id, depth })
+      depth = null
+    }
     const node = { id: identity, ruleId: targetRule.id, module: targetRule.kind, name: block.name || block.id, role, text: rendered, messages, source: origin(entry, block),
-      ...(adaptive ? { placementSource: reference?.sourceId ?? null } : {}),
+      ...(adaptive ? { placementSource: reference?.sourceId ?? null, nativeRequestedDepth } : {}),
       stability: block.stability ?? entry.descriptor.stability,
       lifetime, recorded: true, locked: reference?.locked ?? false, lockReason: reference?.locked ? reference.reason : null, children, hash: contentHash, depth, order: block.order ?? 100, changed: previous?.nodes?.find(n => n.id === identity)?.hash !== contentHash }
-    if (adaptive && depth != null) throw Object.assign(new Error(`Native ordering cannot insert at depth: ${node.name}`), { code: 'ASSEMBLY_NATIVE_UNSUPPORTED', status: 409, detail: { ruleId: node.ruleId, field: node.source.field } })
     if (depth != null) deferred.push(node)
     else (plans.get(block.targetSourceId ? targetRule.id : reference?.placementRule ?? targetRule.id) ?? []).push(node)
   }
