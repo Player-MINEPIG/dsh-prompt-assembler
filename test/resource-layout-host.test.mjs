@@ -47,6 +47,24 @@ for (const backend of ['native', 'core']) {
       assert.ok(text.includes('ONE\n\nTWO\n\nNEW\n\nCHARACTER'))
       const after = await face.runtime.preview({ preset: saved, agent, sessionId: 'fixture' })
       assert.deepEqual(after.resourceLayout.blocks.find(b => b.id === block('ONE').id).entries.map(e => e.text), ['ONE', 'TWO', 'NEW'])
+      // Semantic positions survive changing the preset and worldbook identities.
+      assets.preset = { id: 'replacement', prompts: ['worldInfoBefore', 'worldInfoAfter', 'chatHistory'].map(identifier => ({ identifier, marker: true, enabled: true, role: 'system' })) }
+      assets.loreEntries = [{ id: 'replacement-before', resourceId: 'replacement-book', content: 'POSITION_BEFORE', position: 'before' }, { id: 'replacement-after', resourceId: 'replacement-book', content: 'POSITION_AFTER', position: 'after' }]
+      for (const priority of ['user', 'preset', ['user', 'preset', 'resource', 'default'], ['preset', 'resource', 'default', 'user']]) {
+        const configured = face.store.save({ ...saved, layout: { ...saved.layout, overrides: [], priority, positions: [
+          { sourceId: 'worldbook', positionId: 'after', enabled: true, placement: 'list' },
+          { sourceId: 'worldbook', positionId: 'before', enabled: true, placement: 'source' },
+        ] } }, saved.id)
+        face.store.apply('fixture', configured.id)
+        assert.deepEqual(new AssemblyPresetStore(directory, { unified: true }).selection('fixture').layout, configured.layout)
+        const resolved = await face.runtime.preview({ preset: configured, agent, sessionId: 'fixture' })
+        const lore = resolved.nodes.filter(n => n.source.module === 'worldbook').map(n => n.text)
+        assert.deepEqual(lore, (Array.isArray(priority) ? priority[0] : priority) === 'user' ? ['POSITION_AFTER', 'POSITION_BEFORE'] : ['POSITION_BEFORE', 'POSITION_AFTER'])
+        agent.followup(llm.createUserMessage({ content: [{ type: 'text', text: `POSITION_${priority}` }], source: { kind: 'user' } })); await agent.whenIdle()
+        assert.deepEqual(errors, [])
+        const actual = requests.at(-1).map(textOf).join('\n\n')
+        assert.ok(actual.includes(lore.join('\n\n')))
+      }
     } finally { await ctx.fiber.dispose(); rmSync(directory, { recursive: true, force: true }) }
   })
 }

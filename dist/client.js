@@ -39,160 +39,6 @@ __export(plugin_client_exports, {
 module.exports = __toCommonJS(plugin_client_exports);
 var import_react3 = require("react");
 
-// src/resource-layout.js
-var fail = (message, code = "ASSEMBLY_LAYOUT_UNSUPPORTED") => {
-  throw Object.assign(new Error(message), { code, status: 409 });
-};
-function normalizeLayout(value) {
-  if (value === void 0) return void 0;
-  if (!value || value.version !== 1 || !["manual", "preset-slots"].includes(value.source) || !["preserve", "position"].includes(value.identity) || !["source-order", "error"].includes(value.fallback) || !Array.isArray(value.overrides) || value.overrides.length > 128) throw new TypeError("Invalid resource layout policy");
-  const seen = /* @__PURE__ */ new Set();
-  const overrides = value.overrides.map((o) => {
-    if (!o || ![o.target, o.anchor].every((s) => typeof s === "string" && s.length > 0 && s.length <= 4096) || o.target === o.anchor || seen.has(o.target) || !["before", "after"].includes(o.side) || typeof o.detach !== "boolean") throw new TypeError("Invalid layout override");
-    seen.add(o.target);
-    return { target: o.target, anchor: o.anchor, side: o.side, detach: o.detach };
-  });
-  return { version: 1, source: value.source, identity: value.identity, fallback: value.fallback, overrides };
-}
-function layoutPlacement(preset) {
-  if (!preset.layout) return preset.placement;
-  return preset.backend === "native" ? preset.layout.source === "preset-slots" ? "native-slots" : "native-roles" : preset.layout.source === "preset-slots" ? "st" : "modules";
-}
-function withBlockMove(preset, layout, target, anchor, side = "before", detach = false) {
-  if (!preset.layout || layout.legacy) fail("Explicitly adopt a resource layout policy before moving blocks");
-  const b = layout.blocks.find((b2) => b2.id === target);
-  if (!b || !layout.blocks.some((b2) => b2.id === anchor)) fail("Refresh current resources before moving this block");
-  if (!b.movable && !(detach && b.overridable)) fail("This block follows a slot or a runtime anchor");
-  detach ||= preset.layout.overrides.find((o) => o.target === target)?.detach === true;
-  return { ...preset, layout: normalizeLayout({ ...preset.layout, overrides: [...preset.layout.overrides.filter((o) => o.target !== target), { target, anchor, side, detach }] }) };
-}
-
-// src/resource-layout-client.js
-var import_react = require("react");
-function ResourceLayoutEditor({ preset, preview, locale = 0, busy, onChange, onPreview, sourceColor: sourceColor2 = () => "#999999", originName = (plugin) => plugin ?? "\u2014", sourceName = (kind) => kind ?? "\u2014" }) {
-  const [drag, setDrag] = (0, import_react.useState)(null), [drop, setDrop] = (0, import_react.useState)(null), [error, setError] = (0, import_react.useState)("");
-  const t = (zh, en) => locale === 0 ? zh : en;
-  const terms = { "native-system": "\u539F\u751F\u6307\u4EE4", history: "\u539F\u751F\u5386\u53F2", input: "\u672C\u6B65\u8F93\u5165", worldbook: "\u4E16\u754C\u4E66", character: "\u89D2\u8272\u5361", description: "\u89D2\u8272\u63CF\u8FF0", before: "\u524D\u7F6E\u7EC4", after: "\u540E\u7F6E\u7EC4", depth: "\u6DF1\u5EA6\u7EC4", preserve: "\u4FDD\u7559\u539F\u8EAB\u4EFD", free: "\u81EA\u7531\u5757", slot: "\u63D2\u69FD\u7ED1\u5B9A", runtime: "\u8FD0\u884C\u65F6\u7BA1\u7406", request: "\u6BCF\u8F6E\u91CD\u65B0\u88C5\u914D", snapshot: "\u7559\u5B58\u5FEB\u7167", native: "\u539F\u751F\u7559\u5B58", "source-defined": "\u6309\u6765\u6E90\u987A\u5E8F", "before-input:pre-step": "\u8F93\u5165\u524D\u6295\u9012", "after-input:pre-step": "\u8F93\u5165\u540E\u6295\u9012", "after-input:context": "\u539F\u751F context", system: "system", user: "user", assistant: "assistant" };
-  const label = (value) => locale === 0 ? terms[value] ?? value : value;
-  const blockName = (block) => block.name.split(" \xB7 ").map(label).join(" \xB7 ");
-  const origins = (block) => [...new Map(block.entries.map(({ source }) => [JSON.stringify([source?.plugin, source?.module]), source ?? {}])).values()];
-  const blockColor = (block) => {
-    const plugins = [...new Set(block.entries.map((entry) => entry.source?.plugin))];
-    return sourceColor2(plugins.length === 1 ? plugins[0] : null);
-  };
-  const sourceLabel = (source) => `${originName(source?.plugin)} \xB7 ${sourceName(source?.module)}`;
-  const layout = preview?.resourceLayout;
-  const update = (patch) => onChange({ ...preset, layout: { ...preset.layout, ...patch } });
-  const move = (target, anchor, side, detach = false) => {
-    try {
-      setError("");
-      onChange(withBlockMove(preset, layout, target, anchor, side, detach));
-    } catch (e) {
-      setError(e.message);
-    }
-  };
-  const dropAt = (e) => {
-    const row = document.elementFromPoint(e.clientX, e.clientY)?.closest("[data-resource-block]");
-    if (!row || row.dataset.resourceBlock === drag || !e.currentTarget.closest(".dta-resource-blocks")?.contains(row)) return null;
-    return { anchor: row.dataset.resourceBlock, side: e.clientY < row.getBoundingClientRect().top + row.getBoundingClientRect().height / 2 ? "before" : "after" };
-  };
-  return (0, import_react.createElement)(
-    "section",
-    { className: "dta-resource-layout", "aria-label": t("\u5F53\u524D\u8D44\u6E90\u5E03\u5C40", "Current resource layout"), "aria-busy": busy },
-    (0, import_react.createElement)("h3", null, t("\u88C5\u914D\u7B56\u7565", "Assembly policy")),
-    !preset.layout ? (0, import_react.createElement)(
-      "div",
-      { className: "dta-notice" },
-      t("\u517C\u5BB9\u6A21\u5F0F\uFF1A\u4FDD\u7559\u5DF2\u4FDD\u5B58\u7B56\u7565\u7684\u987A\u5E8F\u3001\u8EAB\u4EFD\u4E0E\u6295\u9012\u884C\u4E3A\u3002\u91C7\u7528\u65B0\u7B56\u7565\u540E\u8BF7\u9884\u89C8\u5E76\u4FDD\u5B58\uFF1B\u4E0D\u4F1A\u81EA\u52A8\u4FEE\u6539\u5DF2\u5E94\u7528\u7B56\u7565\u3002", "Compatibility mode preserves saved ordering, identity and delivery. Adopt, preview and save explicitly; applied strategies are unchanged."),
-      (0, import_react.createElement)("button", { disabled: busy, onClick: () => update({ version: 1, source: ["st", "native-slots", "native-roles"].includes(preset.placement) ? "preset-slots" : "manual", identity: preset.placement === "native-slots" ? "position" : "preserve", fallback: "source-order", overrides: [] }) }, t("\u91C7\u7528\u8D44\u6E90\u5E03\u5C40\u7B56\u7565", "Adopt resource layout policy"))
-    ) : (0, import_react.createElement)(
-      "div",
-      { className: "dta-resource-policy" },
-      ...[
-        ["source", t("\u5E03\u5C40\u6765\u6E90", "Layout source"), [["manual", t("\u624B\u52A8", "Manual")], ["preset-slots", t("\u9884\u8BBE\u63D2\u69FD", "Preset slots")]]],
-        ["identity", t("\u8EAB\u4EFD\u5904\u7406", "Identity"), [["preserve", t("\u4FDD\u7559\u6765\u6E90\u8EAB\u4EFD", "Preserve source roles")], ["position", t("\u660E\u786E\u5141\u8BB8\u6309\u4F4D\u7F6E\u9002\u914D", "Allow position adaptation")]]],
-        ["fallback", t("\u7F3A\u5931\u5B9A\u4F4D", "Missing targets"), [["source-order", t("\u6765\u6E90\u987A\u5E8F\u5E76\u8BCA\u65AD", "Source order with diagnostic")], ["error", t("\u62D2\u7EDD\u88C5\u914D", "Reject assembly")]]]
-      ].map(([key, label2, options]) => (0, import_react.createElement)("label", { key }, label2, (0, import_react.createElement)("select", { value: preset.layout[key], disabled: busy, onChange: (e) => update({ [key]: e.target.value }) }, ...options.map(([value, label3]) => (0, import_react.createElement)("option", { key: value, value }, label3)))))
-    ),
-    (0, import_react.createElement)("h3", null, t("\u5F53\u524D\u8D44\u6E90\u5E03\u5C40", "Current resource layout")),
-    (0, import_react.createElement)("p", null, t("\u6765\u6E90\u63D0\u4F9B\u5185\u5BB9\uFF1B\u5757\u662F\u8FDE\u7EED\u8F93\u51FA\uFF1B\u63D2\u69FD\u53EA\u5360\u4F4D\u7F6E\u3002\u62D6\u52A8\u5DE6\u4FA7 \u283F \u79FB\u52A8\u6574\u5757\uFF0C\u5185\u90E8\u987A\u5E8F\u4E0D\u53D8\uFF1B\u677E\u5F00\u540E\u81EA\u52A8\u66F4\u65B0\u5E03\u5C40\u3002", "Sources supply content; blocks are contiguous output; slots are positions only. Drag the left \u283F handle to move a whole block while preserving its internal order. The layout updates automatically after dropping.")),
-    (0, import_react.createElement)("button", { disabled: busy, onClick: onPreview }, t("\u5237\u65B0\u5F53\u524D\u8D44\u6E90", "Refresh current resources")),
-    error && (0, import_react.createElement)("p", { role: "alert" }, error),
-    !layout ? (0, import_react.createElement)("p", null, t("\u9884\u89C8\u4EE5\u89E3\u6790\u5F53\u524D\u8D44\u6E90\u53CA\u9650\u5236\u3002", "Preview to resolve current resources and constraints.")) : (0, import_react.createElement)(
-      "div",
-      { className: "dta-resource-blocks" },
-      ...layout.blocks.map((b, i) => (0, import_react.createElement)(
-        "article",
-        { key: b.id, className: "dta-row", "data-resource-block": b.id, style: { "--assembly-color": blockColor(b) }, "data-drop-side": drop?.anchor === b.id ? drop.side : void 0, "data-resource-dragging": drag === b.id },
-        (0, import_react.createElement)(
-          "div",
-          { className: "dta-summary" },
-          (0, import_react.createElement)("button", {
-            type: "button",
-            className: "dta-handle",
-            disabled: busy || !preset.layout || !b.movable,
-            "aria-label": `${t("\u79FB\u52A8\u6574\u5757", "Move whole block")}: ${blockName(b)}`,
-            title: b.movable ? t("\u62D6\u52A8\u6574\u5757", "Drag whole block") : t("\u4F4D\u7F6E\u5DF2\u9501\u5B9A", "Position locked"),
-            onPointerDown: (e) => {
-              if (e.button !== 0) return;
-              e.preventDefault();
-              e.currentTarget.setPointerCapture(e.pointerId);
-              setDrag(b.id);
-              setDrop(null);
-            },
-            onPointerMove: (e) => {
-              if (e.currentTarget.hasPointerCapture(e.pointerId)) setDrop(dropAt(e));
-            },
-            onPointerUp: (e) => {
-              if (!e.currentTarget.hasPointerCapture(e.pointerId)) return;
-              const target = dropAt(e);
-              e.currentTarget.releasePointerCapture(e.pointerId);
-              if (target) move(b.id, target.anchor, target.side);
-              setDrag(null);
-              setDrop(null);
-            },
-            onLostPointerCapture: () => {
-              setDrag(null);
-              setDrop(null);
-            },
-            onPointerCancel: () => {
-              setDrag(null);
-              setDrop(null);
-            }
-          }, b.movable ? "\u283F" : "\u{1F512}"),
-          (0, import_react.createElement)("strong", null, `${i + 1}. ${blockName(b)}`),
-          (0, import_react.createElement)("div", { className: "dta-resource-origins" }, ...origins(b).map((source, i2) => (0, import_react.createElement)("span", { key: i2, className: "dta-resource-origin", style: { "--assembly-color": sourceColor2(source.plugin) } }, sourceLabel(source)))),
-          (0, import_react.createElement)("small", null, `${b.originalRoles.map(label).join("/")} \u2192 ${b.effectiveRoles.map(label).join("/")} \xB7 ${label(b.region)} \xB7 ${label(b.binding)}`)
-        ),
-        (0, import_react.createElement)(
-          "div",
-          { className: "dta-resource-body" },
-          (0, import_react.createElement)("small", null, `${t("\u7559\u5B58", "Retention")}: ${b.retention.map(label).join("/")} \xB7 ${b.reason === "user-override" ? t("\u7528\u6237\u81EA\u5B9A\u4E49\u4F4D\u7F6E", "User position override") : b.slotId ? t("\u6765\u6E90\u63D2\u69FD\u51B3\u5B9A\u4F4D\u7F6E", "Source slot owns position") : t("\u6765\u6E90\u9ED8\u8BA4\u987A\u5E8F", "Source default order")}`),
-          b.slotId && (0, import_react.createElement)("p", null, `${t("\u4F4D\u7F6E\u7531\u63D2\u69FD\u9501\u5B9A", "Position locked by slot")}: ${b.slotId}`),
-          ...b.limitations.map((reason) => (0, import_react.createElement)("p", { key: reason, className: "dta-notice" }, reason === "NATIVE_CONTEXT_REUSES_HISTORY_POSITION" ? t("\u539F\u751F context \u53EF\u80FD\u590D\u7528\u5386\u53F2\u4E2D\u7684\u65E7\u4F4D\u7F6E\uFF1B\u6B64\u5904\u987A\u5E8F\u4EC5\u8868\u793A\u65B0\u5FEB\u7167\u7684\u4F4D\u7F6E\uFF0C\u7CBE\u786E\u4F4D\u7F6E\u4EE5\u5B9E\u9645\u8BF7\u6C42\u4E3A\u51C6\u3002", "Native context can reuse an earlier history position. This order describes new snapshots; actual requests determine exact placement.") : t("\u539F\u751F\u5386\u53F2\u3001\u6DF1\u5EA6\u6216\u7559\u5B58\u5FEB\u7167\u7684\u4F4D\u7F6E\u7531\u8FD0\u884C\u65F6\u7EA6\u675F\u3002", "Native history, depth or retained snapshots constrain this position."))),
-          (0, import_react.createElement)("details", null, (0, import_react.createElement)("summary", null, `${t("\u5185\u5BB9\u4E0E\u6765\u6E90", "Content and provenance")} \xB7 ${b.entries.length} \xB7 ${label(b.internalOrder)}`), ...b.entries.map((entry) => (0, import_react.createElement)("div", { key: entry.id, className: "dta-child", style: { borderLeftColor: sourceColor2(entry.source?.plugin) } }, (0, import_react.createElement)("small", null, `${sourceLabel(entry.source)} / ${entry.source?.resourceId ?? ""} / ${entry.source?.field} \xB7 ${entry.originalRole} \u2192 ${entry.effectiveRole} \xB7 ${label(entry.lifetime)}`), (0, import_react.createElement)("pre", null, entry.text), ...(entry.children ?? []).map((child, index) => (0, import_react.createElement)("pre", { key: index }, `${sourceLabel(child.source)} / ${child.source?.field ?? ""}
-${child.text ?? ""}`))))),
-          preset.layout && (b.movable || b.overridable) && (0, import_react.createElement)(
-            "details",
-            { className: "dta-position-menu" },
-            (0, import_react.createElement)("summary", null, b.overridable ? t("\u81EA\u5B9A\u4E49\u4F4D\u7F6E", "Customize position") : t("\u66F4\u591A\u79FB\u52A8\u65B9\u5F0F", "More move options")),
-            b.overridable && (0, import_react.createElement)("p", null, t("\u9009\u62E9\u76EE\u6807\u540E\u5C06\u89E3\u9664\u63D2\u69FD\u4F4D\u7F6E\u7ED1\u5B9A\uFF0C\u53EF\u518D\u901A\u8FC7\u62D6\u62FD\u8C03\u6574\u3002", "Choosing a target overrides the slot position; you can then drag this block.")),
-            (0, import_react.createElement)("label", null, t("\u79FB\u5230\u6B64\u5757\u4E4B\u524D", "Move before this block"), (0, import_react.createElement)("select", { value: "", disabled: busy, onChange: (e) => {
-              if (e.target.value) {
-                e.currentTarget.closest("details").open = false;
-                move(b.id, e.target.value, "before", b.overridable);
-              }
-            } }, (0, import_react.createElement)("option", { value: "" }, t("\u9009\u62E9\u76EE\u6807", "Choose target")), ...layout.blocks.filter((a) => a.id !== b.id).map((a) => (0, import_react.createElement)("option", { key: a.id, value: a.id }, blockName(a)))))
-          )
-        )
-      )),
-      (0, import_react.createElement)("details", null, (0, import_react.createElement)("summary", null, t("\u63D2\u69FD\uFF08\u4E0D\u53D1\u9001\u6587\u672C\uFF09", "Slots (no emitted text)")), ...layout.slots.map((s) => (0, import_react.createElement)("p", { key: s.id }, `${s.id} \u2192 ${s.targetSourceId} ${s.group ?? ""} \xB7 ${s.duplicate ? t("\u91CD\u590D\uFF0C\u672A\u91CD\u590D\u53D1\u9001", "duplicate, no duplicate output") : s.nodeIds.length ? t("\u5DF2\u7ED1\u5B9A", "bound") : t("\u7A7A\u63D2\u69FD", "empty")}`))),
-      ...(preview.diagnostics ?? []).filter((d) => d.code.startsWith("LAYOUT_")).map((d, i) => (0, import_react.createElement)("pre", { key: i, role: "status" }, JSON.stringify(d)))
-    ),
-    preset.layout?.overrides.length > 0 && (0, import_react.createElement)("details", null, (0, import_react.createElement)("summary", null, t("\u4FDD\u5B58\u7684\u5B9A\u4F4D\u8986\u76D6", "Saved position overrides")), ...preset.layout.overrides.map((o, i) => (0, import_react.createElement)("div", { key: o.target, className: "dta-layout-override" }, (0, import_react.createElement)("code", null, `${layout?.blocks.find((b) => b.id === o.target)?.name ?? t("\u5F85\u89E3\u6790\u5757", "Unresolved block")} \u2192 ${o.side} ${layout?.blocks.find((b) => b.id === o.anchor)?.name ?? t("\u5F85\u89E3\u6790\u76EE\u6807", "Unresolved target")}`), (0, import_react.createElement)("button", { disabled: busy, onClick: () => update({ overrides: preset.layout.overrides.filter((_, at) => at !== i) }) }, t("\u6062\u590D\u6765\u6E90\u4F4D\u7F6E", "Restore source position")))))
-  );
-}
-
 // src/native-context.js
 var DSH_CONTEXT_NAMES = Object.freeze(["sandbox:policy", "approval:policy", "subagent:delegation"]);
 var CONTEXT_CONTROLS = Object.freeze([
@@ -209,6 +55,237 @@ function contextControlRows(rules, available = CONTEXT_CONTROLS.map((c) => c.kin
     ids.add(id);
     return { id, kind: c.kind, enabled: true, role: "preserve", lifetime: "request", depth: null, text: "", name: "" };
   })];
+}
+
+// src/resource-positions.js
+var idPattern = /^[a-zA-Z0-9][a-zA-Z0-9_.:/-]{0,159}$/;
+function normalizePositions(value) {
+  if (value === void 0) return void 0;
+  if (!Array.isArray(value) || value.length > 512) throw new TypeError("Expected at most 512 resource positions");
+  const seen = /* @__PURE__ */ new Set();
+  return value.map((p) => {
+    const key = positionKey(p?.sourceId, p?.positionId);
+    if (!p || typeof p.sourceId !== "string" || typeof p.positionId !== "string" || !idPattern.test(p.sourceId) || !idPattern.test(p.positionId) || seen.has(key) || typeof p.enabled !== "boolean" || !["source", "list"].includes(p.placement)) throw new TypeError("Invalid resource position");
+    seen.add(key);
+    return { sourceId: p.sourceId, positionId: p.positionId, enabled: p.enabled, placement: p.placement };
+  });
+}
+var positionKey = (sourceId, positionId) => `${sourceId}#${positionId}`;
+var POSITION_PRIORITIES = Object.freeze(["user", "preset", "resource", "default"]);
+function priorityOrder(preset) {
+  const priority = preset.layout?.priority;
+  if (Array.isArray(priority)) return [...priority];
+  return priority === "user" || !priority && preset.layout?.source === "manual" ? ["user", "preset", "resource", "default"] : ["preset", "user", "resource", "default"];
+}
+function normalizePriority(priority) {
+  if (priority === void 0 || priority === "user" || priority === "preset") return priority;
+  if (!Array.isArray(priority) || priority.length !== POSITION_PRIORITIES.length || new Set(priority).size !== priority.length || priority.some((p) => !POSITION_PRIORITIES.includes(p))) throw new TypeError("Invalid position priority order");
+  return [...priority];
+}
+var positionPriority = (preset) => preset.layout?.priority ?? (preset.layout?.source === "manual" ? "user" : "preset");
+function declaredPositions(source) {
+  return source.positions ?? [{ id: "content", name: [source.name, source.name] }];
+}
+function positionRows(preset, sources) {
+  const sourceOrder = (source) => {
+    const i = preset.rules.findIndex((r) => r.kind === source.id && r.inputMode !== "text");
+    return i < 0 ? preset.rules.length : i;
+  };
+  const rows = [...sources].sort((a, b) => sourceOrder(a) - sourceOrder(b)).filter((s) => s.supportsModule !== false && !isContextControl(s.id)).flatMap((source) => {
+    const rule = preset.rules.find((r) => r.kind === source.id && r.inputMode !== "text");
+    return declaredPositions(source).map((position) => ({ sourceId: source.id, positionId: position.id, key: positionKey(source.id, position.id), source, position, enabled: position.configurable !== false && rule?.enabled === true, placement: "source" }));
+  });
+  const known = new Map(rows.map((r) => [r.key, r]));
+  const configured = (preset.layout?.positions ?? []).map((p) => {
+    const row = known.get(positionKey(p.sourceId, p.positionId));
+    return row ? { ...row, ...p, enabled: row.enabled && p.enabled } : { ...p, key: positionKey(p.sourceId, p.positionId), missing: true, source: { id: p.sourceId, name: p.sourceId }, position: { id: p.positionId, name: [p.positionId, p.positionId] } };
+  });
+  const keys = new Set(configured.map((r) => r.key));
+  return [...configured, ...rows.filter((r) => !keys.has(r.key))];
+}
+function configurePosition(preset, sources, key, patch, beforeKey) {
+  const rows = positionRows(preset, sources), row = rows.find((r) => r.key === key);
+  if (!row || row.position.configurable === false) return preset;
+  let next = rows.map((r) => r.key === key ? { ...r, ...patch } : r);
+  if (beforeKey !== void 0 && beforeKey !== key) {
+    const target = next.find((r) => r.key === key);
+    next = next.filter((r) => r !== target);
+    const at = beforeKey === null ? next.length : next.findIndex((r) => r.key === beforeKey);
+    if (at < 0) return preset;
+    next.splice(at, 0, { ...target, placement: "list" });
+  }
+  const rules = preset.rules.map((r) => r.kind === row.sourceId && r.inputMode !== "text" && patch.enabled === true ? { ...r, enabled: true } : r);
+  if (patch.enabled === true && !rules.some((r) => r.kind === row.sourceId && r.inputMode !== "text")) {
+    let id = `position-source-${rules.length}`;
+    while (rules.some((r) => r.id === id)) id += "-x";
+    rules.push({ id, kind: row.sourceId, enabled: true, role: row.source.roles?.includes("preserve") ? "preserve" : row.source.roles?.[0] ?? "system", lifetime: row.source.lifetimes?.[0] ?? "request", depth: null, text: "", name: "" });
+  }
+  const layout = preset.layout ?? { version: 1, source: "preset-slots", priority: ["user", "preset", "resource", "default"], identity: "preserve", fallback: "source-order", overrides: [] };
+  return { ...preset, rules, layout: { ...layout, source: "preset-slots", priority: positionPriority({ layout }), positions: next.map(({ sourceId, positionId, enabled, placement }) => ({ sourceId, positionId, enabled, placement })) } };
+}
+
+// src/resource-layout.js
+function normalizeLayout(value) {
+  if (value === void 0) return void 0;
+  if (!value || value.version !== 1 || !["manual", "preset-slots"].includes(value.source) || !["preserve", "position"].includes(value.identity) || !["source-order", "error"].includes(value.fallback) || !Array.isArray(value.overrides) || value.overrides.length > 128) throw new TypeError("Invalid resource layout policy");
+  const seen = /* @__PURE__ */ new Set();
+  const overrides = value.overrides.map((o) => {
+    if (!o || ![o.target, o.anchor].every((s) => typeof s === "string" && s.length > 0 && s.length <= 4096) || o.target === o.anchor || seen.has(o.target) || !["before", "after"].includes(o.side) || typeof o.detach !== "boolean") throw new TypeError("Invalid layout override");
+    seen.add(o.target);
+    return { target: o.target, anchor: o.anchor, side: o.side, detach: o.detach };
+  });
+  const priority = normalizePriority(value.priority);
+  const positions = normalizePositions(value.positions);
+  return { version: 1, source: value.source, identity: value.identity, fallback: value.fallback, overrides, ...priority ? { priority } : {}, ...positions ? { positions } : {} };
+}
+function layoutPlacement(preset) {
+  if (!preset.layout) return preset.placement;
+  return preset.backend === "native" ? preset.layout.source === "preset-slots" ? "native-slots" : "native-roles" : preset.layout.source === "preset-slots" ? "st" : "modules";
+}
+
+// src/resource-layout-client.js
+var import_react = require("react");
+function ResourcePositionEditor({ preset, sources, locale = 0, busy, onChange, sourceColor: sourceColor2, originName, sourceName = (id) => sources.find((s) => s.id === id)?.name ?? id }) {
+  const [drag, setDrag] = (0, import_react.useState)(null), [drop, setDrop] = (0, import_react.useState)(null), [priorityDrop, setPriorityDrop] = (0, import_react.useState)(null);
+  const t = (zh, en) => locale === 0 ? zh : en;
+  const rows = positionRows(preset, sources);
+  const policy = preset.layout ?? { version: 1, source: "preset-slots", priority: ["user", "preset", "resource", "default"], identity: "preserve", fallback: "source-order", overrides: [] };
+  const changePolicy = (patch) => onChange({ ...preset, layout: { ...policy, ...patch, ...patch.priority ? { source: "preset-slots" } : {} } });
+  const priorities = priorityOrder({ layout: policy });
+  const priorityNames = { user: t("\u7528\u6237\u4F4D\u7F6E\u914D\u7F6E", "User position configuration"), preset: t("\u9884\u8BBE\u63D2\u69FD\u4E0E\u5B8F\u5F15\u7528", "Preset slots and macro references"), resource: t("\u8D44\u6E90\u81EA\u5E26\u4F4D\u7F6E\u4E0E\u6DF1\u5EA6", "Resource position and depth"), default: t("\u6765\u6E90\u9ED8\u8BA4\u987A\u5E8F", "Default source order") };
+  const movePriority = (id, before) => {
+    if (id === before) return;
+    const next = priorities.filter((p) => p !== id), at = before == null ? next.length : next.indexOf(before);
+    if (at < 0) return;
+    next.splice(at, 0, id);
+    changePolicy({ priority: next });
+  };
+  const priorityTarget = (e) => {
+    const row = document.elementFromPoint(e.clientX, e.clientY)?.closest("[data-priority]");
+    if (!row || !e.currentTarget.closest(".dta-priorities")?.contains(row)) return null;
+    const before = e.clientY < row.getBoundingClientRect().top + row.getBoundingClientRect().height / 2;
+    return { id: row.dataset.priority, before };
+  };
+  const fixed = (row) => ["native-system", "history", "input"].includes(row.sourceId);
+  const update = (row, patch, before) => onChange(configurePosition(preset, sources, row.key, patch, before));
+  const title = (row) => row.source.positions ? row.position.name[locale] ?? row.position.name[0] : sourceName(row.sourceId);
+  const destination = (e) => {
+    const row = document.elementFromPoint(e.clientX, e.clientY)?.closest("[data-position-key]");
+    if (!row || !e.currentTarget.closest(".dta-position-list")?.contains(row)) return null;
+    const key = row.dataset.positionKey, index = rows.findIndex((r) => r.key === key);
+    return { key, before: e.clientY < row.getBoundingClientRect().top + row.getBoundingClientRect().height / 2, index };
+  };
+  return (0, import_react.createElement)(
+    "section",
+    { className: "dta-resource-layout", "aria-label": t("\u8D44\u6E90\u4F4D\u7F6E\u914D\u7F6E", "Resource positions") },
+    (0, import_react.createElement)("p", null, t("\u914D\u7F6E\u6240\u6709\u53EF\u80FD\u63D0\u4F9B\u5185\u5BB9\u7684\u4F4D\u7F6E\uFF0C\u4E0D\u9700\u8981\u5148\u52A0\u8F7D\u5177\u4F53\u8D44\u6E90\u3002\u5B8F\u5F15\u7528\u548C\u63D2\u69FD\u5F52\u5C5E\u5728\u88C5\u914D\u65F6\u89E3\u6790\uFF1B\u7A7A\u4F4D\u7F6E\u4E5F\u4FDD\u7559\u5728\u6B64\u6E05\u5355\u3002", "Configure every potential content position without loading assets. Macros and slots resolve during assembly; empty positions remain in this list.")),
+    !preset.layout && (0, import_react.createElement)("p", { className: "dta-notice" }, t("\u5F53\u524D\u7B56\u7565\u4FDD\u7559\u539F\u6709\u884C\u4E3A\uFF1B\u7B2C\u4E00\u6B21\u4FEE\u6539\u4F4D\u7F6E\u6216\u51B2\u7A81\u89C4\u5219\u65F6\u91C7\u7528\u8D44\u6E90\u4F4D\u7F6E\u914D\u7F6E\u3002", "The strategy keeps its existing behavior until you edit a position or conflict policy.")),
+    (0, import_react.createElement)("h3", null, t("\u51B2\u7A81\u5904\u7406\u4F18\u5148\u7EA7", "Conflict priority")),
+    (0, import_react.createElement)("p", null, t("\u4ECE\u4E0A\u5230\u4E0B\u4F9D\u6B21\u4F18\u5148\u3002\u62D6\u52A8\u89C4\u5219\u53EF\u81EA\u7531\u6392\u5E8F\uFF1B\u53EA\u6709\u53D1\u751F\u4F4D\u7F6E\u51B2\u7A81\u65F6\u624D\u6BD4\u8F83\u4F18\u5148\u7EA7\u3002", "Higher rules win. Drag rules to set any order; priority is compared only when positions conflict.")),
+    (0, import_react.createElement)("div", { className: "dta-priorities", "aria-label": t("\u51B2\u7A81\u4F18\u5148\u7EA7\u5217\u8868", "Conflict priority list") }, ...priorities.map((id, index) => (0, import_react.createElement)(
+      "div",
+      { key: id, className: "dta-priority-row", "data-priority": id, "data-drop-side": priorityDrop?.id === id ? priorityDrop.before ? "before" : "after" : void 0 },
+      (0, import_react.createElement)("button", {
+        type: "button",
+        className: "dta-handle",
+        disabled: busy,
+        "aria-label": `${t("\u62D6\u52A8\u4F18\u5148\u7EA7", "Drag priority")}: ${priorityNames[id]}`,
+        onPointerDown: (e) => {
+          if (e.button !== 0) return;
+          e.preventDefault();
+          e.currentTarget.setPointerCapture(e.pointerId);
+        },
+        onPointerMove: (e) => {
+          if (e.currentTarget.hasPointerCapture(e.pointerId)) setPriorityDrop(priorityTarget(e));
+        },
+        onPointerUp: (e) => {
+          if (!e.currentTarget.hasPointerCapture(e.pointerId)) return;
+          const target = priorityTarget(e);
+          e.currentTarget.releasePointerCapture(e.pointerId);
+          if (target && target.id !== id) movePriority(id, target.before ? target.id : priorities[priorities.indexOf(target.id) + 1] ?? null);
+          setPriorityDrop(null);
+        },
+        onPointerCancel: () => setPriorityDrop(null),
+        onLostPointerCapture: () => setPriorityDrop(null)
+      }, "\u283F"),
+      (0, import_react.createElement)("span", null, `${index + 1}. ${priorityNames[id]}`),
+      (0, import_react.createElement)("button", { disabled: busy || index === 0, "aria-label": `${t("\u63D0\u9AD8\u4F18\u5148\u7EA7", "Raise priority")}: ${priorityNames[id]}`, onClick: () => movePriority(id, priorities[index - 1]) }, "\u2191"),
+      (0, import_react.createElement)("button", { disabled: busy || index === priorities.length - 1, "aria-label": `${t("\u964D\u4F4E\u4F18\u5148\u7EA7", "Lower priority")}: ${priorityNames[id]}`, onClick: () => movePriority(id, priorities[index + 2] ?? null) }, "\u2193")
+    ))),
+    (0, import_react.createElement)(
+      "div",
+      { className: "dta-resource-policy" },
+      (0, import_react.createElement)("label", null, t("\u8EAB\u4EFD\u5904\u7406", "Identity"), (0, import_react.createElement)("select", { disabled: busy, value: policy.identity, onChange: (e) => changePolicy({ identity: e.target.value }) }, (0, import_react.createElement)("option", { value: "preserve" }, t("\u4FDD\u7559\u6765\u6E90\u8EAB\u4EFD", "Preserve source roles")), (0, import_react.createElement)("option", { value: "position" }, t("\u5141\u8BB8\u6309\u4F4D\u7F6E\u9002\u914D", "Allow position adaptation")))),
+      (0, import_react.createElement)("label", null, t("\u7F3A\u5931\u5B9A\u4F4D", "Missing targets"), (0, import_react.createElement)("select", { disabled: busy, value: policy.fallback, onChange: (e) => changePolicy({ fallback: e.target.value }) }, (0, import_react.createElement)("option", { value: "source-order" }, t("\u56DE\u9000\u5E76\u8BF4\u660E\u539F\u56E0", "Fall back with explanation")), (0, import_react.createElement)("option", { value: "error" }, t("\u62D2\u7EDD\u88C5\u914D", "Reject assembly"))))
+    ),
+    (0, import_react.createElement)("small", null, t("\u539F\u751F\u5386\u53F2\u3001\u5DE5\u5177\u4E8B\u52A1\u548C\u7559\u5B58\u8FB9\u754C\u59CB\u7EC8\u7531 DSH \u7BA1\u7406\u3002\u5173\u95ED\u4F4D\u7F6E\u4F1A\u6392\u9664\u8BE5\u4F4D\u7F6E\u7684\u5185\u5BB9\uFF1B\u62D6\u52A8\u6216\u4E0A\u4E0B\u79FB\u52A8\u8BBE\u7F6E\u7528\u6237\u6392\u5217\u3002", "DSH always owns native history, tool transactions and retention boundaries. Turning a position off excludes its content; dragging or moving up/down sets user order.")),
+    preset.layout?.overrides.length > 0 && (0, import_react.createElement)("div", { className: "dta-notice" }, t("\u6B64\u7B56\u7565\u8FD8\u542B\u6709\u65E7\u7684\u5177\u4F53\u8D44\u6E90\u5B9A\u4F4D\u3002\u53EF\u5148\u5728\u7ED3\u679C\u9875\u68C0\u67E5\uFF1B\u6E05\u9664\u540E\u4EC5\u4F7F\u7528\u8FD9\u91CC\u7684\u901A\u7528\u4F4D\u7F6E\u914D\u7F6E\u3002", "This strategy also contains older asset-specific overrides. Inspect the result before clearing them to use only reusable positions."), (0, import_react.createElement)("button", { disabled: busy, onClick: () => changePolicy({ overrides: [] }) }, t("\u6E05\u9664\u65E7\u8D44\u6E90\u5B9A\u4F4D", "Clear asset-specific overrides"))),
+    (0, import_react.createElement)("div", { className: "dta-position-list" }, ...rows.map((row, index) => (0, import_react.createElement)(
+      "article",
+      { key: row.key, className: "dta-position-row", "data-position-key": row.key, "data-drop-side": drop?.key === row.key ? drop.before ? "before" : "after" : void 0, "data-resource-dragging": drag === row.key, style: { "--assembly-color": sourceColor2(row.source.pluginId) } },
+      (0, import_react.createElement)(
+        "div",
+        { className: "dta-position-summary" },
+        (0, import_react.createElement)("button", {
+          className: "dta-handle",
+          type: "button",
+          disabled: busy || fixed(row) || row.missing || row.position.configurable === false,
+          "aria-label": `${t("\u79FB\u52A8\u4F4D\u7F6E", "Move position")}: ${title(row)}`,
+          onPointerDown: (e) => {
+            if (e.button !== 0) return;
+            e.preventDefault();
+            e.currentTarget.setPointerCapture(e.pointerId);
+            setDrag(row.key);
+          },
+          onPointerMove: (e) => {
+            if (e.currentTarget.hasPointerCapture(e.pointerId)) setDrop(destination(e));
+          },
+          onPointerUp: (e) => {
+            if (!e.currentTarget.hasPointerCapture(e.pointerId)) return;
+            const target = destination(e);
+            e.currentTarget.releasePointerCapture(e.pointerId);
+            if (target && target.key !== row.key) update(row, {}, target.before ? target.key : rows[target.index + 1]?.key ?? null);
+            setDrag(null);
+            setDrop(null);
+          },
+          onPointerCancel: () => {
+            setDrag(null);
+            setDrop(null);
+          },
+          onLostPointerCapture: () => {
+            setDrag(null);
+            setDrop(null);
+          }
+        }, fixed(row) ? "\u{1F512}" : "\u283F"),
+        (0, import_react.createElement)("input", { type: "checkbox", checked: row.enabled, disabled: busy || row.missing || row.position.configurable === false || preset.backend === "native" && ["history", "input"].includes(row.sourceId), "aria-label": `${t("\u542F\u7528\u4F4D\u7F6E", "Enable position")}: ${title(row)}`, onChange: (e) => update(row, { enabled: e.target.checked }) }),
+        (0, import_react.createElement)("div", null, (0, import_react.createElement)("strong", null, title(row)), (0, import_react.createElement)("small", { className: "dta-origin" }, `${originName(row.source.pluginId)} \xB7 ${sourceName(row.sourceId)}`))
+      ),
+      (0, import_react.createElement)(
+        "div",
+        { className: "dta-position-body" },
+        row.position.macros?.length > 0 && (0, import_react.createElement)("small", null, `${t("\u9884\u8BBE\u5B8F / \u63D2\u69FD", "Preset macros / slots")}: ${row.position.macros.map((m) => `{{${m}}}`).join(" \xB7 ")}`),
+        (0, import_react.createElement)("small", null, row.missing ? t("\u6765\u6E90\u672A\u6CE8\u518C\uFF1B\u4FDD\u7559\u914D\u7F6E\uFF0C\u88C5\u914D\u65F6\u6309\u7F3A\u5931\u5B9A\u4F4D\u89C4\u5219\u5904\u7406\u3002", "Provider unavailable; configuration is retained and uses the missing-target policy.") : row.source.moduleAvailable === false ? t("\u5F53\u524D\u6CA1\u6709\u53EF\u7528\u5185\u5BB9\uFF1B\u914D\u7F6E\u4ECD\u53EF\u4FDD\u5B58\uFF0C\u8D44\u6E90\u53EF\u7528\u540E\u751F\u6548\u3002", "No content is currently available; save the policy for when resources become available.") : fixed(row) ? t("\u4F4D\u7F6E\u7531\u8FD0\u884C\u65F6\u7BA1\u7406", "Position managed by runtime") : row.placement === "list" ? t("\u7528\u6237\u6392\u5217\uFF1B\u51B2\u7A81\u65F6\u91C7\u7528\u4E0A\u65B9\u4F18\u5148\u7EA7", "User order; conflicts use the selected priority") : t("\u8DDF\u968F\u9884\u8BBE\u63D2\u69FD\u6216\u8D44\u6E90\u81EA\u8EAB\u4F4D\u7F6E", "Follow preset slots or resource-defined position")),
+        row.position.note && (0, import_react.createElement)("small", null, row.position.note[locale]),
+        !fixed(row) && row.position.configurable !== false && (0, import_react.createElement)(
+          "div",
+          { className: "dta-position-actions" },
+          (0, import_react.createElement)("button", { disabled: busy || index === 0 || row.missing, onClick: () => update(row, {}, rows[index - 1].key), "aria-label": `${t("\u4E0A\u79FB", "Move up")}: ${title(row)}` }, t("\u4E0A\u79FB", "Up")),
+          (0, import_react.createElement)("button", { disabled: busy || index === rows.length - 1 || row.missing, onClick: () => update(row, {}, rows[index + 2]?.key ?? null), "aria-label": `${t("\u4E0B\u79FB", "Move down")}: ${title(row)}` }, t("\u4E0B\u79FB", "Down")),
+          row.placement === "list" && (0, import_react.createElement)("button", { disabled: busy, onClick: () => update(row, { placement: "source" }) }, t("\u8DDF\u968F\u8D44\u6E90\u4F4D\u7F6E", "Follow source position"))
+        )
+      )
+    )))
+  );
+}
+function PositionDecisions({ preview, sources, locale = 0, sourceName = (id) => sources.find((s) => s.id === id)?.name ?? id }) {
+  const t = (zh, en) => locale === 0 ? zh : en;
+  const names = { user: t("\u91C7\u7528\u7528\u6237\u6392\u5217", "User order applied"), preset: t("\u91C7\u7528\u9884\u8BBE\u63D2\u69FD", "Preset slot applied"), runtime: t("\u670D\u4ECE DSH \u8FD0\u884C\u65F6\u7EA6\u675F", "DSH runtime constraint wins"), "resource-depth": t("\u91C7\u7528\u8D44\u6E90\u6DF1\u5EA6", "Resource depth applied"), source: t("\u91C7\u7528\u8D44\u6E90\u9ED8\u8BA4\u4F4D\u7F6E", "Source position applied"), default: t("\u6765\u6E90\u9ED8\u8BA4\u987A\u5E8F\u4F18\u5148", "Default source order wins"), resource: t("\u8D44\u6E90\u81EA\u5E26\u4F4D\u7F6E\u4F18\u5148", "Resource position wins"), unavailable: t("\u6765\u6E90\u6216\u4F4D\u7F6E\u672A\u6CE8\u518C\uFF0C\u5DF2\u56DE\u9000", "Provider/position unavailable; fallback applied"), disabled: t("\u5DF2\u5173\u95ED\uFF0C\u4E0D\u8FDB\u5165\u7ED3\u679C", "Disabled; excluded") };
+  const decisions = preview?.resourceLayout?.positionDecisions ?? [];
+  const unique = [...new Map(decisions.map((d) => [`${d.sourceId}/${d.positionId}/${d.decision}`, d])).values()];
+  return unique.length > 0 && (0, import_react.createElement)("details", { className: "dta-position-decisions", open: true }, (0, import_react.createElement)("summary", null, t("\u4F4D\u7F6E\u4E0E\u51B2\u7A81\u5904\u7406\u7ED3\u679C", "Position and conflict decisions")), preview.resourceLayout.priorityOrder && (0, import_react.createElement)("p", null, `${t("\u672C\u6B21\u4F18\u5148\u7EA7", "Priority used")}: ${preview.resourceLayout.priorityOrder.map((p) => ({ user: t("\u7528\u6237\u4F4D\u7F6E", "User"), preset: t("\u9884\u8BBE\u63D2\u69FD", "Preset"), resource: t("\u8D44\u6E90\u4F4D\u7F6E", "Resource"), default: t("\u6765\u6E90\u9ED8\u8BA4", "Default") })[p]).join(" \u2192 ")}`), (0, import_react.createElement)("ul", null, ...unique.map((d, i) => {
+    const source = sources.find((s) => s.id === d.sourceId), position = source?.positions?.find((p) => p.id === d.positionId);
+    return (0, import_react.createElement)("li", { key: i }, `${position?.name?.[locale] ?? sourceName(d.sourceId)}: ${names[d.decision] ?? d.decision}${d.code === "POSITION_ANCHOR_MISSING" ? t("\uFF08\u8D44\u6E90\u951A\u70B9\u4E0D\u53EF\u7528\uFF09", " (resource anchor unavailable)") : d.requested ? t("\uFF08\u7528\u6237\u6392\u5217\u4E0E\u6B64\u89C4\u5219\u51B2\u7A81\uFF09", " (overrides the requested user order)") : ""}`);
+  })));
 }
 
 // src/client.js
@@ -244,7 +321,7 @@ function normalizePreset(value) {
 var BUILTINS = Object.freeze([{ id: "builtin-native", ...normalizePreset({ format: FORMAT, version: 1, name: "DSH \u539F\u751F / DSH native", backend: "native", rules: DEFAULT_RULES }) }]);
 
 // src/native-policy.js
-var fail2 = (message, detail) => {
+var fail = (message, detail) => {
   throw Object.assign(new Error(message), { status: 409, code: "ASSEMBLY_NATIVE_UNSUPPORTED", detail });
 };
 var adaptiveNativePlacement = (preset) => preset?.backend === "native" && ["native-roles", "native-slots"].includes(preset.placement);
@@ -253,17 +330,17 @@ function presetBackend(preset) {
 }
 function validateNativePreset(value) {
   const preset = normalizePreset(value);
-  if (presetBackend(preset) !== "native") fail2("This strategy requires the optional core assembly extension.", { backend: "core" });
+  if (presetBackend(preset) !== "native") fail("This strategy requires the optional core assembly extension.", { backend: "core" });
   for (const kind of ["history", "input"]) {
     const rule = preset.rules.find((r) => r.kind === kind);
-    if (!rule?.enabled) fail2(`Native assembly must preserve ${kind}.`, { ruleId: rule?.id, kind });
+    if (!rule?.enabled) fail(`Native assembly must preserve ${kind}.`, { ruleId: rule?.id, kind });
   }
   for (const rule of preset.rules.filter((r) => isContextControl(r.kind))) {
-    if (rule.role !== "preserve" || rule.lifetime !== "request" || rule.depth !== null || rule.inputMode === "text") fail2("Native context controls only support enable/disable.", { ruleId: rule.id });
+    if (rule.role !== "preserve" || rule.lifetime !== "request" || rule.depth !== null || rule.inputMode === "text") fail("Native context controls only support enable/disable.", { ruleId: rule.id });
   }
   if (adaptiveNativePlacement(preset)) {
     for (const rule of preset.rules.filter((r) => r.enabled)) {
-      if (rule.lifetime === "snapshot" || rule.depth !== null || rule.role === "assistant") fail2("Native ordering does not support snapshots, depth or assistant contributions.", { ruleId: rule.id });
+      if (rule.lifetime === "snapshot" || rule.depth !== null || rule.role === "assistant") fail("Native ordering does not support snapshots, depth or assistant contributions.", { ruleId: rule.id });
     }
     return preset;
   }
@@ -271,27 +348,27 @@ function validateNativePreset(value) {
   for (const rule of preset.rules.filter((r) => r.enabled)) {
     if (isContextControl(rule.kind)) continue;
     if (rule.kind === "history") {
-      if (phase !== "system") fail2("Native history cannot be moved after current input.");
+      if (phase !== "system") fail("Native history cannot be moved after current input.");
       phase = "before-input";
       continue;
     }
     if (rule.kind === "input") {
-      if (phase !== "before-input") fail2("Current input must follow native history.");
+      if (phase !== "before-input") fail("Current input must follow native history.");
       phase = "after-input";
       continue;
     }
-    if (rule.lifetime === "snapshot" || rule.depth !== null) fail2("Retained request snapshots and insertion depth require core assembly.", { ruleId: rule.id });
-    if (rule.role === "assistant") fail2("Assistant-role contributions require core assembly.", { ruleId: rule.id });
+    if (rule.lifetime === "snapshot" || rule.depth !== null) fail("Retained request snapshots and insertion depth require core assembly.", { ruleId: rule.id });
+    if (rule.role === "assistant") fail("Assistant-role contributions require core assembly.", { ruleId: rule.id });
     if (rule.role === "user") {
-      if (phase === "system") fail2("Native user contributions must follow native history.", { ruleId: rule.id });
-      if (phase === "before-input" && rule.delivery !== "pre-step") fail2("User context snapshots follow current input; use pre-step before input.", { ruleId: rule.id });
+      if (phase === "system") fail("Native user contributions must follow native history.", { ruleId: rule.id });
+      if (phase === "before-input" && rule.delivery !== "pre-step") fail("User context snapshots follow current input; use pre-step before input.", { ruleId: rule.id });
       if (phase === "after-input") {
         if (rule.delivery === "pre-step") afterInputMessages = true;
-        else if (afterInputMessages) fail2("Native context snapshots precede post-input pre-step messages; reorder these contributions.", { ruleId: rule.id });
+        else if (afterInputMessages) fail("Native context snapshots precede post-input pre-step messages; reorder these contributions.", { ruleId: rule.id });
       }
-    } else if (phase !== "system") fail2("Native system contributions must precede native history.", { ruleId: rule.id });
+    } else if (phase !== "system") fail("Native system contributions must precede native history.", { ruleId: rule.id });
   }
-  if (preset.placement !== "modules") fail2("ST slot/depth placement requires core assembly; choose a native strategy.");
+  if (preset.placement !== "modules") fail("ST slot/depth placement requires core assembly; choose a native strategy.");
   return preset;
 }
 
@@ -411,8 +488,8 @@ var labels = {
   applied: ["\u5F53\u524D\u5E94\u7528", "Applied"],
   legacy: ["DSH \u9ED8\u8BA4\u7B56\u7565", "DSH default strategy"],
   reset: ["\u5E94\u7528\u9ED8\u8BA4\u88C5\u914D\u7B56\u7565", "Apply default strategy"],
-  preview: ["\u6839\u636E\u5F53\u524D\u914D\u7F6E\u9884\u89C8", "Preview current configuration"],
-  rules: ["\u901A\u7528\u89C4\u5219", "Rules"],
+  preview: ["\u88C5\u914D\u7ED3\u679C", "Assembly result"],
+  rules: ["\u8D44\u6E90\u4F4D\u7F6E", "Resource positions"],
   expanded: ["\u5C55\u5F00\u9884\u89C8", "Expanded preview"],
   add: ["\u6DFB\u52A0", "Add"],
   source: ["\u6765\u6E90", "Source"],
@@ -469,7 +546,7 @@ var labels = {
   unknownOrigin: ["\u6765\u6E90\u672A\u63D0\u4F9B\u8D44\u6E90\u4F4D\u7F6E\u8BF4\u660E\uFF1B\u9884\u89C8\u8282\u70B9\u663E\u793A\u5DF2\u8FD4\u56DE\u7684\u8D44\u6E90 ID\u3002", "The provider has not described resource locations; preview identifies returned resource IDs."],
   unknownEditable: ["\u6765\u6E90\u672A\u58F0\u660E\u6B63\u6587\u7F16\u8F91\u80FD\u529B\uFF0C\u4E0D\u80FD\u5728\u6B64\u76F4\u63A5\u4FEE\u6539\u3002", "The provider has not declared content editing support; content cannot be edited here."],
   unknownEditAt: ["\u6765\u6E90\u672A\u63D0\u4F9B\u7F16\u8F91\u5165\u53E3\uFF1B\u8BF7\u67E5\u9605\u8BE5\u6765\u6E90\u63D2\u4EF6\u7684\u6587\u6863\u3002", "The provider has not supplied an editing entry point; consult its documentation."],
-  modulePreviewHelp: ["\u4F7F\u7528\u300C\u6839\u636E\u5F53\u524D\u914D\u7F6E\u9884\u89C8\u300D\uFF0C\u5C55\u5F00\u6A21\u5757\u67E5\u770B\u5B9E\u9645\u6B63\u6587\u3001\u8D44\u6E90 ID \u548C\u5B57\u6BB5\uFF1B\u9884\u89C8\u4E0D\u4F1A\u5199\u5165\u8D44\u6E90\u3002", "Use Preview current configuration and expand a node to inspect actual text, resource IDs and fields; preview does not write resources."],
+  modulePreviewHelp: ["\u6253\u5F00\u300C\u88C5\u914D\u7ED3\u679C\u300D\uFF0C\u5C55\u5F00\u6A21\u5757\u67E5\u770B\u5B9E\u9645\u6B63\u6587\u3001\u8D44\u6E90 ID \u548C\u5B57\u6BB5\uFF1B\u9884\u89C8\u4E0D\u4F1A\u5199\u5165\u8D44\u6E90\u3002", "Open Assembly result and expand a node to inspect actual text, resource IDs and fields; preview does not write resources."],
   "tavern.text": ["Tavern \u6587\u672C\u89E3\u6790\u5668", "Tavern text parser"],
   tavernParserHelp: ["\u5148\u5BF9\u624B\u586B\u6587\u672C\u6267\u884C\u53D7\u9650 EJS\uFF0C\u518D\u5C55\u5F00\u89D2\u8272\u3001\u4E16\u754C\u4E66\u548C\u5386\u53F2\u5F15\u7528\uFF0C\u6700\u540E\u89E3\u6790 ST \u5B8F\u3002\u53EF\u6DF7\u7528\u8FD9\u4E9B\u8BED\u6CD5\uFF1B\u5F15\u7528\u5185\u5BB9\u4E0D\u4F1A\u518D\u6B21\u4F5C\u4E3A EJS \u6267\u884C\u3002ST setvar/getvar \u5728\u672C\u6B21\u88C5\u914D\u5185\u5171\u4EAB\u4E34\u65F6\u53D8\u91CF\uFF0C\u987A\u5E8F\u53EF\u80FD\u5F71\u54CD\u7ED3\u679C\u3002", "Authored text runs restricted EJS, then character/world-book/history references, then ST macros. These syntaxes can be mixed; referenced content is never reevaluated as EJS. ST setvar/getvar share temporary variables within this assembly, so order can affect results."],
   dshParserHelp: ["\u4EC5\u5C55\u5F00 DSH \u63D0\u4F9B\u7684 {{\u53D8\u91CF\u540D}}\uFF1B\u672A\u77E5\u53D8\u91CF\u62A5\u9519\u3002Tavern \u5B8F\u548C EJS \u8BF7\u4F7F\u7528 Tavern \u6587\u672C\u89E3\u6790\u5668\u3002", "Expands only DSH-provided {{variable}} values; unknown variables fail. Use the Tavern text parser for Tavern macros and EJS."],
@@ -507,10 +584,10 @@ var assemblyCss = `
 .dta-head{display:flex;justify-content:space-between;align-items:start;padding:20px 28px;border-bottom:1px solid var(--dta-border)}.dta-head{width:100%;max-width:calc(var(--dsh-composer-card-max-width,780px) + 56px);margin:auto}.dta-head h2{margin:0;font-size:22px}.dta-head p{margin:5px 0 0;opacity:.7}.dta-body{overflow:auto;padding:22px 28px 50px;flex:1}.dta-content{max-width:var(--dsh-composer-card-max-width,780px);margin:auto}.dta-toolbar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;align-items:center}
 .dtv-assembly-screen button,.dtv-assembly-screen select,.dtv-assembly-screen input:not([type=checkbox]),.dtv-assembly-screen textarea{font:inherit;color:inherit;background:var(--dsw-alias-button-secondary-fill,var(--dsw-alias-bg-base));border:1px solid var(--dta-border);border-radius:9px;padding:8px 12px;min-width:0}.dtv-assembly-screen select,.dtv-assembly-screen input:not([type=checkbox]){height:40px;line-height:22px;width:100%}.dtv-assembly-screen .dta-toolbar select{width:auto;max-width:100%}.dtv-assembly-screen button{cursor:pointer}.dtv-assembly-screen button:disabled{opacity:.45;cursor:default}.dtv-assembly-screen :focus-visible{outline:2px solid #4386dc;outline-offset:2px}.dtv-assembly-screen .primary{background:#347cd2;color:white;border-color:#347cd2}.dta-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:16px 0}.dta-grid label{display:flex;flex-direction:column;gap:5px}.dta-notice{padding:12px 15px;border-radius:10px;background:var(--dsw-alias-bg-layer-2,var(--dsw-alias-bg-base));margin:12px 0;overflow-wrap:anywhere}.dta-notice[data-error=true]{color:#be4747}.dta-tabs{display:flex;gap:8px;flex-wrap:wrap;margin:24px 0 14px}.dtv-assembly-screen .dta-tabs button[aria-pressed=true]{border-color:var(--dsw-alias-state-business-primary,#4d6bfe);box-shadow:inset 0 0 0 1px var(--dsw-alias-state-business-primary,#4d6bfe);color:var(--dsw-alias-state-business-primary,#4d6bfe)}
 .dtv-assembly-screen select{appearance:none;-webkit-appearance:none;padding-right:40px;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16'%3E%3Cpath d='m4 6 4 4 4-4' fill='none' stroke='%23787880' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;background-size:16px 16px}@media(forced-colors:active){.dtv-assembly-screen select{appearance:auto;-webkit-appearance:auto;background-image:none}}
-.dta-row{border:1px solid var(--dta-border);border-left:5px solid var(--assembly-color);border-radius:14px;margin:10px 0;background:var(--dsw-alias-bg-base,#fff);overflow:hidden}.dta-row[data-dragover=true]{outline:2px solid #4386dc}.dta-summary{display:flex;align-items:center;gap:14px;padding:15px 17px;min-height:69px}.dta-summary input{width:20px;height:20px;accent-color:#2484ed}.dta-handle{cursor:grab;color:var(--dsw-alias-label-tertiary,#858993);font-size:22px;line-height:1}.dta-name{flex:1;font-size:17px;min-width:0;overflow-wrap:anywhere;cursor:pointer}.dta-summary-meta{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;flex:0 0 318px;margin:0;font-size:12px;line-height:1.5}.dta-summary-meta dt{color:var(--dsw-alias-label-tertiary,#858993);font-size:11px}.dta-summary-meta dd{margin:3px 0 0;color:var(--dsw-alias-label-secondary);overflow-wrap:anywhere}.dta-detail{padding:4px 20px 20px;border-top:1px solid var(--dta-border)}.dta-properties>*,.dta-summary-meta>div{min-width:0}.dta-properties>*+*,.dta-summary-meta>div+div{border-left:1px solid var(--dsw-alias-state-business-primary,#4d6bfe);padding-left:14px}.dta-properties label,.dta-fields label{display:flex;flex-direction:column;gap:8px}.dta-fields{display:flex;flex-direction:column;gap:16px;margin:16px 0}.dta-fields .dta-field-name{max-width:320px}.dta-preview-depth{margin:12px 0}.dta-properties{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin:16px 0}.dta-detail textarea{width:100%;min-height:130px;resize:vertical}.dtv-assembly-screen pre{white-space:pre-wrap;overflow-wrap:anywhere;font:13px/1.6 ui-monospace,monospace;max-height:360px;overflow:auto}.dta-child{margin:10px 0;padding:10px 14px;border-left:3px solid #ae73cf;background:var(--dsw-alias-bg-layer-2,var(--dsw-alias-bg-base));border-radius:6px}.dtv-assembly-screen small{display:block;opacity:.7;overflow-wrap:anywhere}
+.dta-row,.dta-position-row{border:1px solid var(--dta-border);border-left:5px solid var(--assembly-color);border-radius:14px;margin:10px 0;background:var(--dsw-alias-bg-base,#fff);overflow:hidden}.dta-row[data-dragover=true]{outline:2px solid #4386dc}.dta-summary{display:flex;align-items:center;gap:14px;padding:15px 17px;min-height:69px}.dta-summary input{width:20px;height:20px;accent-color:#2484ed}.dta-handle{cursor:grab;color:var(--dsw-alias-label-tertiary,#858993);font-size:22px;line-height:1}.dta-name{flex:1;font-size:17px;min-width:0;overflow-wrap:anywhere;cursor:pointer}.dta-summary-meta{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;flex:0 0 318px;margin:0;font-size:12px;line-height:1.5}.dta-summary-meta dt{color:var(--dsw-alias-label-tertiary,#858993);font-size:11px}.dta-summary-meta dd{margin:3px 0 0;color:var(--dsw-alias-label-secondary);overflow-wrap:anywhere}.dta-detail{padding:4px 20px 20px;border-top:1px solid var(--dta-border)}.dta-properties>*,.dta-summary-meta>div{min-width:0}.dta-properties>*+*,.dta-summary-meta>div+div{border-left:1px solid var(--dsw-alias-state-business-primary,#4d6bfe);padding-left:14px}.dta-properties label,.dta-fields label{display:flex;flex-direction:column;gap:8px}.dta-fields{display:flex;flex-direction:column;gap:16px;margin:16px 0}.dta-fields .dta-field-name{max-width:320px}.dta-preview-depth{margin:12px 0}.dta-properties{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin:16px 0}.dta-detail textarea{width:100%;min-height:130px;resize:vertical}.dtv-assembly-screen pre{white-space:pre-wrap;overflow-wrap:anywhere;font:13px/1.6 ui-monospace,monospace;max-height:360px;overflow:auto}.dta-child{margin:10px 0;padding:10px 14px;border-left:3px solid #ae73cf;background:var(--dsw-alias-bg-layer-2,var(--dsw-alias-bg-base));border-radius:6px}.dtv-assembly-screen small{display:block;opacity:.7;overflow-wrap:anywhere}
 .dta-row[data-dragging=true]{height:4px;min-height:4px;margin:5px 10px;border:0;border-radius:999px;background:var(--dsw-alias-state-business-primary);box-shadow:0 0 0 1px color-mix(in srgb,var(--dsw-alias-state-business-primary) 25%,transparent)}.dta-row[data-dragging=true]>*{opacity:0}.dta-drop-placeholder{min-height:42px;border:2px dashed var(--dsw-alias-state-business-primary);border-radius:8px;background:color-mix(in srgb,var(--dsw-alias-state-business-primary) 7%,transparent);display:flex;align-items:center;justify-content:center;color:var(--dsw-alias-state-business-primary);pointer-events:none}.dtv-assembly-screen .dta-handle{touch-action:none;user-select:none;background:transparent;border:0;padding:2px}.dta-origin{font-size:11px;color:var(--dsw-alias-label-secondary);margin-top:2px}.dta-legend{display:flex;gap:12px;flex-wrap:wrap;margin:12px 0}.dta-legend span{border-left:4px solid var(--assembly-color);padding-left:6px;font-size:12px}
 .dta-resource-layout{display:flex;flex-direction:column;gap:16px;min-width:0}.dta-resource-layout h3,.dta-resource-layout p{margin:0}.dta-resource-layout>h3:not(:first-child){padding-top:8px}.dta-resource-layout>button{align-self:flex-start}.dta-resource-policy{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px 16px}.dta-resource-policy label,.dta-resource-body>label,.dta-position-menu label{display:grid;gap:8px;min-width:0}.dta-resource-blocks{display:grid;gap:12px;min-width:0}.dta-resource-blocks>.dta-row{margin:0}.dta-resource-layout .dta-summary{display:grid;grid-template-columns:24px minmax(0,1fr);gap:4px 12px;padding:16px 18px;min-height:0}.dta-resource-layout .dta-summary>.dta-handle{grid-row:1 / span 3}.dta-resource-layout .dta-summary>small{grid-column:2}.dta-resource-body{display:grid;gap:12px;padding:0 18px 18px;min-width:0}.dta-resource-body .dta-notice{margin:0;padding:10px 12px}.dta-resource-body details[open]>summary{margin-bottom:10px}.dta-resource-body .dta-child+.dta-child{margin-top:10px}.dta-resource-layout summary{cursor:pointer;overflow-wrap:anywhere}.dta-resource-body .dta-child{margin:0;padding:12px 14px}.dta-resource-body pre{margin:8px 0 0}.dta-resource-layout>.dta-notice{margin:0}.dta-resource-layout>.dta-notice>button{margin-top:12px}.dta-layout-override{display:flex;flex-wrap:wrap;align-items:center;gap:12px 16px;margin-top:12px}.dta-layout-override>code{flex:0 1 auto;min-width:0;max-width:100%;overflow-wrap:anywhere}.dta-layout-override>button{flex:0 0 auto}
-.dta-resource-origins{grid-column:2;display:flex;flex-wrap:wrap;gap:6px 12px;margin:4px 0;font-size:12px;color:var(--dsw-alias-label-secondary)}.dta-resource-origin{border-left:3px solid var(--assembly-color);padding-left:7px;overflow-wrap:anywhere}.dta-position-menu>p{margin-bottom:12px}.dta-resource-blocks>.dta-row[data-drop-side=before]{box-shadow:0 -3px #4386dc}.dta-resource-blocks>.dta-row[data-drop-side=after]{box-shadow:0 3px #4386dc}.dta-resource-blocks>.dta-row[data-resource-dragging=true]{opacity:.55}.dta-resource-layout .dta-handle:active{cursor:grabbing}
+.dta-priorities{display:grid;gap:8px}.dta-priority-row{display:grid;grid-template-columns:24px minmax(0,1fr) auto auto;align-items:center;gap:10px;padding:10px 12px;border:1px solid var(--dta-border);border-radius:10px}.dta-priority-row button{padding:4px 9px}.dta-priority-row[data-drop-side=before]{box-shadow:0 -3px #4386dc}.dta-priority-row[data-drop-side=after]{box-shadow:0 3px #4386dc}.dta-result-tools{display:flex;justify-content:flex-end;margin:-4px 0 14px}.dta-position-list{display:grid;gap:12px}.dta-position-row{margin:0}.dta-position-summary{display:grid;grid-template-columns:24px 20px minmax(0,1fr);gap:12px;align-items:center;padding:14px 16px}.dta-position-summary input{width:18px;height:18px;margin:0}.dta-position-body{display:grid;gap:10px;padding:0 16px 14px 72px}.dta-position-actions{display:flex;gap:8px;flex-wrap:wrap}.dta-position-actions button{padding:5px 10px}.dta-source-settings{margin-top:24px}.dta-position-decisions{margin:16px 0;padding:14px 16px;border:1px solid var(--dta-border);border-radius:10px}.dta-position-decisions li{margin:7px 0}.dta-position-row[data-drop-side=before]{box-shadow:0 -3px #4386dc}.dta-position-row[data-drop-side=after]{box-shadow:0 3px #4386dc}.dta-position-row[data-resource-dragging=true]{opacity:.55}.dta-resource-origins{grid-column:2;display:flex;flex-wrap:wrap;gap:6px 12px;margin:4px 0;font-size:12px;color:var(--dsw-alias-label-secondary)}.dta-resource-origin{border-left:3px solid var(--assembly-color);padding-left:7px;overflow-wrap:anywhere}.dta-position-menu>p{margin-bottom:12px}.dta-resource-blocks>.dta-row[data-drop-side=before]{box-shadow:0 -3px #4386dc}.dta-resource-blocks>.dta-row[data-drop-side=after]{box-shadow:0 3px #4386dc}.dta-resource-blocks>.dta-row[data-resource-dragging=true]{opacity:.55}.dta-resource-layout .dta-handle:active{cursor:grabbing}
 @container(max-width:600px){.dta-resource-layout .dta-summary{padding:12px;gap:4px 8px}.dta-resource-body{padding:0 12px 12px}.dta-resource-policy{grid-template-columns:1fr}}
 
 @container(max-width:600px){.dta-summary-meta{display:none}.dta-grid,.dta-properties{grid-template-columns:1fr}.dta-properties>*+*{border-left:0;border-top:1px solid var(--dsw-alias-state-business-primary,#4d6bfe);padding:12px 0 0}.dta-head,.dta-body{padding:15px}.dta-summary{gap:8px;padding:12px 10px}.dta-fields .dta-field-name{max-width:100%}}
@@ -656,25 +733,7 @@ function AssemblyPanelContent({ selectionTarget, sessionId, sessionLabel: sessio
     return parser && (rule.inputMode === "text" || rule.kind === "custom") ? { ...rule, kind: parser.id, inputMode: "text", role: parser.roles.includes(rule.role) ? rule.role : parser.roles[0], lifetime: parser.lifetimes.includes(rule.lifetime) ? rule.lifetime : parser.lifetimes[0], depth: parser.depth === false ? null : rule.depth } : rule;
   };
   const editablePreset = (preset) => ({ ...preset, rules: preset.rules.map(editableRule) });
-  const editLayout = (next) => {
-    if (busy) return;
-    const nextDraft = { ...draft, layout: next.layout, placement: layoutPlacement(next) };
-    const gen = generation.current;
-    setDraft(nextDraft);
-    setDirty(true);
-    return run(async () => {
-      try {
-        const data = await api("/preview", "POST", { sessionId, preset: editablePreset(nextDraft) });
-        if (gen !== generation.current) return;
-        setPreview(data.preview);
-        setStatus("");
-      } catch (e) {
-        if (gen !== generation.current) return;
-        setPreview(null);
-        throw e;
-      }
-    });
-  };
+  const editLayout = (next) => edit({ rules: next.rules, layout: next.layout, placement: layoutPlacement(next) });
   const controlRows = (rules) => contextControlRows(rules, sources.map((s) => s.id));
   const editRule = (id, patch) => edit({ rules: controlRows(draft.rules).map((r) => r.id === id ? { ...editableRule(r), ...patch } : r) });
   const toggle = (id) => setExpanded((old) => ({ ...old, [id]: !old[id] }));
@@ -699,6 +758,10 @@ function AssemblyPanelContent({ selectionTarget, sessionId, sessionLabel: sessio
   const button = (label, onClick, disabled = false, cls, pressed) => (0, import_react2.createElement)("button", { type: "button", onClick, disabled: busy || disabled, className: cls, "aria-pressed": pressed }, t(label));
   const select = (value, values, onChange, disabled = false) => (0, import_react2.createElement)("select", { value, disabled: busy || disabled, onChange: (e) => onChange(e.target.value) }, ...values.map((v) => (0, import_react2.createElement)("option", { key: v, value: v }, t(v))));
   const nodeName = (node) => {
+    if (node.positionId && node.source?.module === "worldbook" && node.name?.startsWith("worldbook:")) {
+      const position = sources.find((s) => s.id === "worldbook")?.positions?.find((p) => p.id === node.positionId);
+      if (position) return `${position.name[locale]} \xB7 ${(preview?.nodes?.filter((n) => n.source?.module === "worldbook" && n.positionId === node.positionId).indexOf(node) ?? 0) + 1}`;
+    }
     if (labels[node.name]) return t(node.name);
     const standard = { "Main Prompt": "main", "Post-History Instructions": "jailbreak", "Character Description": "charDescription", "Character Personality": "charPersonality", "Persona Description": "personaDescription", "Chat History": "history", "World Info (before)": "worldbook", "World Info (after)": "worldbook" };
     if (standard[node.name]) return t(standard[node.name]);
@@ -706,6 +769,7 @@ function AssemblyPanelContent({ selectionTarget, sessionId, sessionLabel: sessio
     if (node.name?.startsWith("preset:") || node.name?.startsWith("worldbook:")) return labels[node.source?.field] ? t(node.source.field) : `${t(node.name.startsWith("preset:") ? "preset" : "worldbook")} \xB7 ${Math.max(0, preview?.nodes?.indexOf(node) ?? -1) + 1}`;
     return node.name;
   };
+  const positionReason = (decision) => ({ user: locale === 0 ? "\u7528\u6237\u6392\u5217" : "User order", preset: locale === 0 ? "\u9884\u8BBE\u63D2\u69FD" : "Preset slot", runtime: locale === 0 ? "\u8FD0\u884C\u65F6\u7EA6\u675F" : "Runtime constraint", "resource-depth": locale === 0 ? "\u8D44\u6E90\u6DF1\u5EA6" : "Resource depth", resource: locale === 0 ? "\u8D44\u6E90\u81EA\u5E26\u4F4D\u7F6E" : "Resource position", default: locale === 0 ? "\u6765\u6E90\u9ED8\u8BA4\u987A\u5E8F" : "Default source order", source: locale === 0 ? "\u8D44\u6E90\u9ED8\u8BA4\u4F4D\u7F6E" : "Source position" })[decision];
   const originName = (plugin) => plugin === "DSH" ? "DSH" : plugin === "pmp-dsh-tavern" || plugin?.startsWith("pmp-dsh-tavern/") ? "DSH Tavern" : plugin ?? (locale === 0 ? "\u6765\u6E90\u672A\u77E5" : "Unknown source");
   const sourceDescriptor = (kind) => sources.find((s) => s.id === kind);
   const sourcePlugin = (kind) => sourceDescriptor(kind)?.pluginId ?? null;
@@ -888,7 +952,7 @@ function AssemblyPanelContent({ selectionTarget, sessionId, sessionLabel: sessio
       { key: node.id, className: "dta-row", style: { "--assembly-color": sourceColor(node.source.plugin) } },
       (0, import_react2.createElement)("div", { className: "dta-summary" }, (0, import_react2.createElement)("span", { className: "dta-name", role: "button", tabIndex: 0, onClick: () => toggle(node.id), onKeyDown: (e) => {
         if (e.key === "Enter") toggle(node.id);
-      }, "aria-expanded": !!expanded[node.id], title: nodeName(node) }, nodeName(node), node.sourceStatus === "name-unrecorded" && (0, import_react2.createElement)("small", null, t("sourceNameUnrecorded")), node.sourceStatus === "historical-system" && (0, import_react2.createElement)("small", null, t("historicalSystemHint")), node.sourceStatus === "current-name" && (0, import_react2.createElement)("small", null, t("sourceNameCurrent")), node.sourceStatus === "section-only" && (0, import_react2.createElement)("small", null, t("sourceFieldsUnrecorded")), (0, import_react2.createElement)("small", { className: "dta-origin" }, `${originName(node.source.plugin)} \xB7 ${t("previewDepth")}: ${node.depth == null ? t("listPosition") : node.depth}`)), summaryMetadata(node.stability, retention, node.role)),
+      }, "aria-expanded": !!expanded[node.id], title: nodeName(node) }, nodeName(node), node.sourceStatus === "name-unrecorded" && (0, import_react2.createElement)("small", null, t("sourceNameUnrecorded")), node.sourceStatus === "historical-system" && (0, import_react2.createElement)("small", null, t("historicalSystemHint")), node.sourceStatus === "current-name" && (0, import_react2.createElement)("small", null, t("sourceNameCurrent")), node.sourceStatus === "section-only" && (0, import_react2.createElement)("small", null, t("sourceFieldsUnrecorded")), (0, import_react2.createElement)("small", { className: "dta-origin" }, `${originName(node.source.plugin)} \xB7 ${sourceName(node.source.module)} \xB7 ${positionReason(node.positionDecision) ?? (node.depth == null ? t("listPosition") : t("previewDepth") + ": " + node.depth)}`)), summaryMetadata(node.stability, retention, node.role)),
       expanded[node.id] && (0, import_react2.createElement)("div", { className: "dta-detail" }, (0, import_react2.createElement)("div", { className: "dta-properties" }, (0, import_react2.createElement)("div", null, t("source"), (0, import_react2.createElement)("small", null, `${node.source.plugin} / ${node.source.resourceId ?? ""} / ${node.source.field}`), (0, import_react2.createElement)("small", null, sourceInfo(node.module))), (0, import_react2.createElement)("div", null, t("stability"), (0, import_react2.createElement)("small", null, t(node.stability))), (0, import_react2.createElement)("div", null, t("lifetime"), (0, import_react2.createElement)("small", null, t(retention)), (0, import_react2.createElement)("small", null, t(preview?.backend === "native" ? "nativeRetentionHint" : "recorded")))), (0, import_react2.createElement)("div", { className: "dta-preview-depth" }, `${t("previewDepth")}: ${node.depth == null ? t("listPosition") : node.depth}`), node.locked && (0, import_react2.createElement)("small", null, `${t("locked")}: ${node.lockReason}`), ...(node.children ?? []).map((child) => (0, import_react2.createElement)("div", { key: child.id, className: "dta-child", style: { borderLeftColor: sourceColor(child.source?.plugin) } }, `\u{1F512} ${nodeName(child)}`, (0, import_react2.createElement)("small", null, child.lockReason), (0, import_react2.createElement)("small", null, [originName(child.source?.plugin), child.source?.resourceId, child.source?.field, child.source?.sourceKind].filter(Boolean).join(" / ")), (0, import_react2.createElement)("pre", null, child.text))), (0, import_react2.createElement)("pre", null, node.text))
     );
   }
@@ -953,21 +1017,20 @@ function AssemblyPanelContent({ selectionTarget, sessionId, sessionLabel: sessio
         }), !draft.id || draft.builtin), dirty && (0, import_react2.createElement)("span", null, t("dirty"))),
         (0, import_react2.createElement)("h3", { className: "dta-section-title" }, t("rulesSection")),
         (0, import_react2.createElement)("label", { className: "dta-toolbar" }, t("backend"), (0, import_react2.createElement)("select", { "aria-label": t("backend"), value: draft.backend ?? "core", onChange: (e) => edit({ backend: e.target.value }) }, (0, import_react2.createElement)("option", { value: "native" }, t("backendNative")), (0, import_react2.createElement)("option", { value: "core" }, t("backendCore")))),
-        (0, import_react2.createElement)("div", { className: "dta-notice" }, draft.layout ? locale === 0 ? "\u6765\u6E90\u914D\u7F6E\u4E0E\u5F53\u524D\u8D44\u6E90\u5E03\u5C40\u5206\u5F00\u7F16\u8F91\u3002\u8EAB\u4EFD\u3001\u63D2\u69FD\u3001\u5386\u53F2\u53CA\u6295\u9012\u9650\u5236\u5728\u5F53\u524D\u8D44\u6E90\u5E03\u5C40\u4E2D\u8BF4\u660E\u3002" : "Edit source configuration separately from current resource layout. Roles, slots, history and delivery constraints are explained in the current layout." : t(adaptiveNative ? draft.placement === "native-slots" ? "nativeSlotsHint" : "nativeRolesHint" : nativeDraft ? "nativeHint" : "coreHint")),
+        (0, import_react2.createElement)("div", { className: "dta-notice" }, draft.layout ? locale === 0 ? "\u5148\u914D\u7F6E\u8D44\u6E90\u4F4D\u7F6E\uFF0C\u518D\u52A0\u8F7D\u5F53\u524D\u8D44\u6E90\u67E5\u770B\u88C5\u914D\u7ED3\u679C\u3002\u51B2\u7A81\u6309\u6240\u9009\u4F18\u5148\u7EA7\u5904\u7406\uFF0C\u8FD0\u884C\u65F6\u7EA6\u675F\u59CB\u7EC8\u751F\u6548\u3002" : "Configure resource positions, then load current assets to see the assembled result. Conflicts use the selected priority and runtime constraints." : t(adaptiveNative ? draft.placement === "native-slots" ? "nativeSlotsHint" : "nativeRolesHint" : nativeDraft ? "nativeHint" : "coreHint")),
         nativeError && (0, import_react2.createElement)("div", { className: "dta-notice", role: "alert" }, nativeError),
-        (0, import_react2.createElement)("div", { className: "dta-tabs" }, (0, import_react2.createElement)("button", { "aria-pressed": tab === "layout", onClick: () => setTab("layout") }, locale === 0 ? "\u7B56\u7565\u4E0E\u5F53\u524D\u8D44\u6E90\u5E03\u5C40" : "Policy and current resource layout"), (0, import_react2.createElement)("button", { "aria-pressed": tab === "rules", onClick: () => setTab("rules") }, t("rules")), button("preview", () => run(async () => {
+        (0, import_react2.createElement)("div", { className: "dta-tabs" }, (0, import_react2.createElement)("button", { "aria-pressed": tab === "rules", onClick: () => setTab("rules") }, t("rules")), button("preview", () => run(async () => {
           const data = await api("/preview", "POST", { sessionId, preset: editablePreset(draft) });
           setPreview(data.preview);
           if (slotMode) setSlotAnalysis({ draft, preview: data.preview });
           setTab("expanded");
-        }), Boolean(selectionTarget && (typeof selectionTarget.previewAssembly !== "function" || selectionTarget.editable === false)), void 0, tab === "expanded" && !preview?.actual), button("actual", () => run(actualRequest), !sessionId, void 0, tab === "expanded" && !!preview?.actual)),
+        }), Boolean(selectionTarget && (typeof selectionTarget.previewAssembly !== "function" || selectionTarget.editable === false)), void 0, tab === "expanded" && !preview?.actual)),
+        (0, import_react2.createElement)("div", { className: "dta-result-tools" }, button("actual", () => run(actualRequest), !sessionId)),
         (0, import_react2.createElement)("div", { className: "dta-legend" }, ...[...new Set(sources.map((s) => s.pluginId))].map((plugin) => (0, import_react2.createElement)("span", { key: plugin, style: { "--assembly-color": sourceColor(plugin) } }, originName(plugin)))),
-        tab === "layout" ? (0, import_react2.createElement)(ResourceLayoutEditor, { preset: draft, preview: preview?.actual ? null : preview, locale, busy, sourceColor, originName, sourceName, onChange: editLayout, onPreview: () => run(async () => {
-          const data = await api("/preview", "POST", { sessionId, preset: editablePreset(draft) });
-          setPreview(data.preview);
-        }) }) : tab === "rules" ? (0, import_react2.createElement)(
-          "div",
-          null,
+        tab === "rules" ? (0, import_react2.createElement)("div", null, (0, import_react2.createElement)(ResourcePositionEditor, { preset: draft, sources, locale, busy, sourceColor, originName, sourceName, onChange: editLayout }), (0, import_react2.createElement)(
+          "details",
+          { className: "dta-source-settings" },
+          (0, import_react2.createElement)("summary", null, locale === 0 ? "\u6765\u6E90\u3001\u6587\u672C\u4E0E\u6295\u9012\u8BBE\u7F6E" : "Source, text and delivery settings"),
           slotMode && analysis?.error && (0, import_react2.createElement)("div", { role: "alert" }, t("placementFailed") + analysis.error),
           !draft.layout && (0, import_react2.createElement)("label", { className: "dta-toolbar" }, t("placement"), select(draft.placement, nativeDraft ? ["modules", "native-roles", "native-slots"] : ["modules", "st"], (placement) => edit({ placement }))),
           draft.placement === "st" && (0, import_react2.createElement)("small", null, t("stHelp")),
@@ -975,7 +1038,7 @@ function AssemblyPanelContent({ selectionTarget, sessionId, sessionLabel: sessio
           modules.length > 0 && (0, import_react2.createElement)("div", { className: "dta-toolbar" }, (0, import_react2.createElement)("label", { htmlFor: "dta-add-source" }, t("addSource")), (0, import_react2.createElement)("select", { id: "dta-add-source", value: modules.some((s) => s.id === addKind) ? addKind : modules[0].id, onChange: (e) => setAddKind(e.target.value) }, ...modules.map((s) => (0, import_react2.createElement)("option", { key: s.id, value: s.id }, `${originName(s.pluginId)} \xB7 ${sourceName(s.id)}`))), button("add", () => addRule(modules.some((s) => s.id === addKind) ? addKind : modules[0].id))),
           parsers.length > 0 && (0, import_react2.createElement)("div", { className: "dta-toolbar" }, (0, import_react2.createElement)("label", { htmlFor: "dta-add-parser" }, t("parser")), (0, import_react2.createElement)("select", { id: "dta-add-parser", value: addParser, onChange: (e) => setAddParser(e.target.value) }, ...parsers.map((s) => (0, import_react2.createElement)("option", { key: s.id, value: s.id }, `${originName(s.pluginId)} \xB7 ${sourceName(s.id)}`))), button("addText", () => addRule(addParser, "text"))),
           (0, import_react2.createElement)("small", null, t("sourceHelp"))
-        ) : (0, import_react2.createElement)("div", null, (0, import_react2.createElement)("div", { className: "dta-notice" }, t(preview?.actual ? "actualNotice" : preview?.scope === "opening-draft" ? "draftPreviewScope" : preview?.backend === "native" ? "nativePreviewScope" : "previewScope")), !preview ? (0, import_react2.createElement)("p", null, t("empty")) : (0, import_react2.createElement)("div", null, ...preview.diagnostics.filter((d) => ["ASSEMBLY_EMPTY", "ASSEMBLY_SYSTEM_ONLY"].includes(d.code) && !(preview.scope === "opening-draft" && d.code === "ASSEMBLY_SYSTEM_ONLY")).map((d) => (0, import_react2.createElement)("div", { key: d.code, className: "dta-notice", role: "alert" }, t(d.code === "ASSEMBLY_EMPTY" ? "emptyRequest" : "systemOnly"))), preview.diagnostics.some((d) => d.code === "NATIVE_PLACEMENT_ADJUSTED") && (0, import_react2.createElement)("div", { className: "dta-notice" }, t("nativeOrderChanged")), ...preview.diagnostics.filter((d) => ["NATIVE_ROLE_ADJUSTED", "NATIVE_DELIVERY_ADJUSTED", "NATIVE_SLOTS_ABSENT", "NATIVE_DEPTH_APPROXIMATED", "NATIVE_DEPTH_BOUNDARY", "WORLD_BOOK_SLOT_MISSING"].includes(d.code)).map((d, i) => (0, import_react2.createElement)("div", { key: `native-adjustment:${i}`, className: "dta-notice" }, d.code === "NATIVE_SLOTS_ABSENT" ? t("nativeSlotsAbsent") : d.code === "WORLD_BOOK_SLOT_MISSING" ? `${d.name} \xB7 ${t("worldSlotMissing")}: ${d.anchor}` : d.code === "NATIVE_DEPTH_BOUNDARY" ? `${d.name} \xB7 ${t("nativeDepthBoundary")}: ${d.depth} \u2192 ${t(d.placement)}` : d.code === "NATIVE_DEPTH_APPROXIMATED" ? `${d.name} \xB7 ${t("nativeDepthApproximated")} (${d.depth})` : `${d.name} \xB7 ${t(d.code === "NATIVE_ROLE_ADJUSTED" ? "nativeRoleChanged" : "nativeDeliveryChanged")}: ${d.from} \u2192 ${d.to}`)), ...preview.nodes.map(nodeRow), preview.runtimeContextControls?.length > 0 && (0, import_react2.createElement)("div", { className: "dta-notice" }, (0, import_react2.createElement)("strong", null, t("contextPreview")), ...preview.runtimeContextControls.map((c) => (0, import_react2.createElement)("div", { key: c.name }, `${c.name} \xB7 ${t(c.enabled ? "contextIncluded" : "contextExcluded")}`))), (0, import_react2.createElement)("details", null, (0, import_react2.createElement)("summary", null, `${t(preview.backend === "native" && !preview.actual ? "logicalMessages" : "result")} (${preview.messages.length})`), ...preview.messages.map((m, i) => (0, import_react2.createElement)("div", { key: `${m.id}:${i}`, className: "dta-child" }, `${i + 1} \xB7 ${m.role}`, (0, import_react2.createElement)("pre", null, (m.content ?? []).map((b) => b.type === "text" ? b.text : `[${b.type}]`).join("\n"))))), preview.diagnostics.length > 0 && (0, import_react2.createElement)("details", null, (0, import_react2.createElement)("summary", null, t("diagnostics")), (0, import_react2.createElement)("pre", null, JSON.stringify(preview.diagnostics, null, 2))))),
+        )) : (0, import_react2.createElement)("div", null, (0, import_react2.createElement)("div", { className: "dta-notice" }, t(preview?.actual ? "actualNotice" : preview?.scope === "opening-draft" ? "draftPreviewScope" : preview?.backend === "native" ? "nativePreviewScope" : "previewScope")), !preview ? (0, import_react2.createElement)("p", null, t("empty")) : (0, import_react2.createElement)("div", null, (0, import_react2.createElement)(PositionDecisions, { preview, sources, locale, sourceName }), ...preview.diagnostics.filter((d) => ["ASSEMBLY_EMPTY", "ASSEMBLY_SYSTEM_ONLY"].includes(d.code) && !(preview.scope === "opening-draft" && d.code === "ASSEMBLY_SYSTEM_ONLY")).map((d) => (0, import_react2.createElement)("div", { key: d.code, className: "dta-notice", role: "alert" }, t(d.code === "ASSEMBLY_EMPTY" ? "emptyRequest" : "systemOnly"))), preview.diagnostics.some((d) => d.code === "NATIVE_PLACEMENT_ADJUSTED") && (0, import_react2.createElement)("div", { className: "dta-notice" }, t("nativeOrderChanged")), ...preview.diagnostics.filter((d) => ["NATIVE_ROLE_ADJUSTED", "NATIVE_DELIVERY_ADJUSTED", "NATIVE_SLOTS_ABSENT", "NATIVE_DEPTH_APPROXIMATED", "NATIVE_DEPTH_BOUNDARY", "WORLD_BOOK_SLOT_MISSING"].includes(d.code)).map((d, i) => (0, import_react2.createElement)("div", { key: `native-adjustment:${i}`, className: "dta-notice" }, d.code === "NATIVE_SLOTS_ABSENT" ? t("nativeSlotsAbsent") : d.code === "WORLD_BOOK_SLOT_MISSING" ? `${d.name} \xB7 ${t("worldSlotMissing")}: ${d.anchor}` : d.code === "NATIVE_DEPTH_BOUNDARY" ? `${d.name} \xB7 ${t("nativeDepthBoundary")}: ${d.depth} \u2192 ${t(d.placement)}` : d.code === "NATIVE_DEPTH_APPROXIMATED" ? `${d.name} \xB7 ${t("nativeDepthApproximated")} (${d.depth})` : `${d.name} \xB7 ${t(d.code === "NATIVE_ROLE_ADJUSTED" ? "nativeRoleChanged" : "nativeDeliveryChanged")}: ${d.from} \u2192 ${d.to}`)), ...preview.nodes.map(nodeRow), preview.runtimeContextControls?.length > 0 && (0, import_react2.createElement)("div", { className: "dta-notice" }, (0, import_react2.createElement)("strong", null, t("contextPreview")), ...preview.runtimeContextControls.map((c) => (0, import_react2.createElement)("div", { key: c.name }, `${c.name} \xB7 ${t(c.enabled ? "contextIncluded" : "contextExcluded")}`))), (0, import_react2.createElement)("details", null, (0, import_react2.createElement)("summary", null, `${t(preview.backend === "native" && !preview.actual ? "logicalMessages" : "result")} (${preview.messages.length})`), ...preview.messages.map((m, i) => (0, import_react2.createElement)("div", { key: `${m.id}:${i}`, className: "dta-child" }, `${i + 1} \xB7 ${m.role}`, (0, import_react2.createElement)("pre", null, (m.content ?? []).map((b) => b.type === "text" ? b.text : `[${b.type}]`).join("\n"))))), preview.diagnostics.length > 0 && (0, import_react2.createElement)("details", null, (0, import_react2.createElement)("summary", null, t("diagnostics")), (0, import_react2.createElement)("pre", null, JSON.stringify(preview.diagnostics, null, 2))))),
         (0, import_react2.createElement)("small", { style: { marginTop: 20 } }, t("tools")),
         (0, import_react2.createElement)("h3", { className: "dta-section-title" }, t("applicationSection")),
         (0, import_react2.createElement)("div", { className: "dta-notice" }, `${t("applied")}: ${selection?.name ?? t("legacy")}`, selection?.id?.startsWith("builtin-") && !items.some((p) => p.id === selection.id) && (0, import_react2.createElement)("small", null, t("withdrawnPreset")), !capable && (0, import_react2.createElement)("small", null, t("unavailable"))),

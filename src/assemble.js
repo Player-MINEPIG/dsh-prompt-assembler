@@ -1,3 +1,4 @@
+import { blockPosition, declaredPositions, positionKey, positionWins, priorityOrder, applyPositionOrder, applyResourceAnchors } from './resource-positions.js'
 import { applyLayoutOverrides, describeResourceLayout } from './resource-layout.js'
 import { createHash, randomUUID } from 'node:crypto'
 import { adaptiveNativePlacement } from './native-policy.js'
@@ -58,8 +59,22 @@ function assembleResolved({ preset: suppliedPreset, previous = null, snapshots =
   // content module as the target of other sources' declared references.
   for (const entry of entries.filter(e => e.rule.inputMode !== 'text')) bySource.set(entry.descriptor.id, entry)
   const enabled = kind => rules.some(r => r.kind === kind)
+  const positionSettings = new Map((preset.layout?.positions ?? []).map(p => [positionKey(p.sourceId, p.positionId), p]))
+  const positionOf = (entry, block) => blockPosition(entry.descriptor, block)
+  const settingOf = (entry, block) => positionSettings.get(positionKey(entry.descriptor.id, positionOf(entry, block)?.id))
+  const positionEnabled = (entry, block) => block.type === 'reference' || settingOf(entry, block)?.enabled !== false || (preset.backend === 'native' && ['history', 'input'].includes(entry.descriptor.id))
+  const userPlaced = (entry, block) => block.type !== 'reference' && settingOf(entry, block)?.placement === 'list' && positionWins(preset, 'user', 'preset') && positionWins(preset, 'user', 'default') && (block.depth == null && !positionOf(entry, block)?.anchor || positionWins(preset, 'user', 'resource')) && !['native-system', 'history', 'input'].includes(entry.descriptor.id)
+  const preferSource = (entry, block) => block.type !== 'native' && listed.has(entry.rule.id) && (positionWins(preset, 'default', 'preset') || Array.isArray(preset.layout?.priority) && (block.depth != null || positionOf(entry, block)?.anchor) && positionWins(preset, 'resource', 'preset'))
+  const positionEvents = []
+  for (const entry of entries) for (const block of entry.blocks) if (!positionEnabled(entry, block)) positionEvents.push({ sourceId: entry.descriptor.id, positionId: positionOf(entry, block)?.id, decision: 'disabled' })
   const slots = []
   const diagnostics = structuredClone(assets.diagnostics ?? []).filter(d => !((preset.placement === 'st' || adaptive) && d.code === 'WORLD_BOOK_POSITION_APPROXIMATED' && d.originalPosition === 'at_depth'))
+  for (const setting of preset.layout?.positions ?? []) {
+    const descriptor = resolution.catalog?.find(s => s.id === setting.sourceId)
+    if (descriptor && declaredPositions(descriptor).some(p => p.id === setting.positionId)) continue
+    diagnostics.push({ code: 'POSITION_SOURCE_MISSING', sourceId: setting.sourceId, positionId: setting.positionId })
+    if (setting.enabled && preset.layout.fallback === 'error') throw Object.assign(new Error(`Resource position unavailable: ${setting.sourceId}/${setting.positionId}`), { code: 'POSITION_SOURCE_MISSING', status: 409 })
+  }
   diagnostics.push(...resolution.diagnostics, ...entries.flatMap(e => e.diagnostics ?? []))
   if (adaptive) for (let i = diagnostics.length - 1; i >= 0; i--) {
     const d = diagnostics[i]
@@ -74,15 +89,15 @@ function assembleResolved({ preset: suppliedPreset, previous = null, snapshots =
     if (!block || macros.has(name)) throw new TypeError(`Invalid or duplicate source macro: ${name}`)
     macros.set(name, { entry, block })
   }
-  const macroAllowed = target => !(listPlacement && listed.has(target.entry.rule.id) && !target.block.referenceOnly)
-  const roots = rules.flatMap(rule => (byRule.get(rule.id)?.blocks ?? []).filter(b => !b.referenceOnly).map(block => ({ entry: byRule.get(rule.id), block })))
+  const macroAllowed = target => positionEnabled(target.entry, target.block) && !userPlaced(target.entry, target.block) && !preferSource(target.entry, target.block) && !(listPlacement && listed.has(target.entry.rule.id) && !target.block.referenceOnly)
+  const roots = rules.flatMap(rule => (byRule.get(rule.id)?.blocks ?? []).filter(b => (!b.referenceOnly || userPlaced(byRule.get(rule.id), b) || preferSource(byRule.get(rule.id), b)) && positionEnabled(byRule.get(rule.id), b)).map(block => ({ entry: byRule.get(rule.id), block })))
   // Claims are determined before list placement. A reference has the same effect
   // whether its fallback source is before or after it in the user's strategy.
   function claimContent(entry, block) {
     const owner = key(entry, block)
     for (const claim of block.claims ?? []) {
       const target = bySource.get(claim.sourceId), item = target?.blocks.find(b => b.id === claim.blockId)
-      if (item && !claims.has(key(target, item))) claims.set(key(target, item), owner)
+      if (item && positionEnabled(target, item) && !userPlaced(target, item) && !preferSource(target, item) && !claims.has(key(target, item))) claims.set(key(target, item), owner)
     }
     if (block.type === 'text') for (const match of block.text.matchAll(/\{\{\s*([^{}]+?)\s*\}\}/g)) {
       const target = macros.get(match[1]); if (target && macroAllowed(target) && !claims.has(key(target.entry, target.block))) claims.set(key(target.entry, target.block), owner)
@@ -97,7 +112,7 @@ function assembleResolved({ preset: suppliedPreset, previous = null, snapshots =
     // sources still belong to the source's authored reference position.
     if (listPlacement && listed.has(entry.rule.id) && (preset.layout?.source === 'manual' || !block.useOwnerRule)) return entry.blocks.filter(b => b.referenceOnly && block.blockIds?.includes(b.id)).map(block => ({ entry, block }))
     if (block.honorEnabled !== false && listed.has(entry.rule.id) && !enabled(block.sourceId)) return []
-    return entry.blocks.filter(b => (!block.blockIds || block.blockIds.includes(b.id)) && (!block.group || b.group === block.group) && (block.blockIds || !b.referenceOnly)).map(b => ({ entry, block: b }))
+    return entry.blocks.filter(b => positionEnabled(entry, b) && !userPlaced(entry, b) && !preferSource(entry, b) && (!block.blockIds || block.blockIds.includes(b.id)) && (!block.group || b.group === block.group) && (block.blockIds || !b.referenceOnly)).map(b => ({ entry, block: b }))
   }
   function claimReferences(entry, block, path = new Set()) {
     if (block.type !== 'reference') return
@@ -137,6 +152,7 @@ function assembleResolved({ preset: suppliedPreset, previous = null, snapshots =
   const emitted = new Set(), plans = new Map(rules.map(r => [r.id, []]))
   function emit(entry, block, effectiveRule = entry.rule, reference = null, path = new Set()) {
     const identity = key(entry, block), owner = reference?.owner
+    if (!positionEnabled(entry, block)) return
     if ((claims.has(identity) && claims.get(identity) !== owner) || emitted.has(identity)) return
     if (path.has(identity)) throw new TypeError('Cyclic source block reference')
     const next = new Set([...path, identity])
@@ -163,7 +179,7 @@ function assembleResolved({ preset: suppliedPreset, previous = null, snapshots =
         if (!target) return whole
         if (target.entry.descriptor.id !== entry.descriptor.id && !entry.descriptor.dependencies.includes(target.entry.descriptor.id)) throw new TypeError(`Undeclared macro dependency from ${entry.descriptor.id}`)
         if (!macroAllowed(target)) return ''
-        children.push({ id: `${identity}:${name}:${children.length}`, name: target.block.id, locked: true, lockReason: `macro:${name}`, source: origin(target.entry, target.block), text: target.block.text, stability: target.entry.descriptor.stability, lifetime: 'request' })
+        children.push({ positionId: positionOf(target.entry, target.block)?.id, positionDecision: 'preset', id: `${identity}:${name}:${children.length}`, name: target.block.id, locked: true, lockReason: `macro:${name}`, source: origin(target.entry, target.block), text: target.block.text, stability: target.entry.descriptor.stability, lifetime: 'request' })
         return target.block.text
       })
       rendered = entry.renderText({ text: expanded, context: request, variables, block, diagnostics, identity })
@@ -182,12 +198,17 @@ function assembleResolved({ preset: suppliedPreset, previous = null, snapshots =
     // history. Moving a module must not rewrite that internal message order.
     let depth = controlled && block.type !== 'native' ? placementRule.depth
       : block.depth ?? (listed.has(entry.rule.id) ? targetRule.depth : entry.rule.depth)
+    if (block.type !== 'native') {
+      const userDepth = settingOf(entry, block)?.placement === 'list' && positionWins(preset, 'user', 'resource') && positionWins(preset, 'user', 'default') && (!reference?.slotId || positionWins(preset, 'user', 'preset'))
+      const presetDepth = Array.isArray(preset.layout?.priority) && reference?.slotId && positionWins(preset, 'preset', 'resource')
+      if (depth != null && (userDepth || presetDepth || positionWins(preset, 'default', 'resource'))) depth = null
+    }
     const nativeRequestedDepth = adaptive && depth != null ? depth : null
     if (nativeRequestedDepth !== null) {
       if (!(preset.placement === 'native-slots' && entry.descriptor.id === 'worldbook' && [0, 1].includes(nativeRequestedDepth))) diagnostics.push({ code: 'NATIVE_DEPTH_APPROXIMATED', id: identity, name: block.name || block.id, depth })
       depth = null
     }
-    const node = { originalRole: block.type === 'native' ? 'preserve' : block.role ?? (targetRule.inputMode === 'text' && targetRule.role !== 'preserve' ? targetRule.role : 'system'), messageRoles: messages.map(m => m.role), layoutGroup: block.group ?? null, slotId: reference?.slotId ?? null, id: identity, ruleId: targetRule.id, module: targetRule.kind, name: block.name || block.id, role, text: rendered, messages, source: origin(entry, block),
+    const node = { ...(positionOf(entry, block)?.anchor ? { resourceAnchor: positionOf(entry, block).anchor } : {}), positionId: positionOf(entry, block)?.id, positionDecision: block.type === 'native' ? 'runtime' : userPlaced(entry, block) ? 'user' : depth != null || nativeRequestedDepth != null ? 'resource-depth' : reference?.slotId ? 'preset' : 'source', originalRole: block.type === 'native' ? 'preserve' : block.role ?? (targetRule.inputMode === 'text' && targetRule.role !== 'preserve' ? targetRule.role : 'system'), messageRoles: messages.map(m => m.role), layoutGroup: block.group ?? null, slotId: reference?.slotId ?? null, id: identity, ruleId: targetRule.id, module: targetRule.kind, name: block.name || block.id, role, text: rendered, messages, source: origin(entry, block),
       ...(adaptive ? { placementSource: reference?.sourceId ?? null, nativeRequestedDepth } : {}),
       stability: block.stability ?? entry.descriptor.stability,
       lifetime, recorded: true, locked: reference?.locked ?? false, lockReason: reference?.locked ? reference.reason : null, children, hash: contentHash, depth, order: block.order ?? 100, changed: previous?.nodes?.find(n => n.id === identity)?.hash !== contentHash }
@@ -235,6 +256,8 @@ function assembleResolved({ preset: suppliedPreset, previous = null, snapshots =
     if (!inserted) nodes.push(node)
   }
   applyLayoutOverrides(nodes, preset, diagnostics)
+  applyResourceAnchors(nodes, preset, diagnostics)
+  applyPositionOrder(nodes, preset, diagnostics)
   // Native markers are nested in the preset output, not dropped from the request.
   let messages = [], expanded = []
   const snapshotRules = rules.filter(r => r.lifetime === 'snapshot' && byRule.has(r.id))
@@ -314,6 +337,13 @@ function assembleResolved({ preset: suppliedPreset, previous = null, snapshots =
   // Final message roles include native placement adaptation.
   for (const node of result.nodes) node.messageRoles = node.role === 'preserve' ? node.messageRoles : [node.role]
   result.resourceLayout = describeResourceLayout(result.nodes, preset, slots)
+  result.resourceLayout.priorityOrder = priorityOrder(preset)
+  result.resourceLayout.positionDecisions = [
+    ...new Map(positionEvents.map(e => [positionKey(e.sourceId, e.positionId), e])).values(),
+    ...result.nodes.map(n => ({ sourceId: n.source?.module, positionId: n.positionId, nodeId: n.id, decision: n.positionDecision ?? (n.lifetime === 'native' || n.lifetime === 'snapshot' ? 'runtime' : 'source'), slotId: n.slotId ?? null })),
+    ...result.nodes.flatMap(n => (n.children ?? []).filter(c => c.positionId).map(c => ({ sourceId: c.source?.module, positionId: c.positionId, decision: c.positionDecision ?? 'preset' }))),
+    ...diagnostics.filter(d => ['POSITION_CONFLICT', 'POSITION_ANCHOR_MISSING', 'POSITION_SOURCE_MISSING'].includes(d.code)).map(d => ({ ...d, decision: d.winner ?? 'unavailable' })),
+  ]
   afterAssembly?.(result, request)
   return result
 }

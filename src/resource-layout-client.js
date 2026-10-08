@@ -1,63 +1,81 @@
 import { createElement as h, useState } from 'react'
-import { withBlockMove } from './resource-layout.js'
+import { configurePosition, positionRows, priorityOrder } from './resource-positions.js'
 
-/** Current resources are rendered separately from reusable source configuration. */
-export function ResourceLayoutEditor({ preset, preview, locale = 0, busy, onChange, onPreview, sourceColor = () => '#999999', originName = plugin => plugin ?? '—', sourceName = kind => kind ?? '—' }) {
-  const [drag, setDrag] = useState(null), [drop, setDrop] = useState(null), [error, setError] = useState('')
+/** Configuration comes from provider capabilities, never from activated preview blocks. */
+export function ResourcePositionEditor({ preset, sources, locale = 0, busy, onChange, sourceColor, originName, sourceName = id => sources.find(s => s.id === id)?.name ?? id }) {
+  const [drag, setDrag] = useState(null), [drop, setDrop] = useState(null), [priorityDrop, setPriorityDrop] = useState(null)
   const t = (zh, en) => locale === 0 ? zh : en
-  const terms = { 'native-system': '原生指令', history: '原生历史', input: '本步输入', worldbook: '世界书', character: '角色卡', description: '角色描述', before: '前置组', after: '后置组', depth: '深度组', preserve: '保留原身份', free: '自由块', slot: '插槽绑定', runtime: '运行时管理', request: '每轮重新装配', snapshot: '留存快照', native: '原生留存', 'source-defined': '按来源顺序', 'before-input:pre-step': '输入前投递', 'after-input:pre-step': '输入后投递', 'after-input:context': '原生 context', system: 'system', user: 'user', assistant: 'assistant' }
-  const label = value => locale === 0 ? terms[value] ?? value : value
-  const blockName = block => block.name.split(' · ').map(label).join(' · ')
-  const origins = block => [...new Map(block.entries.map(({ source }) => [JSON.stringify([source?.plugin, source?.module]), source ?? {}])).values()]
-  const blockColor = block => { const plugins = [...new Set(block.entries.map(entry => entry.source?.plugin))]; return sourceColor(plugins.length === 1 ? plugins[0] : null) }
-  const sourceLabel = source => `${originName(source?.plugin)} · ${sourceName(source?.module)}`
-  const layout = preview?.resourceLayout
-  const update = patch => onChange({ ...preset, layout: { ...preset.layout, ...patch } })
-  const move = (target, anchor, side, detach = false) => {
-    try { setError(''); onChange(withBlockMove(preset, layout, target, anchor, side, detach)) } catch (e) { setError(e.message) }
+  const rows = positionRows(preset, sources)
+  const policy = preset.layout ?? { version: 1, source: 'preset-slots', priority: ['user', 'preset', 'resource', 'default'], identity: 'preserve', fallback: 'source-order', overrides: [] }
+  const changePolicy = patch => onChange({ ...preset, layout: { ...policy, ...patch, ...(patch.priority ? { source: 'preset-slots' } : {}) } })
+  const priorities = priorityOrder({ layout: policy })
+  const priorityNames = { user: t('用户位置配置', 'User position configuration'), preset: t('预设插槽与宏引用', 'Preset slots and macro references'), resource: t('资源自带位置与深度', 'Resource position and depth'), default: t('来源默认顺序', 'Default source order') }
+  const movePriority = (id, before) => {
+    if (id === before) return
+    const next = priorities.filter(p => p !== id), at = before == null ? next.length : next.indexOf(before)
+    if (at < 0) return
+    next.splice(at, 0, id); changePolicy({ priority: next })
   }
-  const dropAt = e => {
-    const row = document.elementFromPoint(e.clientX, e.clientY)?.closest('[data-resource-block]')
-    if (!row || row.dataset.resourceBlock === drag || !e.currentTarget.closest('.dta-resource-blocks')?.contains(row)) return null
-    return { anchor: row.dataset.resourceBlock, side: e.clientY < row.getBoundingClientRect().top + row.getBoundingClientRect().height / 2 ? 'before' : 'after' }
+  const priorityTarget = e => {
+    const row = document.elementFromPoint(e.clientX, e.clientY)?.closest('[data-priority]')
+    if (!row || !e.currentTarget.closest('.dta-priorities')?.contains(row)) return null
+    const before = e.clientY < row.getBoundingClientRect().top + row.getBoundingClientRect().height / 2
+    return { id: row.dataset.priority, before }
   }
-  return h('section', { className: 'dta-resource-layout', 'aria-label': t('当前资源布局', 'Current resource layout'), 'aria-busy': busy },
-    h('h3', null, t('装配策略', 'Assembly policy')),
-    !preset.layout ? h('div', { className: 'dta-notice' }, t('兼容模式：保留已保存策略的顺序、身份与投递行为。采用新策略后请预览并保存；不会自动修改已应用策略。', 'Compatibility mode preserves saved ordering, identity and delivery. Adopt, preview and save explicitly; applied strategies are unchanged.'),
-      h('button', { disabled: busy, onClick: () => update({ version: 1, source: ['st', 'native-slots', 'native-roles'].includes(preset.placement) ? 'preset-slots' : 'manual', identity: preset.placement === 'native-slots' ? 'position' : 'preserve', fallback: 'source-order', overrides: [] }) }, t('采用资源布局策略', 'Adopt resource layout policy')))
-      : h('div', { className: 'dta-resource-policy' },
-        ...[
-          ['source', t('布局来源', 'Layout source'), [['manual', t('手动', 'Manual')], ['preset-slots', t('预设插槽', 'Preset slots')]]],
-          ['identity', t('身份处理', 'Identity'), [['preserve', t('保留来源身份', 'Preserve source roles')], ['position', t('明确允许按位置适配', 'Allow position adaptation')]]],
-          ['fallback', t('缺失定位', 'Missing targets'), [['source-order', t('来源顺序并诊断', 'Source order with diagnostic')], ['error', t('拒绝装配', 'Reject assembly')]]],
-        ].map(([key, label, options]) => h('label', { key }, label, h('select', { value: preset.layout[key], disabled: busy, onChange: e => update({ [key]: e.target.value }) }, ...options.map(([value, label]) => h('option', { key: value, value }, label)))))),
-    h('h3', null, t('当前资源布局', 'Current resource layout')),
-    h('p', null, t('来源提供内容；块是连续输出；插槽只占位置。拖动左侧 ⠿ 移动整块，内部顺序不变；松开后自动更新布局。', 'Sources supply content; blocks are contiguous output; slots are positions only. Drag the left ⠿ handle to move a whole block while preserving its internal order. The layout updates automatically after dropping.')),
-    h('button', { disabled: busy, onClick: onPreview }, t('刷新当前资源', 'Refresh current resources')),
-    error && h('p', { role: 'alert' }, error),
-    !layout ? h('p', null, t('预览以解析当前资源及限制。', 'Preview to resolve current resources and constraints.')) : h('div', { className: 'dta-resource-blocks' },
-      ...layout.blocks.map((b, i) => h('article', { key: b.id, className: 'dta-row', 'data-resource-block': b.id, style: { '--assembly-color': blockColor(b) }, 'data-drop-side': drop?.anchor === b.id ? drop.side : undefined, 'data-resource-dragging': drag === b.id },
-        h('div', { className: 'dta-summary' },
-          h('button', { type: 'button', className: 'dta-handle', disabled: busy || !preset.layout || !b.movable, 'aria-label': `${t('移动整块', 'Move whole block')}: ${blockName(b)}`,
-            title: b.movable ? t('拖动整块', 'Drag whole block') : t('位置已锁定', 'Position locked'),
-            onPointerDown: e => { if (e.button !== 0) return; e.preventDefault(); e.currentTarget.setPointerCapture(e.pointerId); setDrag(b.id); setDrop(null) },
-            onPointerMove: e => { if (e.currentTarget.hasPointerCapture(e.pointerId)) setDrop(dropAt(e)) },
-            onPointerUp: e => { if (!e.currentTarget.hasPointerCapture(e.pointerId)) return; const target = dropAt(e); e.currentTarget.releasePointerCapture(e.pointerId); if (target) move(b.id, target.anchor, target.side); setDrag(null); setDrop(null) },
-            onLostPointerCapture: () => { setDrag(null); setDrop(null) }, onPointerCancel: () => { setDrag(null); setDrop(null) } }, b.movable ? '⠿' : '🔒'),
-          h('strong', null, `${i + 1}. ${blockName(b)}`),
-          h('div', { className: 'dta-resource-origins' }, ...origins(b).map((source, i) => h('span', { key: i, className: 'dta-resource-origin', style: { '--assembly-color': sourceColor(source.plugin) } }, sourceLabel(source)))), h('small', null, `${b.originalRoles.map(label).join('/')} → ${b.effectiveRoles.map(label).join('/')} · ${label(b.region)} · ${label(b.binding)}`)),
-        h('div', { className: 'dta-resource-body' },
-        h('small', null, `${t('留存', 'Retention')}: ${b.retention.map(label).join('/')} · ${b.reason === 'user-override' ? t('用户自定义位置', 'User position override') : b.slotId ? t('来源插槽决定位置', 'Source slot owns position') : t('来源默认顺序', 'Source default order')}`),
-        b.slotId && h('p', null, `${t('位置由插槽锁定', 'Position locked by slot')}: ${b.slotId}`),
-        ...b.limitations.map(reason => h('p', { key: reason, className: 'dta-notice' }, reason === 'NATIVE_CONTEXT_REUSES_HISTORY_POSITION' ? t('原生 context 可能复用历史中的旧位置；此处顺序仅表示新快照的位置，精确位置以实际请求为准。', 'Native context can reuse an earlier history position. This order describes new snapshots; actual requests determine exact placement.') : t('原生历史、深度或留存快照的位置由运行时约束。', 'Native history, depth or retained snapshots constrain this position.'))),
-        h('details', null, h('summary', null, `${t('内容与来源', 'Content and provenance')} · ${b.entries.length} · ${label(b.internalOrder)}`), ...b.entries.map(entry => h('div', { key: entry.id, className: 'dta-child', style: { borderLeftColor: sourceColor(entry.source?.plugin) } }, h('small', null, `${sourceLabel(entry.source)} / ${entry.source?.resourceId ?? ''} / ${entry.source?.field} · ${entry.originalRole} → ${entry.effectiveRole} · ${label(entry.lifetime)}`), h('pre', null, entry.text), ...(entry.children ?? []).map((child, index) => h('pre', { key: index }, `${sourceLabel(child.source)} / ${child.source?.field ?? ''}\n${child.text ?? ''}`))))),
-        preset.layout && (b.movable || b.overridable) && h('details', { className: 'dta-position-menu' },
-          h('summary', null, b.overridable ? t('自定义位置', 'Customize position') : t('更多移动方式', 'More move options')),
-          b.overridable && h('p', null, t('选择目标后将解除插槽位置绑定，可再通过拖拽调整。', 'Choosing a target overrides the slot position; you can then drag this block.')),
-          h('label', null, t('移到此块之前', 'Move before this block'), h('select', { value: '', disabled: busy, onChange: e => { if (e.target.value) { e.currentTarget.closest('details').open = false; move(b.id, e.target.value, 'before', b.overridable) } } }, h('option', { value: '' }, t('选择目标', 'Choose target')), ...layout.blocks.filter(a => a.id !== b.id).map(a => h('option', { key: a.id, value: a.id }, blockName(a))))))))),
-      h('details', null, h('summary', null, t('插槽（不发送文本）', 'Slots (no emitted text)')), ...layout.slots.map(s => h('p', { key: s.id }, `${s.id} → ${s.targetSourceId} ${s.group ?? ''} · ${s.duplicate ? t('重复，未重复发送', 'duplicate, no duplicate output') : s.nodeIds.length ? t('已绑定', 'bound') : t('空插槽', 'empty')}`))),
-      ...((preview.diagnostics ?? []).filter(d => d.code.startsWith('LAYOUT_')).map((d, i) => h('pre', { key: i, role: 'status' }, JSON.stringify(d)))),
-    ),
-    preset.layout?.overrides.length > 0 && h('details', null, h('summary', null, t('保存的定位覆盖', 'Saved position overrides')), ...preset.layout.overrides.map((o, i) => h('div', { key: o.target, className: 'dta-layout-override' }, h('code', null, `${layout?.blocks.find(b => b.id === o.target)?.name ?? t('待解析块', 'Unresolved block')} → ${o.side} ${layout?.blocks.find(b => b.id === o.anchor)?.name ?? t('待解析目标', 'Unresolved target')}`), h('button', { disabled: busy, onClick: () => update({ overrides: preset.layout.overrides.filter((_, at) => at !== i) }) }, t('恢复来源位置', 'Restore source position')))))
+  const fixed = row => ['native-system', 'history', 'input'].includes(row.sourceId)
+  const update = (row, patch, before) => onChange(configurePosition(preset, sources, row.key, patch, before))
+  const title = row => row.source.positions ? row.position.name[locale] ?? row.position.name[0] : sourceName(row.sourceId)
+  const destination = e => {
+    const row = document.elementFromPoint(e.clientX, e.clientY)?.closest('[data-position-key]')
+    if (!row || !e.currentTarget.closest('.dta-position-list')?.contains(row)) return null
+    const key = row.dataset.positionKey, index = rows.findIndex(r => r.key === key)
+    return { key, before: e.clientY < row.getBoundingClientRect().top + row.getBoundingClientRect().height / 2, index }
+  }
+  return h('section', { className: 'dta-resource-layout', 'aria-label': t('资源位置配置', 'Resource positions') },
+    h('p', null, t('配置所有可能提供内容的位置，不需要先加载具体资源。宏引用和插槽归属在装配时解析；空位置也保留在此清单。', 'Configure every potential content position without loading assets. Macros and slots resolve during assembly; empty positions remain in this list.')),
+    !preset.layout && h('p', { className: 'dta-notice' }, t('当前策略保留原有行为；第一次修改位置或冲突规则时采用资源位置配置。', 'The strategy keeps its existing behavior until you edit a position or conflict policy.')),
+    h('h3', null, t('冲突处理优先级', 'Conflict priority')),
+    h('p', null, t('从上到下依次优先。拖动规则可自由排序；只有发生位置冲突时才比较优先级。', 'Higher rules win. Drag rules to set any order; priority is compared only when positions conflict.')),
+    h('div', { className: 'dta-priorities', 'aria-label': t('冲突优先级列表', 'Conflict priority list') }, ...priorities.map((id, index) => h('div', { key: id, className: 'dta-priority-row', 'data-priority': id, 'data-drop-side': priorityDrop?.id === id ? priorityDrop.before ? 'before' : 'after' : undefined },
+      h('button', { type: 'button', className: 'dta-handle', disabled: busy, 'aria-label': `${t('拖动优先级', 'Drag priority')}: ${priorityNames[id]}`,
+        onPointerDown: e => { if (e.button !== 0) return; e.preventDefault(); e.currentTarget.setPointerCapture(e.pointerId) },
+        onPointerMove: e => { if (e.currentTarget.hasPointerCapture(e.pointerId)) setPriorityDrop(priorityTarget(e)) },
+        onPointerUp: e => { if (!e.currentTarget.hasPointerCapture(e.pointerId)) return; const target = priorityTarget(e); e.currentTarget.releasePointerCapture(e.pointerId); if (target && target.id !== id) movePriority(id, target.before ? target.id : priorities[priorities.indexOf(target.id) + 1] ?? null); setPriorityDrop(null) },
+        onPointerCancel: () => setPriorityDrop(null), onLostPointerCapture: () => setPriorityDrop(null) }, '⠿'),
+      h('span', null, `${index + 1}. ${priorityNames[id]}`),
+      h('button', { disabled: busy || index === 0, 'aria-label': `${t('提高优先级', 'Raise priority')}: ${priorityNames[id]}`, onClick: () => movePriority(id, priorities[index - 1]) }, '↑'),
+      h('button', { disabled: busy || index === priorities.length - 1, 'aria-label': `${t('降低优先级', 'Lower priority')}: ${priorityNames[id]}`, onClick: () => movePriority(id, priorities[index + 2] ?? null) }, '↓')))),
+    h('div', { className: 'dta-resource-policy' },
+      h('label', null, t('身份处理', 'Identity'), h('select', { disabled: busy, value: policy.identity, onChange: e => changePolicy({ identity: e.target.value }) }, h('option', { value: 'preserve' }, t('保留来源身份', 'Preserve source roles')), h('option', { value: 'position' }, t('允许按位置适配', 'Allow position adaptation')))),
+      h('label', null, t('缺失定位', 'Missing targets'), h('select', { disabled: busy, value: policy.fallback, onChange: e => changePolicy({ fallback: e.target.value }) }, h('option', { value: 'source-order' }, t('回退并说明原因', 'Fall back with explanation')), h('option', { value: 'error' }, t('拒绝装配', 'Reject assembly'))))),
+    h('small', null, t('原生历史、工具事务和留存边界始终由 DSH 管理。关闭位置会排除该位置的内容；拖动或上下移动设置用户排列。', 'DSH always owns native history, tool transactions and retention boundaries. Turning a position off excludes its content; dragging or moving up/down sets user order.')),
+    preset.layout?.overrides.length > 0 && h('div', { className: 'dta-notice' }, t('此策略还含有旧的具体资源定位。可先在结果页检查；清除后仅使用这里的通用位置配置。', 'This strategy also contains older asset-specific overrides. Inspect the result before clearing them to use only reusable positions.'), h('button', { disabled: busy, onClick: () => changePolicy({ overrides: [] }) }, t('清除旧资源定位', 'Clear asset-specific overrides'))),
+    h('div', { className: 'dta-position-list' }, ...rows.map((row, index) => h('article', { key: row.key, className: 'dta-position-row', 'data-position-key': row.key, 'data-drop-side': drop?.key === row.key ? drop.before ? 'before' : 'after' : undefined, 'data-resource-dragging': drag === row.key, style: { '--assembly-color': sourceColor(row.source.pluginId) } },
+      h('div', { className: 'dta-position-summary' },
+        h('button', { className: 'dta-handle', type: 'button', disabled: busy || fixed(row) || row.missing || row.position.configurable === false, 'aria-label': `${t('移动位置', 'Move position')}: ${title(row)}`,
+          onPointerDown: e => { if (e.button !== 0) return; e.preventDefault(); e.currentTarget.setPointerCapture(e.pointerId); setDrag(row.key) },
+          onPointerMove: e => { if (e.currentTarget.hasPointerCapture(e.pointerId)) setDrop(destination(e)) },
+          onPointerUp: e => { if (!e.currentTarget.hasPointerCapture(e.pointerId)) return; const target = destination(e); e.currentTarget.releasePointerCapture(e.pointerId); if (target && target.key !== row.key) update(row, {}, target.before ? target.key : rows[target.index + 1]?.key ?? null); setDrag(null); setDrop(null) },
+          onPointerCancel: () => { setDrag(null); setDrop(null) }, onLostPointerCapture: () => { setDrag(null); setDrop(null) } }, fixed(row) ? '🔒' : '⠿'),
+        h('input', { type: 'checkbox', checked: row.enabled, disabled: busy || row.missing || row.position.configurable === false || preset.backend === 'native' && ['history', 'input'].includes(row.sourceId), 'aria-label': `${t('启用位置', 'Enable position')}: ${title(row)}`, onChange: e => update(row, { enabled: e.target.checked }) }),
+        h('div', null, h('strong', null, title(row)), h('small', { className: 'dta-origin' }, `${originName(row.source.pluginId)} · ${sourceName(row.sourceId)}`))),
+      h('div', { className: 'dta-position-body' },
+        row.position.macros?.length > 0 && h('small', null, `${t('预设宏 / 插槽', 'Preset macros / slots')}: ${row.position.macros.map(m => `{{${m}}}`).join(' · ')}`),
+        h('small', null, row.missing ? t('来源未注册；保留配置，装配时按缺失定位规则处理。', 'Provider unavailable; configuration is retained and uses the missing-target policy.') : row.source.moduleAvailable === false ? t('当前没有可用内容；配置仍可保存，资源可用后生效。', 'No content is currently available; save the policy for when resources become available.') : fixed(row) ? t('位置由运行时管理', 'Position managed by runtime') : row.placement === 'list' ? t('用户排列；冲突时采用上方优先级', 'User order; conflicts use the selected priority') : t('跟随预设插槽或资源自身位置', 'Follow preset slots or resource-defined position')),
+        row.position.note && h('small', null, row.position.note[locale]),
+        !fixed(row) && row.position.configurable !== false && h('div', { className: 'dta-position-actions' },
+          h('button', { disabled: busy || index === 0 || row.missing, onClick: () => update(row, {}, rows[index - 1].key), 'aria-label': `${t('上移', 'Move up')}: ${title(row)}` }, t('上移', 'Up')),
+          h('button', { disabled: busy || index === rows.length - 1 || row.missing, onClick: () => update(row, {}, rows[index + 2]?.key ?? null), 'aria-label': `${t('下移', 'Move down')}: ${title(row)}` }, t('下移', 'Down')),
+          row.placement === 'list' && h('button', { disabled: busy, onClick: () => update(row, { placement: 'source' }) }, t('跟随资源位置', 'Follow source position')))))))
   )
+}
+export function PositionDecisions({ preview, sources, locale = 0, sourceName = id => sources.find(s => s.id === id)?.name ?? id }) {
+  const t = (zh, en) => locale === 0 ? zh : en
+  const names = { user: t('采用用户排列', 'User order applied'), preset: t('采用预设插槽', 'Preset slot applied'), runtime: t('服从 DSH 运行时约束', 'DSH runtime constraint wins'), 'resource-depth': t('采用资源深度', 'Resource depth applied'), source: t('采用资源默认位置', 'Source position applied'), default: t('来源默认顺序优先', 'Default source order wins'), resource: t('资源自带位置优先', 'Resource position wins'), unavailable: t('来源或位置未注册，已回退', 'Provider/position unavailable; fallback applied'), disabled: t('已关闭，不进入结果', 'Disabled; excluded') }
+  const decisions = preview?.resourceLayout?.positionDecisions ?? []
+  const unique = [...new Map(decisions.map(d => [`${d.sourceId}/${d.positionId}/${d.decision}`, d])).values()]
+  return unique.length > 0 && h('details', { className: 'dta-position-decisions', open: true }, h('summary', null, t('位置与冲突处理结果', 'Position and conflict decisions')), preview.resourceLayout.priorityOrder && h('p', null, `${t('本次优先级', 'Priority used')}: ${preview.resourceLayout.priorityOrder.map(p => ({ user: t('用户位置', 'User'), preset: t('预设插槽', 'Preset'), resource: t('资源位置', 'Resource'), default: t('来源默认', 'Default') })[p]).join(' → ')}`), h('ul', null, ...unique.map((d, i) => {
+    const source = sources.find(s => s.id === d.sourceId), position = source?.positions?.find(p => p.id === d.positionId)
+    return h('li', { key: i }, `${position?.name?.[locale] ?? sourceName(d.sourceId)}: ${names[d.decision] ?? d.decision}${d.code === 'POSITION_ANCHOR_MISSING' ? t('（资源锚点不可用）', ' (resource anchor unavailable)') : d.requested ? t('（用户排列与此规则冲突）', ' (overrides the requested user order)') : ''}`)
+  })))
 }

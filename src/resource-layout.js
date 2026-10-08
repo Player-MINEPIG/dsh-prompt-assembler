@@ -1,3 +1,4 @@
+import { normalizePositions, normalizePriority } from './resource-positions.js'
 /** Resource layouts are evaluated each request; persisted policy never contains activated entry lists. */
 const fail = (message, code = 'ASSEMBLY_LAYOUT_UNSUPPORTED') => { throw Object.assign(new Error(message), { code, status: 409 }) }
 export function normalizeLayout(value) {
@@ -8,7 +9,9 @@ export function normalizeLayout(value) {
     if (!o || ![o.target, o.anchor].every(s => typeof s === 'string' && s.length > 0 && s.length <= 4096) || o.target === o.anchor || seen.has(o.target) || !['before', 'after'].includes(o.side) || typeof o.detach !== 'boolean') throw new TypeError('Invalid layout override')
     seen.add(o.target); return { target: o.target, anchor: o.anchor, side: o.side, detach: o.detach }
   })
-  return { version: 1, source: value.source, identity: value.identity, fallback: value.fallback, overrides }
+  const priority = normalizePriority(value.priority)
+  const positions = normalizePositions(value.positions)
+  return { version: 1, source: value.source, identity: value.identity, fallback: value.fallback, overrides, ...(priority ? { priority } : {}), ...(positions ? { positions } : {}) }
 }
 export function layoutPlacement(preset) {
   if (!preset.layout) return preset.placement
@@ -68,7 +71,7 @@ export function applyLayoutOverrides(nodes, preset, diagnostics) {
   nodes.splice(0, nodes.length, ...blocks.flatMap(b => b.nodes))
 }
 export function describeResourceLayout(nodes, preset, slots = []) {
-  return { version: 1, legacy: !preset.layout, policy: preset.layout ?? null, slots, blocks: resourceBlocks(nodes, preset).map(({ nodes: members, ...b }) => ({ ...b, nodeIds: members.map(n => n.id), entries: members.map(n => ({ id: n.id, source: n.source, text: n.text, originalRole: n.originalRole ?? n.authoredRole ?? n.role, effectiveRole: n.role, originalSlotId: n.originalSlotId ?? n.slotId ?? null, order: n.order ?? null, lifetime: n.lifetime, children: n.children ?? [], positionOverride: n.positionOverride ?? null })) })) }
+  return { version: 1, legacy: !preset.layout, policy: preset.layout ?? null, slots, blocks: resourceBlocks(nodes, preset).map(({ nodes: members, ...b }) => ({ ...b, nodeIds: members.map(n => n.id), entries: members.map(n => ({ id: n.id, source: n.source, text: n.text, originalRole: n.originalRole ?? n.authoredRole ?? n.role, effectiveRole: n.role, positionId: n.positionId, positionDecision: n.positionDecision, originalSlotId: n.originalSlotId ?? n.slotId ?? null, order: n.order ?? null, lifetime: n.lifetime, children: n.children ?? [], positionOverride: n.positionOverride ?? null })) })) }
 }
 export function withBlockMove(preset, layout, target, anchor, side = 'before', detach = false) {
   if (!preset.layout || layout.legacy) fail('Explicitly adopt a resource layout policy before moving blocks')

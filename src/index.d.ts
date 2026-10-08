@@ -5,8 +5,10 @@ export type Stability = 'asset' | 'conversation' | 'evaluation' | 'assembly' | '
 export interface Rule { id: string; kind: string; enabled: boolean; role: Role; lifetime: Lifetime; depth: number | null; text: string; name: string; inputMode?: 'source' | 'text'; delivery?: 'context' | 'pre-step' }
 export type RuleInput = Pick<Rule, 'id' | 'kind'> & Partial<Omit<Rule, 'id' | 'kind'>>
 export interface LayoutOverride { target: string; anchor: string; side: 'before' | 'after'; detach: boolean }
-export interface ResourceLayoutPolicy { version: 1; source: 'manual' | 'preset-slots'; identity: 'preserve' | 'position'; fallback: 'source-order' | 'error'; overrides: LayoutOverride[] }
-export interface ResourceLayout { version: 1; legacy: boolean; policy: ResourceLayoutPolicy | null; slots: Array<Record<string, any>>; blocks: Array<Record<string, any>> }
+export interface ResourcePosition { sourceId: string; positionId: string; enabled: boolean; placement: 'source' | 'list' }
+export interface PositionDescriptor { configurable?: boolean; note?: [string, string]; id: string; name: [string, string]; match?: { field?: string; group?: string; depth?: boolean }; anchor?: { sourceId: string; fields?: string[]; side: 'before' | 'after' }; macros?: string[] }
+export interface ResourceLayoutPolicy { priority?: Array<'user' | 'preset' | 'resource' | 'default'> | 'user' | 'preset'; positions?: ResourcePosition[]; version: 1; source: 'manual' | 'preset-slots'; identity: 'preserve' | 'position'; fallback: 'source-order' | 'error'; overrides: LayoutOverride[] }
+export interface ResourceLayout { priorityOrder?: string[]; positionDecisions?: Array<Record<string, any>>; version: 1; legacy: boolean; policy: ResourceLayoutPolicy | null; slots: Array<Record<string, any>>; blocks: Array<Record<string, any>> }
 export function normalizeLayout(value: unknown): ResourceLayoutPolicy | undefined
 export function describeResourceLayout(nodes: Array<Record<string, any>>, preset: Preset, slots?: Array<Record<string, any>>): ResourceLayout
 export function withBlockMove(preset: Preset, layout: ResourceLayout, target: string, anchor: string, side?: 'before' | 'after', detach?: boolean): Preset
@@ -22,13 +24,13 @@ export interface SourceContext {
 }
 export interface ContentGuide { contains: [string, string]; origin: [string, string]; editable: [string, string]; editAt: [string, string] }
 export interface Descriptor {
-  textParserAliasFor?: string; contentGuide?: ContentGuide;
+  positions?: PositionDescriptor[]; textParserAliasFor?: string; contentGuide?: ContentGuide;
   id: string; pluginId: string; name: string; version: number; stability: Stability;
   dependencies: string[]; multiple: boolean; roles: Role[]; lifetimes: Lifetime[]; depth: boolean;
   generationRequiresPlugin: boolean; recordedContentSurvivesRemoval: true; acceptsText: boolean; supportsModule: boolean; moduleAvailable: boolean;
 }
 export interface BlockBase {
-  id: string; name?: string; referenceOnly?: boolean; stability?: Stability;
+  id: string; positionId?: string; name?: string; referenceOnly?: boolean; stability?: Stability;
   source?: { resourceId?: string; field?: string }; depth?: number; order?: number; group?: string;
   children?: Json[];
 }
@@ -104,3 +106,6 @@ export default plugin
 
 export function presetBackend(preset?: Preset | null): 'native' | 'core'
 export function validateNativePreset(preset: PresetInput): Preset
+
+export function positionRows(preset: Preset, sources: Descriptor[]): Array<ResourcePosition & { key: string; source: Descriptor; position: PositionDescriptor; missing?: boolean }>
+export function configurePosition(preset: Preset, sources: Descriptor[], key: string, patch: Partial<Pick<ResourcePosition, 'enabled' | 'placement'>>, beforeKey?: string | null): Preset

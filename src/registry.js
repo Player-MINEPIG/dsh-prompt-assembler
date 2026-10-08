@@ -22,10 +22,24 @@ export class RequestSourceRegistry {
     if (!source || !idPattern.test(source.id) || !idPattern.test(source.pluginId) || typeof source.name !== 'string' || !source.name || (typeof source.resolve !== 'function' && typeof source.parseText !== 'function')) throw new TypeError('Source requires id, pluginId, name and resolve or parseText')
     if (this.#sources.has(source.id)) throw new TypeError(`Duplicate assembly source: ${source.id}`)
     const descriptor = freeze(structuredClone({ id: source.id, pluginId: source.pluginId, name: source.name, version: source.version ?? 1,
-      stability: source.stability ?? 'conversation', dependencies: source.dependencies ?? [], multiple: source.multiple === true,
+      ...(source.positions ? { positions: source.positions } : {}), stability: source.stability ?? 'conversation', dependencies: source.dependencies ?? [], multiple: source.multiple === true,
       roles: source.roles ?? ['preserve', 'system', 'user', 'assistant'], lifetimes: source.lifetimes ?? ['request', 'snapshot'], depth: source.depth !== false,
       generationRequiresPlugin: source.generationRequiresPlugin !== false, recordedContentSurvivesRemoval: true, ...(source.textParserAliasFor ? { textParserAliasFor: source.textParserAliasFor } : {}), ...(source.contentGuide ? { contentGuide: source.contentGuide } : {}), acceptsText: typeof source.parseText === 'function', supportsModule: source.supportsModule !== false && typeof source.resolve === 'function',
     }))
+    if (descriptor.positions) {
+      const positions = descriptor.positions
+      if (!Array.isArray(positions) || !positions.length || positions.length > 128) throw new TypeError('Invalid source positions')
+      const seen = new Set()
+      for (const p of positions) {
+        if (!p || typeof p.id !== 'string' || !idPattern.test(p.id) || seen.has(p.id) || !Array.isArray(p.name) || p.name.length !== 2 || p.name.some(n => typeof n !== 'string' || !n)) throw new TypeError('Invalid source position')
+        seen.add(p.id)
+        if (p.match && Object.entries(p.match).some(([k, v]) => !['field', 'group', 'depth'].includes(k) || (k === 'depth' ? typeof v !== 'boolean' : typeof v !== 'string'))) throw new TypeError('Invalid source position match')
+        if (p.configurable !== undefined && typeof p.configurable !== 'boolean') throw new TypeError('Invalid position capability')
+        if (p.note && (!Array.isArray(p.note) || p.note.length !== 2 || p.note.some(n => typeof n !== 'string'))) throw new TypeError('Invalid position note')
+        if (p.anchor && (typeof p.anchor.sourceId !== 'string' || !idPattern.test(p.anchor.sourceId) || !['before', 'after'].includes(p.anchor.side) || (p.anchor.fields && (!Array.isArray(p.anchor.fields) || p.anchor.fields.some(f => typeof f !== 'string'))))) throw new TypeError('Invalid resource anchor')
+        if (p.macros && (!Array.isArray(p.macros) || p.macros.some(m => typeof m !== 'string'))) throw new TypeError('Invalid position macros')
+      }
+    }
     if (!Array.isArray(descriptor.dependencies) || descriptor.dependencies.some(id => !idPattern.test(id)) || !['asset', 'conversation', 'evaluation', 'assembly', 'snapshot'].includes(descriptor.stability)) throw new TypeError('Invalid source descriptor')
     if (!Number.isInteger(descriptor.version) || descriptor.version < 1 || !Array.isArray(descriptor.roles) || !descriptor.roles.length || descriptor.roles.some(r => !['preserve', 'system', 'user', 'assistant'].includes(r)) || !Array.isArray(descriptor.lifetimes) || !descriptor.lifetimes.length || descriptor.lifetimes.some(l => !['request', 'snapshot'].includes(l))) throw new TypeError('Invalid source capabilities')
     if (source.validateResolved !== undefined && typeof source.validateResolved !== 'function') throw new TypeError('validateResolved must be a function')
@@ -67,7 +81,7 @@ export class RequestSourceRegistry {
     }
     for (const rule of context.preset.rules.filter(r => r.enabled)) visit(rule)
     const { signal, ...data } = context
-    return { jobs, context: Object.freeze({ ...freeze(structuredClone(data)), signal }), diagnostics }
+    return { jobs, catalog: [...sources.values()].map(s => s.descriptor), context: Object.freeze({ ...freeze(structuredClone(data)), signal }), diagnostics }
   }
   #result(job, output) {
     if (!output || !Array.isArray(output.blocks) || output.blocks.length > 10000) throw new TypeError(`Invalid blocks from ${job.descriptor.id}`)
@@ -105,7 +119,7 @@ export class RequestSourceRegistry {
       resolved.push(this.#result(job, output))
     }
     this.#validateResolved(request)
-    return { context: request.context, resolved, diagnostics: request.diagnostics }
+    return { catalog: request.catalog, context: request.context, resolved, diagnostics: request.diagnostics }
   }
   async resolve(context) {
     const request = this.#jobs(context), resolved = []
@@ -115,6 +129,6 @@ export class RequestSourceRegistry {
       aborted(context.signal); resolved.push(this.#result(job, output))
     }
     this.#validateResolved(request)
-    return { context: request.context, resolved, diagnostics: request.diagnostics }
+    return { catalog: request.catalog, context: request.context, resolved, diagnostics: request.diagnostics }
   }
 }

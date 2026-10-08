@@ -2,7 +2,7 @@
 
 [English](API_en.md) · [开发者指南](DEVELOPER_GUIDE.md)
 
-当前资源的块、插槽、稳定定位和兼容策略见[资源布局](RESOURCE_LAYOUT.md)。
+资源位置声明、可复用开关/排列、冲突结果与兼容策略见[资源布局](RESOURCE_LAYOUT.md)。
 前缀 `/dsh-prompt-assembler/api/v1/assembly-presets`，下列路径相对此前缀。成功为 `{ok:true,...}`，失败为 `{ok:false,error,code?}`；ID 须 URL 编码，mutation JSON 上限 2 MiB。库 createAssemblyApi 不提供认证；bundle secureAssemblerApi 检查 loopback TCP peer、Host、同 Origin 或 desktop token、JSON 媒体类型。这些防护不认证恶意本机进程；外层 DSH transport 拥有其认证。
 
 | Method | Path | Input / result |

@@ -1,16 +1,34 @@
-# 装配策略与当前资源布局
+# 资源位置与装配结果
 
-[English](RESOURCE_LAYOUT_en.md) · [使用](USAGE.md) · [后端能力](BACKENDS.md)
+[English](RESOURCE_LAYOUT_en.md) · [使用](USAGE.md) · [后端边界](BACKENDS.md)
 
-来源（预设、角色卡、世界书、记忆等）负责提供内容，不是拖拽单位。装配块是一条消息或内部顺序确定的一组连续输出。插槽只表示位置，不发送文本。预设正文、历史、本步输入、世界书各位置的组分别出现在当前资源布局中；分散的输出不会被伪装成一个可整体移动的来源。
+编辑器分成两页。「资源位置」展示来源声明的所有潜在内容位置，支持开关、拖动及上下移动，无需先加载具体资源；「装配结果」读取当前资源，按所选冲突规则装配，展示实际产生的正文、来源、角色、顺序及处理原因。查看最近实际请求是独立的只读操作；当时记录不会随草稿改变。
 
-在“策略与当前资源布局”选择布局来源、身份处理和失效回退。来源配置页保留启用开关、文本解析、投递和留存设置。预览读取当前资源，列出块的具体条目、正文、原始/有效身份、来源资源与字段、内部顺序、插槽归属、留存和运行时限制。宏合入正文的内容保留为子来源，不能从正文中独立拖出。
+## 配置的粒度
 
-自由块的拖柄移动整个连续块，内部顺序保持来源定义；“更多移动方式”收起备用的键盘定位选项。拖动时显示落点，松开后自动刷新当前资源，无需再次点击刷新；修改仍需保存、应用。插槽绑定块显示锁定原因，通过“自定义位置”选择目标后解除位置绑定，之后可继续拖拽。恢复来源位置删除该定位覆盖。历史、深度绑定块和留存快照由运行时管理，不提供直接移动。
+位置是稳定的来源类别，不是本轮触发条目。预设主提示词、后置指令、深度注入和其他正文分别配置；角色描述、性格、场景、示例和用户描述标出对应宏/插槽；世界书声明前后组、对话示例附近、作者注释附近和深度注入。来源可以声明更多位置。
 
-## 可组合策略
+MVU 声明变量状态与更新指令的独立注入位置。已经展开到世界书或模板正文里的变量引用仍属于宿主正文，不能把任意变量值伪装成独立消息。模板来源声明独立注入和深度注入。当前没有资源或触发内容的位置仍留在配置页；注册来源当前 `moduleAvailable:false` 也可预先配置，不代表调用了该资源。
 
-策略格式仍为 version 1，新增可选 `layout`，不增加 HTTP 端点。保存/导出/API/会话快照保留同一结构：
+来源、文本解析、消息身份、投递、留存及原生上下文开关放在配置页的「来源、文本与投递设置」。结果页不提供另一套位置编辑器，也不把未加载的占位行伪装成实际输出。
+
+## 优先级与开关
+
+位置可跟随来源，或使用用户排列。移动一行只将该位置标为用户排列，其余位置继续跟随预设/资源；清单顺序提供相邻位置锚点，空位置不发出文本。
+
+冲突优先级是可拖拽、可上下移动的列表，不是固定方案。`user`（用户位置配置）、`preset`（预设插槽与宏引用）、`resource`（资源自带位置与深度）和 `default`（来源默认顺序）各出现一次。装配针对每个位置选择最高的适用规则，四项的全部 24 种排列均可保存。
+
+预设规则胜出时，引用内容保留在插槽/宏位置；用户规则胜出时，已移动的类别独立发出，原引用不重复发送；资源规则胜出时，采用来源声明的相对锚点或历史深度；默认顺序胜出时，采用来源列表顺序。空锚点按缺失定位设置处理。结果页展示本次优先级和冲突决策。
+
+DSH 原生历史、工具事务、已留存快照和投递区域属于不可覆盖的硬约束，单独说明，不伪装成可拖动的优先级项。标准后端不会把 system 改成 user 来伪装任意排列；身份适配须单独选择。开关控制是否包含内容，不参与位置优先级比较；关闭位置排除独立内容及宏/插槽引用，但不删除持久历史和既有快照，标准后端必须保留历史与本步输入锚点。
+
+新策略初始列表为用户、预设、资源、默认，用户可以完全重排。旧策略不被自动重写；兼容旧 `priority:user|preset` 以及无 `priority` 的 `source` 选择，将其呈现为等价的初始列表。拖动优先级后保存完整数组。旧具体资源 `overrides` 保留并明确提示，可清除；新位置排列在旧覆盖之后处理，仍服从运行时约束。
+
+## 协议与存储
+
+来源协议 1 的 descriptor 可选增加 `positions`，通过既有 GET `sources` 返回，无新端点。每项为 `{id, name:[中文,English], match?:{field?,group?,depth?}, anchor?:{sourceId,fields?,side}, macros?:string[], configurable?:boolean, note?:[中文,English]}`。匹配显式块 `positionId`，再匹配声明的字段/组/深度，最后使用无 match 的默认项；无声明的来源保留一个 `content` 位置。宏名称只是解释来源对应关系，不增加解析语法。`anchor` 声明资源自带的相对位置。当前加载器不支持的世界书命名出口仍显示，但标记为不可配置并说明不产生内容。
+
+策略仍为格式版本 1，`layout` 可包含：
 
 ```json
 {
@@ -18,33 +36,19 @@
   "source": "preset-slots",
   "identity": "preserve",
   "fallback": "source-order",
-  "overrides": []
+  "priority": ["user", "preset", "resource", "default"],
+  "overrides": [],
+  "positions": [
+    {"sourceId":"worldbook","positionId":"after","enabled":true,"placement":"list"},
+    {"sourceId":"worldbook","positionId":"before","enabled":true,"placement":"source"}
+  ]
 }
 ```
 
-| 字段 | 行为 |
-| --- | --- |
-| `source: manual` | 来源默认顺序加显式块定位；已列来源的正文不被预设引用重新定位。 |
-| `source: preset-slots` | 预设引用占据插槽；未引用部分保留为自由块。 |
-| `identity: preserve` | 保留来源条目身份（自定义文本采用其明确配置的身份）。不兼容标准插槽位置时拒绝装配。 |
-| `identity: position` | 明确允许标准后端按预设插槽/深度边界适配身份，并逐条记录原身份与调整诊断；不是任意跨历史投递许可。 |
-| `fallback: source-order` | 定位目标消失时保留来源默认位置，输出诊断。缺失预设锚点沿用带诊断的来源回退。 |
-| `fallback: error` | 定位目标、请求引用或已诊断的预设锚点缺失时拒绝装配。空插槽本身不代表错误。 |
+位置不存储资源 ID、条目 ID、状态 revision 或激活列表。换预设、换世界书以及新增触发条目时重新求值。`fallback` 继续选择回退并诊断或拒绝装配；未知来源/位置产生 `POSITION_SOURCE_MISSING`。已知位置没有本轮内容不属于定位错误。
 
-`placement` 由显式 `layout` 派生。无 `layout` 的旧策略仍按原 `placement`、角色覆盖与投递执行，预览标为兼容模式；“采用资源布局策略”只修改编辑草稿，必须预览、保存、应用，不静默迁移已应用快照。旧内置策略继续作为兼容模板；新的选择是独立约束，不是五种互斥“优先”黑箱。
+`positionRows(preset,sources)` 生成完整配置清单；`configurePosition` 构造开关/顺序修改。`normalizeLayout`、`describeResourceLayout`、`withBlockMove` 保持旧合同，后者只用于具体资源覆盖。新结果节点含 `positionId`/`positionDecision`，`resourceLayout.positionDecisions` 汇总开关和位置决策，`POSITION_CONFLICT` 说明运行时或预设为何覆盖用户排列。
 
-## 定位与动态资源
+预览和发送共用解析与排序路径。标准后端预览不含未发送输入，且 user context 可能复用历史快照，所以当前装配结果不等同于完整网络请求；冻结结果以已记录实际请求为准。未注册插件不能由界面凭空提供内容。
 
-`overrides` 每项为 `{target, anchor, side: "before"|"after", detach: boolean}`。调用 `withBlockMove(preset, preview.resourceLayout, target, anchor, side, detach)` 构造覆盖；预览和真实请求使用同一展开、移动与验证路径。定位 ID 是不透明值，调用者应从最新预览获取，不自行拼接。
-
-世界书定位采用来源规则、资源、位置组、身份、插槽、深度和投递区域，不保存当前触发条目列表。下一轮的新条目进入所属连续组，失效的条目离开。相同身份/位置被其他输出分成多段时，单独定位各段；段消失或合并不能悄悄指向另一段，返回 `LAYOUT_TARGET_MISSING`。更换资源或插槽结构可能使定位失效。重复插槽只消费一次，并返回 `LAYOUT_DUPLICATE_SLOT`；预览也保留空插槽。
-
-`preview.resourceLayout` 包含 `policy`、`legacy`、`slots`、`blocks`。块含 `nodeIds`、`entries`、`originalRoles/effectiveRoles`、`binding`、`region`、`reason`、`retention` 和 `limitations`；条目包含来源资源/字段、实际正文、宏子来源及位置覆盖。插槽带 `emitsText:false` 和引用目标。该布局说明本轮装配，历史实际请求仍读取原有 actual 接口。
-
-## 标准与进阶边界
-
-标准版只能投递 system/user，保持原生历史顺序。system 不能拖到历史后；user pre-step 可在合法区域跨本步输入移动；context 位于新快照区域，可能复用历史中已有快照的位置，预览明确显示 `NATIVE_CONTEXT_REUSES_HISTORY_POSITION`。这不是最终冻结请求的精确位置证明。
-
-标准深度 0/1 仍是历史边界映射，较大深度仍提示近似；保留身份与边界映射冲突会拒绝，不伪称精确 ST depth。assistant 来源只有在明确允许适配且处于支持的插槽位置时才能转换。进阶 core 保留现有身份、深度和完整工具事务验证，system 更新还受模型能力限制。布局不改变历史筛选，不提供自动缓存重排，也不会为缓存命中牺牲已选约束。
-
-验证：`node --test test/resource-layout*.test.mjs`；真实 Host 测试使用 `DSH_ASSEMBLER_STOCK_ROOT` 与 `DSH_ASSEMBLER_CORE_ROOT` 指向相应依赖环境，临时 profile 和离线 provider，不发送付费模型请求。浏览器可在当前资源布局中拖动一个含两条世界书条目的自由块，保存应用后加入第三条，再检查预览与离线实际请求。
+验证：`node --test test/resource-positions.test.mjs test/plugin-client.test.mjs`。`test/resource-layout-host.test.mjs` 使用 `DSH_ASSEMBLER_STOCK_ROOT` / `DSH_ASSEMBLER_CORE_ROOT` 和临时 profile，验证保存重载、换资源、优先级排列及离线真实请求。浏览器验收覆盖无预览配置、开关、拖拽、优先级切换、结果及保存应用。

@@ -12,3 +12,5 @@ export { name, inject, apply, default } from './plugin.js'
 export { presetBackend, validateNativePreset } from './native-policy.js'
 
 export { normalizeLayout, describeResourceLayout, withBlockMove } from './resource-layout.js'
+
+export { positionRows, configurePosition } from './resource-positions.js'

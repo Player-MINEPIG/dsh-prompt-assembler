@@ -1,16 +1,34 @@
-# Assembly policy and current resource layout
+# Resource positions and assembly results
 
-[中文](RESOURCE_LAYOUT.md) · [Usage](USAGE_en.md) · [Backend capabilities](BACKENDS_en.md)
+[中文](RESOURCE_LAYOUT.md) · [Usage](USAGE_en.md) · [Backend limits](BACKENDS_en.md)
 
-Sources (presets, character cards, worldbooks, memory) supply content; they are not drag units. An assembly block is one message or a contiguous group with a defined internal order. Slots specify positions and emit no text. Preset text, history, current input and worldbook position groups appear separately in the current layout. Dispersed output is never presented as one movable source.
+The editor has two pages. Resource positions lists every potential content position declared by providers, with switches, drag handles and up/down controls; no asset preview is required. Assembly result loads current assets and applies the selected conflict policy, showing emitted content, provenance, roles, order and decisions. Reading the latest recorded request is a separate read-only action; editing a draft cannot change that record.
 
-Use “Policy and current resource layout” to choose layout source, identity handling and missing-target fallback. Source configuration retains toggles, text parsing, delivery and retention. Preview resolves current resources and shows each block’s entries, text, original/effective roles, resource/field provenance, internal order, slot binding, retention and runtime constraints. Content expanded into another body through a macro retains child provenance and cannot be dragged out independently.
+## Configuration units
 
-A free block’s handle moves its entire contiguous output, preserving source-defined internal order. “More move options” contains the alternative keyboard controls. Dragging highlights the drop position and automatically refreshes current resources after dropping; changes still require saving and applying. Slot-bound blocks explain their lock; choosing a target under “Customize position” explicitly detaches them and enables subsequent dragging. Restore source position removes that override. History, depth-bound blocks and retained snapshots have runtime-managed positions.
+A position is a stable source category, not an activated entry. Presets expose main prompts, post-history instructions, depth injections and other text. Character description, personality, scenario, examples and persona show their corresponding macros/slots. Worldbooks expose before/after groups, positions around examples and author notes, and depth injections. Providers can declare further positions.
 
-## Composable policy
+MVU declares its standalone variable-state and update-instruction injection. Variable references already embedded in worldbook/template text belong to that containing text; arbitrary variable values are not independent messages. Templates declare standalone and depth injections. Empty positions remain configurable, including registered providers with `moduleAvailable:false`; listing capabilities does not resolve their resources.
 
-The preset format remains version 1, with optional `layout`. Existing save/export/API/session snapshots preserve this structure; no HTTP endpoint is added:
+Source, parser, role, delivery, retention and native-context settings are under the configuration page's Source, text and delivery settings disclosure. The result page is read-only and does not present empty configuration rows as emitted output.
+
+## Priority and switches
+
+Each position follows its source or uses user order. Moving a row marks only that position as user-ordered. Other positions continue following their preset/source; the list supplies neighboring semantic anchors, and empty positions emit no text.
+
+Conflict priority is an ordered, draggable list with keyboard up/down controls, not a choice of fixed plans. `user` (user position configuration), `preset` (preset slots/macros), `resource` (resource-defined anchors/depth) and `default` (source list order) appear exactly once. Assembly selects the highest applicable rule for each position; all 24 permutations can be saved.
+
+When preset ownership wins, content stays at the reference. A winning user move emits the category independently without duplicate inline content. A winning resource rule applies its declared relative anchor or depth. Default precedence uses source list order. Missing anchors follow the selected fallback policy. Results show the priority list used and the resulting decisions.
+
+Native history, tool transactions, retained snapshots and delivery regions are hard constraints, explained separately rather than pretending to be reorderable rules. Native system roles are not silently changed to simulate arbitrary ordering; identity adaptation is a separate choice. Inclusion switches do not compete in position priority: disabling a position excludes standalone and referenced content but never deletes durable history or retained snapshots. Native history/current-input anchors remain mandatory.
+
+New strategies initially list user, preset, resource and default; users can freely reorder them. Existing policies are not silently rewritten. Legacy `priority:user|preset` and absent-priority `source` choices appear as equivalent initial lists. Reordering saves the full array. Older asset-specific `overrides` remain compatible with an explicit removal action; semantic ordering runs afterward, subject to runtime constraints.
+
+## Protocol and persistence
+
+Protocol-1 source descriptors optionally expose `positions` through the existing GET `sources` response; there is no new endpoint. Each entry is `{id, name:[Chinese,English], match?:{field?,group?,depth?}, anchor?:{sourceId,fields?,side}, macros?:string[], configurable?:boolean, note?:[Chinese,English]}`. Matching prefers a block's explicit `positionId`, then declared field/group/depth selectors, then an unmatched default. Providers without declarations have one `content` position. Macro labels explain existing relationships; they do not extend parser syntax. `anchor` declares resource-relative placement. Named worldbook outlets unsupported by the current loader remain visible but non-configurable, with an explicit no-output explanation.
+
+Preset format version 1 remains unchanged. Optional layout fields include:
 
 ```json
 {
@@ -18,33 +36,19 @@ The preset format remains version 1, with optional `layout`. Existing save/expor
   "source": "preset-slots",
   "identity": "preserve",
   "fallback": "source-order",
-  "overrides": []
+  "priority": ["user", "preset", "resource", "default"],
+  "overrides": [],
+  "positions": [
+    {"sourceId":"worldbook","positionId":"after","enabled":true,"placement":"list"},
+    {"sourceId":"worldbook","positionId":"before","enabled":true,"placement":"source"}
+  ]
 }
 ```
 
-| Field | Behavior |
-| --- | --- |
-| `source: manual` | Default source order plus explicit block positions; preset references cannot relocate listed source bodies. |
-| `source: preset-slots` | Preset references own slots; unreferenced output remains free. |
-| `identity: preserve` | Preserve source-entry roles (authored custom text uses its configured role). Reject incompatible standard slot positions. |
-| `identity: position` | Explicitly allow standard preset-slot/depth-boundary adaptation, recording original roles and adjustment diagnostics. This does not permit arbitrary placement across history. |
-| `fallback: source-order` | Missing override targets keep source-default positions with diagnostics. Missing preset anchors retain diagnosed source fallback. |
-| `fallback: error` | Reject missing override targets, requested references or diagnosed preset anchors. Empty slots alone are valid. |
+Positions contain no resource IDs, entry IDs, state revisions or activation lists. Replacement assets and newly activated entries are evaluated afresh. `fallback` continues to select diagnosed fallback or assembly rejection; unknown providers/positions produce `POSITION_SOURCE_MISSING`. A known position with no current content is not a missing target.
 
-Explicit `layout` derives `placement`. Legacy presets without `layout` retain their original placement, role overrides and delivery, with compatibility mode shown in preview. Adopting a resource layout policy changes only the draft; preview, save and apply explicitly. Applied snapshots are never silently migrated. Existing built-ins remain compatibility templates; new choices are independent constraints, not five mutually exclusive priority modes.
+`positionRows(preset,sources)` returns the complete configuration list; `configurePosition` builds switch/order edits. `normalizeLayout`, `describeResourceLayout` and `withBlockMove` retain compatibility; the last is for asset-specific overrides. Result nodes include `positionId` and `positionDecision`; `resourceLayout.positionDecisions` summarizes switches and decisions, while `POSITION_CONFLICT` explains runtime/preset precedence.
 
-## Stable positioning and dynamic resources
+Preview and sending share resolution and ordering. Native previews exclude pending input and user-context contributions may reuse retained snapshots, so a current assembly result is not a complete network request; read a recorded actual request for frozen evidence. The UI cannot generate content from an unregistered plugin.
 
-Each override is `{target, anchor, side: "before"|"after", detach: boolean}`. Use `withBlockMove(preset, preview.resourceLayout, target, anchor, side, detach)` to construct it. Preview and execution share expansion, positioning and validation. Locator IDs are opaque: obtain them from a current preview rather than constructing them.
-
-Worldbook locators use source rule, resource, position group, role, slot, depth and delivery region, never the current activated-entry list. New entries join their contiguous group next request and inactive entries leave. When other output splits one role/position into multiple runs, each run is addressed separately. Disappearing or merged runs cannot silently target another run: `LAYOUT_TARGET_MISSING` explains the fallback. Replacing a resource or slot structure may invalidate a locator. Repeated slots consume output once with `LAYOUT_DUPLICATE_SLOT`; empty slots remain visible.
-
-`preview.resourceLayout` includes `policy`, `legacy`, `slots` and `blocks`. Blocks expose `nodeIds`, `entries`, `originalRoles/effectiveRoles`, `binding`, `region`, `reason`, `retention` and `limitations`. Entries include resource/field provenance, current text, macro children and position overrides. Slots carry `emitsText:false` and reference targets. This is the current assembly plan; historical actual requests still use the existing actual endpoint.
-
-## Standard and advanced constraints
-
-Standard assembly delivers system/user contributions and preserves native history order. System blocks cannot move after history. User pre-step blocks may move across current input within legal regions. Context uses the new-snapshot region but may reuse an earlier history position, explicitly labeled `NATIVE_CONTEXT_REUSES_HISTORY_POSITION`. Logical preview is not proof of the exact final frozen request position.
-
-Standard depths 0/1 remain history-boundary mappings; greater depths retain approximation diagnostics. A preserve-role policy rejects conflicting boundary adaptation and never claims exact ST depth. Assistant sources can adapt only with explicit permission at supported slot positions. Advanced core retains existing role, depth and complete-tool-transaction validation; system updates also depend on model capabilities. Layout does not change history filtering, automatically reorder for caching, or sacrifice selected constraints for cache hits.
-
-Run `node --test test/resource-layout*.test.mjs`. Real Host tests use `DSH_ASSEMBLER_STOCK_ROOT` and `DSH_ASSEMBLER_CORE_ROOT` for the corresponding dependency environments, temporary profiles and offline providers without paid model requests. In a browser, drag a free two-entry worldbook group, save/apply, activate a third entry, then compare preview with the offline actual request.
+Validation: `node --test test/resource-positions.test.mjs test/plugin-client.test.mjs`. `test/resource-layout-host.test.mjs` uses `DSH_ASSEMBLER_STOCK_ROOT` / `DSH_ASSEMBLER_CORE_ROOT` and temporary profiles to check persisted policies, replacement assets, priority ordering and offline real requests. Browser acceptance covers configuration without preview, switches, dragging, priority changes, results, saving and applying.
