@@ -1,80 +1,137 @@
-# 模型历史策略与原生能力边界
+# 进阶模型历史筛选
 
 [English](HISTORY_POLICY_en.md)
 
-目标合同为 DSH `0.2.0-rc.2`。**当前没有可启用的完整历史筛选能力或设置面板。**
-公开 API 可以覆盖部分历史，但不能同时满足助手正文局部编辑、保留逐消息角色和顺序、
-原始审计不变、卸载后原生会话继续使用这四项要求。不能把会话合并成 user checkpoint
-或改写 provider stream 来绕过这个限制。
+进阶版使用已有协议 1 请求装配接口，在发送前筛选消息副本，将实际结果与规则证据一起写入
+`request/assembly`。原始 Session 事件、模型 stream 和聊天展示不改；不会注册卸载后仍需保留的
+消息投影解释器。标准版不启用此能力，也不改变原有行为。
 
-## 可复现的能力边界
+## 行为
 
-`test/history-native-capabilities.test.mjs` 在真实 Cordis 服务、Session、Agent Loop 和
-合成离线模型适配器上执行；它不使用伪造的 Session 对象，也不访问模型服务。
+新会话的策略默认关闭。启用默认干净策略后，保留真人输入和助手正文；排除历史中的
+`dsh-prompt-assembler`、`ptc-mode`、工具来源 user 注入及过期 `runtime-context` 副本。
+按精确 `source.kind` 分类，不按角色或文本猜来源；旧版错误标成 `user` 的注入无法安全识别，仍保留。
+未知来源保留，并显示 `UNKNOWN_SOURCE_RETAINED`。用户可添加精确来源并设置保留/排除。
 
-```sh
-DSH_ASSEMBLER_STOCK_ROOT=/path/to/stock-runtime node --test test/history-native-capabilities.test.mjs
+以下内容受保护：
+
+- 当前 step 接收的消息与本次装配的新贡献，包括当前 preset/worldbook/PHI。
+- 当前有效历史中最新的 `runtime-context`。DSH 在正文不变时复用原快照，不能按年龄删除仍有效的上下文。
+- system/developer 消息、完整工具调用消息、tool 结果，以及未知格式的 `source.replayState` 消息。
+- 未经验证能安全省略的 reasoning。含必需 reasoning 的消息也不能按来源整条排除。
+
+来源开关控制旧副本；关闭当前运行上下文贡献仍由已有装配配置负责。工具事务保护不因来源开关解除。
+消息保留原 ID、角色和顺序；不会拼成单个 user checkpoint。
+
+## 规则、预览和生命周期
+
+`contentTypes` 支持 text、image、reasoning。默认保留 text/image，reasoning 仅在目标 adapter
+合同明确允许时排除。没有认证的 `reasoningSafety` 回调时保留思考并提示；回调需返回
+`{ canOmit: true, contract: '具体合同标识' }`。它属于可信 Host 配置，不来自客户端 JSON。
+运行时只要请求携带 tools 或历史仍含工具事务就保留思考，回调不能覆盖这条保护。
+DeepSeek [官方思考合同](https://api-docs.deepseek.com/guides/thinking_mode/)要求携带 tools
+时回传历史思考；此实现不按 provider 名字猜协议或宣称所有模型都可删思考。
+
+助手正文片段规则使用精确起止标记，不执行正则或脚本：
+
+```json
+{
+  "id": "example-block",
+  "sourceKind": "model",
+  "start": "<PrivateBlock>",
+  "end": "</PrivateBlock>",
+  "mode": "lines",
+  "enabled": true
+}
 ```
 
-该目录须包含 `package.json` 及可解析的原版 rc.2 依赖。未设置变量时测试明确跳过。
+`lines` 只匹配从行首开始的完整独立行，跳过代码围栏；`literal` 明确允许行内匹配。
+嵌套、孤立闭合、未闭合标记保留并提示。默认片段规则为空。匹配范围是原始正文的 UTF-16
+字符偏移 `[start,end)`，重叠范围取并集，保留其他正文。预览展示原文、有效内容、匹配片段与原因。
+Tavern 提供默认关闭的 MVU wrapper 示例；通用引擎不内置 MVU 语义。
 
-| 路径 | 原生行为 | 对实现的影响 |
-| --- | --- | --- |
-| 单个旧注入 → 空 `system/message` replacement | 消息不再发送；原始事件保留，其余消息角色顺序保持 | 可证明旧注入隐藏的可行性；不是完整策略实现 |
-| 以 `user/message` 替换上述空节点 | 可以引用原始注入和空节点并恢复原注入 | 仅证明该类 user 节点可恢复；不能外推到所有角色 |
-| `assistant/message` replacement，不带来源引用 | 拒绝：`sourceEventSeqs must include every shadowed surface node` | 不能替换助手正文或思考 |
-| 同一 replacement，带来源引用 | 拒绝：`assistant/message embeds its source stream and cannot carry sourceEventSeqs` | 增加引用也不能解决 |
-| `registerMessageProjection` 编辑助手正文 | 加载期间可保持消息 ID 并改变正文 | 已使用的解释器一旦移除，缓存读取及后续 append 都报错 |
-| 投影为 `content: []` | 仍然存在空 user 消息 | 空内容不等于删除；公开类型是 `Map<SessionSeq, Message>` |
-| 原生 `image/offload` | 拒绝 assistant 目标，只接受 user/tool 的指定图片 | 不能复用为文本筛选解释器 |
+对已核对的 stock rc.2 DeepSeek Messages v1 replay 格式，可编辑 text 片段，但必须保留所有
+内容块、索引、reasoning 原文和签名，甚至正文删空时也保留空 text 块。不能整条排除或移除
+任何内容块。未知字段/版本回退为整条保留。`test/history-replay.test.mjs` 执行原版 adapter
+的 replay 校验和 assistant 序列化函数，确认编辑后的正文被采用且签名未降级；未调用远端 API。
 
-最小矛盾是对同一个已提交助手事件执行以下两种调用，两种均拒绝，日志和有效历史保持不变：
+- 保存从**下一步进阶请求**生效，并重算现存原生有效历史，不改已经记录的请求。
+- 同一步的重试沿用捕获的规则版本；中途保存的规则从下一个 step 生效。
+- 启用期间开启新请求系列，以免把历史前缀变化当成原序列的纯追加。
+- 关闭或卸载后，下一步恢复原生有效历史；已被原生压缩覆盖的消息不会复原。
+- 重启从配置文件恢复同一 session 的选择。fork 的会话 ID 不同，默认关闭；需要继承时由调用方显式复制策略。
+- 压缩摘要按当前来源处理，未知摘要保留；不会解析摘要猜测原消息来源，也不会复活 shadowed 节点。
+
+## 独立接入
+
+公开子路径已由包的 wildcard export 覆盖，无需修改包导出：
 
 ```js
-const surfaceOp = { op: 'replace', startSeq: assistant.seq, endSeq: assistant.seq }
-session.append('assistant/message', editedData, { surfaceOp })
-session.append('assistant/message', editedData, { surfaceOp, sourceEventSeqs: [assistant.seq] })
+import {
+  HistoryPolicyStore, registerHistoryPolicy, createHistoryPolicyService,
+  createHistoryPolicyHandler, HISTORY_API_ROOT,
+} from 'dsh-prompt-assembler/history-policy'
+import { mountHistoryPolicyPanel } from 'dsh-prompt-assembler/history-client'
+
+const store = new HistoryPolicyStore(storageDir)
+const stop = registerHistoryPolicy(ctx, {
+  store, runtime,
+  readEvents: async session => (await ctx.get('sessionController').inspect(session.id)).events,
+  // reasoningSafety is optional: without verified adapter facts, reasoning is retained.
+})
+ctx.effect(() => stop)
 ```
 
-完整可运行测试使用真实离线模型产生原助手事件和原始 stream。`editedData` 只在被拒绝的
-负例中构造，不写入生产日志。不能把原 stream 复制到修改后的文本后宣称它仍是原始模型输出。
+Host 上下文需注入 `agentLoop`、`dshPromptAssembler`、`sessionController`；预览还需 `sessions`。
+`runtime` 是已有 assembler runtime。注册要求 prepared protocol 1 核心，且只在已选择的 core
+装配策略下运行。它以 prepend middleware 在既有装配完成后筛选，不替换现有 backend、布局或 registry。
+不要另造一套装配器或在标准路径挂载；移除时调用 disposer。
 
-## 需要的最小公开原语
+`createHistoryPolicyService({store, readContext, reasoningSafety})` 的 `readContext(sessionId)` 返回
+`{messages, events, tools?, config?, currentStepSeq?}`，其中 messages 必须来自原生当前有效 surface，
+不是上次已经筛过的 `request/assembly`。冷会话可沿用已有 inspect + sessions.prepare 读取流程，
+不启动 Agent。预览不包含未发送草稿或尚未生成的本步贡献；活跃 step 可传 currentStepSeq 保留它的消息。
+预览和运行时应使用同一套经过验证的 reasoningSafety；preview 的 tools 应取当前目标请求的工具配置。
 
-需要由原生 Session 理解、卸载插件后仍可重放的持久编辑决定，至少支持：
+`createHistoryPolicyHandler({service})` 是原始路由，须挂到**现有 assembler 安全包装内部**，
+共享现有 request-token/桌面鉴权。独立服务器可用 `createHistoryPolicyApi({service,security})`
+自带 loopback、Host、Origin、JSON 媒体类型和 token 防护。不要把原始 handler 直接暴露到网络。
 
-- 按原始消息坐标隐藏消息，以及修改助手内容块或正文片段，保持剩余角色、顺序和消息身份。
-- 将决定与原事件、规则版本和具体匹配范围关联；原始模型 stream 不变。
-- 原生重放、fork、压缩、卸载均有明确语义，且不会依赖被卸载的解释器。
-- 修改、撤销决定有可追踪语义；一个策略变更可原子生效，或有不向模型暴露半成品的事务边界。
+| 方法与路径（相对 HISTORY_API_ROOT） | 作用 |
+| --- | --- |
+| GET `?sessionId=…` | 读取 `{revision,policy}` |
+| PUT `?sessionId=…` | 保存 `{policy,expectedRevision}`；冲突返回 409 |
+| POST `/preview?sessionId=…` | 预览 `{policy?}`；不保存、不发送模型请求 |
 
-仅开放 `messages[]` 内存修改不足以提供审计重建；仅增加自定义投影类型也不能解决卸载问题。
-必须先获得这样的原生能力或另一个经验证满足同等合同的公开接口，再注册运行时策略。
-此仓库没有修改 DSH 核心，也没有实现占位 `apply` API。
+完整根路径为 `/dsh-prompt-assembler/api/v1/history-policy`。请求体上限 256 KiB。
+默认配置关闭；保存没有全局作用域。存储为单 Host 实例持有的 `history-policies.json`，先写临时文件再原子 rename。
+多进程共享写入不在合同中。
 
-## 策略接入约束
+`mountHistoryPolicyPanel(container,{sessionId,request?,fragmentPresets?})` 返回 `{ready,dispose}`。
+桌面端通过 request 注入既有鉴权 transport。选择 core 会话时挂载，切换会话或卸载时 dispose；
+标准版不显示该面板。本提交提供独立组件，不改主入口或另一实现分支拥有的客户端文件。
 
-以下是后续实现必须满足的条件，不是当前已提供的功能：
+## 审计与兼容性
 
-- 按 `source.kind` 及生产者的结构化元数据分类。`role: user` 不等于真人；未知来源保留并提示，不能按文本猜来源。
-- 当前请求的 preset/worldbook/PHI 仍由生产者重新装配。排除只针对已完成请求的旧副本；新步、重试不能提前清除仍在使用的注入。
-- 选择规则必须提供来源、内容类型和显式片段边界；匹配预览显示原文、将移除的区间和保留结果。默认不能删除普通 RP 叙述。
-- 保存规则和应用规则是不同动作。旧历史是否立即重算、关闭是恢复还是只停止未来处理，必须在 UI 和持久决定中一致表达。原生未提供撤销前不能许诺恢复所有历史。
-- 工具事务整体受保护。不得删除工具调用、配对结果或目标适配器要求的 reasoning/replay 数据。
-- 压缩后的摘要不是未压缩逐消息历史。不能从摘要猜来源，也不能向已被压缩覆盖的旧节点执行 replacement。
+`request/assembly.data.messages` 是最终发送的消息。`metadata.historyPolicy` 保存规则快照、配置
+revision、输入/输出哈希、原消息 ID/seq、每块修改及匹配范围、保留原因和诊断。既有
+`metadata.assembly` 描述的是筛选前的布局，消费者应以最终 messages 为发送依据，不能把旧布局
+节点里的正文或 message count 当成筛选后的结果。需要显示差异时使用 historyPolicy 与最终 messages。
 
-DeepSeek 的 [Thinking Mode 官方合同](https://api-docs.deepseek.com/guides/thinking_mode/)
-区分是否携带 `tools`：携带时需回传历史 `reasoning_content`，包括未实际调用工具的轮次；
-不携带时官方说明它不进入后续上下文。不能简单以“轮次已经完成”作为可删思考的依据。
-这不证明任意 DSH provider/协议的 token 行为，仍须验证实际目标 adapter 的请求。
+没有伪造 assistant 事件或 provider stream。stock rc.2 可重放并继续包含这些既有 ignorable
+request/assembly 记录的会话。标准原生 replacement 的助手校验矛盾及投影卸载限制仍由
+`test/history-native-capabilities.test.mjs` 复现；本功能不依赖那些接口。
 
-## 验证范围
+## 验证
 
-测试覆盖同文真人与插件来源隔离、旧注入隐藏而当前注入保留、原角色顺序、审计原文、
-恢复 user 注入、原生 fork、JSON 序列化后 Session 重放、助手替换拒绝、投影卸载失败、
-空内容非删除和 image-offload 类型限制。
+```sh
+DSH_ASSEMBLER_CORE_ROOT=/path/to/prepared-runtime \
+DSH_ASSEMBLER_STOCK_ROOT=/path/to/stock-runtime \
+node --test test/history-*.test.mjs
+```
 
-JSON Session 重放不是磁盘 Host 重启验收；合成适配器不是 DeepSeek wire/API 验收。
-没有产品 UI、持久设置 API 或运行时策略，因此没有浏览器保存、工具事务、自动重试、
-原生压缩后策略重新应用或真实 Host 磁盘重启的成功声明。集成方应保留这些缺口，
-不要把能力测试的通过计入产品功能验收。
+纯规则测试覆盖来源、同文输入、当前上下文、片段及误匹配、配置冲突。HTTP/DOM 测试覆盖预览、保存、
+刷新和安全拒绝。真实 Host 模块配合离线合成 adapter 覆盖多轮、新步、重试版本固定、工具事务、
+磁盘序列化后全 Host 重建、fork、原生 replacement 压缩边界，以及回到 stock Host 后继续对话。
+压缩测试用真实 surface replacement 注入合成摘要，不调用付费摘要模型；重启使用临时 JSON seed，
+不是生产 session-storage 后端验收。没有付费 provider 请求或 token 节省测量。
