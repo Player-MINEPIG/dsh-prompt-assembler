@@ -334,3 +334,61 @@ test('context controls appear for legacy strategies and persist master/child swi
     assert.equal(saved[0].rules.find(r=>r.kind==='dsh.sandbox-policy').enabled,true)
   } finally {await ui.close()}
 })
+
+test('resource moves refresh the edited draft automatically and restore without saving', async () => {
+  const ui = dom(), requests = [], pending = deferred()
+  const layoutPreset = { ...preset, layout: { version: 1, source: 'preset-slots', identity: 'preserve', fallback: 'source-order', overrides: [] } }
+  const block = (id, bound = false) => ({ id, name: id, movable: !bound, overridable: bound, originalRoles: ['system'], effectiveRoles: ['system'], retention: ['request'], limitations: [], entries: [], binding: bound ? 'slot' : 'free', slotId: bound ? 'slot-a' : null })
+  const original = { resourceLayout: { blocks: [block('B'), block('A', true)], slots: [] } }
+  const moved = { resourceLayout: { blocks: [block('A'), block('B')], slots: [] } }
+  try {
+    const fetcher = async (url, options) => {
+      if (!url.endsWith('/preview')) { assert.equal(options.method, 'GET'); return json({ ...library, presets: [layoutPreset] }) }
+      requests.push(JSON.parse(options.body))
+      return requests.length === 2 ? pending.promise : json({ preview: original })
+    }
+    await act(async () => ui.root.render(h(AssemblyPanel, { standalone: true, locale: 'en', sessionId: 's', fetcher })))
+    await act(async () => button(ui.document, 'Policy and current resource layout').click())
+    await act(async () => button(ui.document, 'Refresh current resources').click())
+    const menu = ui.document.querySelector('[data-resource-block="A"] .dta-position-menu')
+    assert.match(menu.textContent, /Customize position/)
+    assert.equal(menu.hasAttribute('open'), false)
+    const select = menu.querySelector('select')
+    await act(async () => { select.options[1].selected = true; select.dispatchEvent(new window.Event('change', { bubbles: true })) })
+    assert.equal(requests.length, 2)
+    assert.deepEqual(requests[1].preset.layout.overrides, [{ target: 'A', anchor: 'B', side: 'before', detach: true }])
+    assert.equal(ui.document.querySelector('[aria-label="Move whole block: B"]').disabled, true)
+    await act(async () => pending.resolve(json({ preview: moved })))
+    assert.deepEqual([...ui.document.querySelectorAll('[data-resource-block]')].map(e => e.dataset.resourceBlock), ['A', 'B'])
+    assert.equal(ui.document.querySelector('[aria-label="Move whole block: A"]').disabled, false)
+    await act(async () => button(ui.document, 'Restore source position').click())
+    assert.equal(requests.length, 3)
+    assert.deepEqual(requests[2].preset.layout.overrides, [])
+    assert.equal(ui.document.querySelector('[aria-label="Move whole block: A"]').disabled, true)
+    assert.match(ui.document.body.textContent, /Unsaved/)
+  } finally { await ui.close() }
+})
+
+test('failed automatic layout refresh clears stale blocks and keeps edits for retry', async () => {
+  const ui = dom(), requests = []
+  const layoutPreset = { ...preset, layout: { version: 1, source: 'manual', identity: 'preserve', fallback: 'source-order', overrides: [] } }
+  try {
+    const fetcher = async (url, options) => {
+      if (!url.endsWith('/preview')) return json({ ...library, presets: [layoutPreset] })
+      requests.push(JSON.parse(options.body))
+      if (requests.length === 1) return json({ preview: { resourceLayout: { slots: [], blocks: [{ id: 'A', name: 'A', movable: true, originalRoles: [], effectiveRoles: [], retention: [], limitations: [], entries: [] }] } } })
+      if (requests.length === 2) return new Response(JSON.stringify({ error: 'Preview offline' }), { status: 503 })
+      return json({ preview: { resourceLayout: { blocks: [], slots: [] } } })
+    }
+    await act(async () => ui.root.render(h(AssemblyPanel, { standalone: true, locale: 'en', fetcher })))
+    await act(async () => button(ui.document, 'Policy and current resource layout').click())
+    await act(async () => button(ui.document, 'Refresh current resources').click())
+    assert.equal(ui.document.querySelectorAll('[data-resource-block]').length, 1)
+    const select = ui.document.querySelector('.dta-resource-policy select')
+    await act(async () => { select.options[1].selected = true; select.dispatchEvent(new window.Event('change', { bubbles: true })) })
+    assert.match(ui.document.querySelector('[role="alert"]').textContent, /Preview offline/)
+    assert.equal(ui.document.querySelectorAll('[data-resource-block]').length, 0)
+    await act(async () => button(ui.document, 'Refresh current resources').click())
+    assert.equal(requests[2].preset.layout.source, 'preset-slots')
+  } finally { await ui.close() }
+})

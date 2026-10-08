@@ -70,7 +70,7 @@ function withBlockMove(preset, layout, target, anchor, side = "before", detach =
 // src/resource-layout-client.js
 var import_react = require("react");
 function ResourceLayoutEditor({ preset, preview, locale = 0, busy, onChange, onPreview }) {
-  const [drag, setDrag] = (0, import_react.useState)(null), [error, setError] = (0, import_react.useState)("");
+  const [drag, setDrag] = (0, import_react.useState)(null), [drop, setDrop] = (0, import_react.useState)(null), [error, setError] = (0, import_react.useState)("");
   const t = (zh, en) => locale === 0 ? zh : en;
   const terms = { "native-system": "\u539F\u751F\u6307\u4EE4", history: "\u539F\u751F\u5386\u53F2", input: "\u672C\u6B65\u8F93\u5165", worldbook: "\u4E16\u754C\u4E66", character: "\u89D2\u8272\u5361", description: "\u89D2\u8272\u63CF\u8FF0", before: "\u524D\u7F6E\u7EC4", after: "\u540E\u7F6E\u7EC4", depth: "\u6DF1\u5EA6\u7EC4", preserve: "\u4FDD\u7559\u539F\u8EAB\u4EFD", free: "\u81EA\u7531\u5757", slot: "\u63D2\u69FD\u7ED1\u5B9A", runtime: "\u8FD0\u884C\u65F6\u7BA1\u7406", request: "\u6BCF\u8F6E\u91CD\u65B0\u88C5\u914D", snapshot: "\u7559\u5B58\u5FEB\u7167", native: "\u539F\u751F\u7559\u5B58", "source-defined": "\u6309\u6765\u6E90\u987A\u5E8F", "before-input:pre-step": "\u8F93\u5165\u524D\u6295\u9012", "after-input:pre-step": "\u8F93\u5165\u540E\u6295\u9012", "after-input:context": "\u539F\u751F context", system: "system", user: "user", assistant: "assistant" };
   const label = (value) => locale === 0 ? terms[value] ?? value : value;
@@ -85,9 +85,14 @@ function ResourceLayoutEditor({ preset, preview, locale = 0, busy, onChange, onP
       setError(e.message);
     }
   };
+  const dropAt = (e) => {
+    const row = document.elementFromPoint(e.clientX, e.clientY)?.closest("[data-resource-block]");
+    if (!row || row.dataset.resourceBlock === drag || !e.currentTarget.closest(".dta-resource-blocks")?.contains(row)) return null;
+    return { anchor: row.dataset.resourceBlock, side: e.clientY < row.getBoundingClientRect().top + row.getBoundingClientRect().height / 2 ? "before" : "after" };
+  };
   return (0, import_react.createElement)(
     "section",
-    { className: "dta-resource-layout", "aria-label": t("\u5F53\u524D\u8D44\u6E90\u5E03\u5C40", "Current resource layout") },
+    { className: "dta-resource-layout", "aria-label": t("\u5F53\u524D\u8D44\u6E90\u5E03\u5C40", "Current resource layout"), "aria-busy": busy },
     (0, import_react.createElement)("h3", null, t("\u88C5\u914D\u7B56\u7565", "Assembly policy")),
     !preset.layout ? (0, import_react.createElement)(
       "div",
@@ -104,7 +109,7 @@ function ResourceLayoutEditor({ preset, preview, locale = 0, busy, onChange, onP
       ].map(([key, label2, options]) => (0, import_react.createElement)("label", { key }, label2, (0, import_react.createElement)("select", { value: preset.layout[key], disabled: busy, onChange: (e) => update({ [key]: e.target.value }) }, ...options.map(([value, label3]) => (0, import_react.createElement)("option", { key: value, value }, label3)))))
     ),
     (0, import_react.createElement)("h3", null, t("\u5F53\u524D\u8D44\u6E90\u5E03\u5C40", "Current resource layout")),
-    (0, import_react.createElement)("p", null, t("\u6765\u6E90\u63D0\u4F9B\u5185\u5BB9\uFF1B\u5757\u662F\u8FDE\u7EED\u8F93\u51FA\uFF1B\u63D2\u69FD\u53EA\u5360\u4F4D\u7F6E\u3002\u62D6\u52A8\u6574\u5757\u4FDD\u7559\u5176\u5185\u90E8\u987A\u5E8F\u3002\u4FEE\u6539\u540E\u9700\u5237\u65B0\u9884\u89C8\u3002", "Sources supply content; blocks are contiguous output; slots are positions only. Dragging moves the entire block and preserves internal order. Refresh after editing.")),
+    (0, import_react.createElement)("p", null, t("\u6765\u6E90\u63D0\u4F9B\u5185\u5BB9\uFF1B\u5757\u662F\u8FDE\u7EED\u8F93\u51FA\uFF1B\u63D2\u69FD\u53EA\u5360\u4F4D\u7F6E\u3002\u62D6\u52A8\u5DE6\u4FA7 \u283F \u79FB\u52A8\u6574\u5757\uFF0C\u5185\u90E8\u987A\u5E8F\u4E0D\u53D8\uFF1B\u677E\u5F00\u540E\u81EA\u52A8\u66F4\u65B0\u5E03\u5C40\u3002", "Sources supply content; blocks are contiguous output; slots are positions only. Drag the left \u283F handle to move a whole block while preserving its internal order. The layout updates automatically after dropping.")),
     (0, import_react.createElement)("button", { disabled: busy, onClick: onPreview }, t("\u5237\u65B0\u5F53\u524D\u8D44\u6E90", "Refresh current resources")),
     error && (0, import_react.createElement)("p", { role: "alert" }, error),
     !layout ? (0, import_react.createElement)("p", null, t("\u9884\u89C8\u4EE5\u89E3\u6790\u5F53\u524D\u8D44\u6E90\u53CA\u9650\u5236\u3002", "Preview to resolve current resources and constraints.")) : (0, import_react.createElement)(
@@ -112,7 +117,7 @@ function ResourceLayoutEditor({ preset, preview, locale = 0, busy, onChange, onP
       { className: "dta-resource-blocks" },
       ...layout.blocks.map((b, i) => (0, import_react.createElement)(
         "article",
-        { key: b.id, className: "dta-row", "data-resource-block": b.id },
+        { key: b.id, className: "dta-row", "data-resource-block": b.id, "data-drop-side": drop?.anchor === b.id ? drop.side : void 0, "data-resource-dragging": drag === b.id },
         (0, import_react.createElement)(
           "div",
           { className: "dta-summary" },
@@ -121,19 +126,33 @@ function ResourceLayoutEditor({ preset, preview, locale = 0, busy, onChange, onP
             className: "dta-handle",
             disabled: busy || !preset.layout || !b.movable,
             "aria-label": `${t("\u79FB\u52A8\u6574\u5757", "Move whole block")}: ${blockName(b)}`,
+            title: b.movable ? t("\u62D6\u52A8\u6574\u5757", "Drag whole block") : t("\u4F4D\u7F6E\u5DF2\u9501\u5B9A", "Position locked"),
             onPointerDown: (e) => {
+              if (e.button !== 0) return;
               e.preventDefault();
               e.currentTarget.setPointerCapture(e.pointerId);
               setDrag(b.id);
+              setDrop(null);
+            },
+            onPointerMove: (e) => {
+              if (e.currentTarget.hasPointerCapture(e.pointerId)) setDrop(dropAt(e));
             },
             onPointerUp: (e) => {
               if (!e.currentTarget.hasPointerCapture(e.pointerId)) return;
+              const target = dropAt(e);
               e.currentTarget.releasePointerCapture(e.pointerId);
-              const row = document.elementFromPoint(e.clientX, e.clientY)?.closest("[data-resource-block]");
-              if (row && drag !== row.dataset.resourceBlock) move(drag, row.dataset.resourceBlock, e.clientY < row.getBoundingClientRect().top + row.getBoundingClientRect().height / 2 ? "before" : "after");
+              if (target) move(b.id, target.anchor, target.side);
               setDrag(null);
+              setDrop(null);
             },
-            onPointerCancel: () => setDrag(null)
+            onLostPointerCapture: () => {
+              setDrag(null);
+              setDrop(null);
+            },
+            onPointerCancel: () => {
+              setDrag(null);
+              setDrop(null);
+            }
           }, b.movable ? "\u283F" : "\u{1F512}"),
           (0, import_react.createElement)("strong", null, `${i + 1}. ${blockName(b)}`),
           (0, import_react.createElement)("small", null, `${b.originalRoles.map(label).join("/")} \u2192 ${b.effectiveRoles.map(label).join("/")} \xB7 ${label(b.region)} \xB7 ${label(b.binding)}`)
@@ -142,13 +161,22 @@ function ResourceLayoutEditor({ preset, preview, locale = 0, busy, onChange, onP
           "div",
           { className: "dta-resource-body" },
           (0, import_react.createElement)("small", null, `${t("\u7559\u5B58", "Retention")}: ${b.retention.map(label).join("/")} \xB7 ${b.reason === "user-override" ? t("\u7528\u6237\u81EA\u5B9A\u4E49\u4F4D\u7F6E", "User position override") : b.slotId ? t("\u6765\u6E90\u63D2\u69FD\u51B3\u5B9A\u4F4D\u7F6E", "Source slot owns position") : t("\u6765\u6E90\u9ED8\u8BA4\u987A\u5E8F", "Source default order")}`),
-          b.slotId && (0, import_react.createElement)("p", null, `${t("\u8DDF\u968F\u63D2\u69FD", "Follows slot")}: ${b.slotId}`),
+          b.slotId && (0, import_react.createElement)("p", null, `${t("\u4F4D\u7F6E\u7531\u63D2\u69FD\u9501\u5B9A", "Position locked by slot")}: ${b.slotId}`),
           ...b.limitations.map((reason) => (0, import_react.createElement)("p", { key: reason, className: "dta-notice" }, reason === "NATIVE_CONTEXT_REUSES_HISTORY_POSITION" ? t("\u539F\u751F context \u53EF\u80FD\u590D\u7528\u5386\u53F2\u4E2D\u7684\u65E7\u4F4D\u7F6E\uFF1B\u6B64\u5904\u987A\u5E8F\u4EC5\u8868\u793A\u65B0\u5FEB\u7167\u7684\u4F4D\u7F6E\uFF0C\u7CBE\u786E\u4F4D\u7F6E\u4EE5\u5B9E\u9645\u8BF7\u6C42\u4E3A\u51C6\u3002", "Native context can reuse an earlier history position. This order describes new snapshots; actual requests determine exact placement.") : t("\u539F\u751F\u5386\u53F2\u3001\u6DF1\u5EA6\u6216\u7559\u5B58\u5FEB\u7167\u7684\u4F4D\u7F6E\u7531\u8FD0\u884C\u65F6\u7EA6\u675F\u3002", "Native history, depth or retained snapshots constrain this position."))),
           (0, import_react.createElement)("details", null, (0, import_react.createElement)("summary", null, `${t("\u5185\u5BB9\u4E0E\u6765\u6E90", "Content and provenance")} \xB7 ${b.entries.length} \xB7 ${label(b.internalOrder)}`), ...b.entries.map((entry) => (0, import_react.createElement)("div", { key: entry.id, className: "dta-child" }, (0, import_react.createElement)("small", null, `${entry.source?.module} / ${entry.source?.resourceId ?? ""} / ${entry.source?.field} \xB7 ${entry.originalRole} \u2192 ${entry.effectiveRole} \xB7 ${label(entry.lifetime)}`), (0, import_react.createElement)("pre", null, entry.text), ...(entry.children ?? []).map((child, index) => (0, import_react.createElement)("pre", { key: index }, `${child.source?.module ?? ""} / ${child.source?.field ?? ""}
 ${child.text ?? ""}`))))),
-          preset.layout && (b.movable || b.overridable) && (0, import_react.createElement)("label", null, b.overridable ? t("\u660E\u786E\u8986\u76D6\u63D2\u69FD\uFF1A\u79FB\u5230\u2026\u4E4B\u524D", "Override slot: move before\u2026") : t("\u6574\u5757\u79FB\u5230\u2026\u4E4B\u524D", "Move whole block before\u2026"), (0, import_react.createElement)("select", { value: "", disabled: busy, onChange: (e) => {
-            if (e.target.value) move(b.id, e.target.value, "before", b.overridable);
-          } }, (0, import_react.createElement)("option", { value: "" }, t("\u9009\u62E9\u76EE\u6807", "Choose target")), ...layout.blocks.filter((a) => a.id !== b.id).map((a) => (0, import_react.createElement)("option", { key: a.id, value: a.id }, blockName(a)))))
+          preset.layout && (b.movable || b.overridable) && (0, import_react.createElement)(
+            "details",
+            { className: "dta-position-menu" },
+            (0, import_react.createElement)("summary", null, b.overridable ? t("\u81EA\u5B9A\u4E49\u4F4D\u7F6E", "Customize position") : t("\u66F4\u591A\u79FB\u52A8\u65B9\u5F0F", "More move options")),
+            b.overridable && (0, import_react.createElement)("p", null, t("\u9009\u62E9\u76EE\u6807\u540E\u5C06\u89E3\u9664\u63D2\u69FD\u4F4D\u7F6E\u7ED1\u5B9A\uFF0C\u53EF\u518D\u901A\u8FC7\u62D6\u62FD\u8C03\u6574\u3002", "Choosing a target overrides the slot position; you can then drag this block.")),
+            (0, import_react.createElement)("label", null, t("\u79FB\u5230\u6B64\u5757\u4E4B\u524D", "Move before this block"), (0, import_react.createElement)("select", { value: "", disabled: busy, onChange: (e) => {
+              if (e.target.value) {
+                e.currentTarget.closest("details").open = false;
+                move(b.id, e.target.value, "before", b.overridable);
+              }
+            } }, (0, import_react.createElement)("option", { value: "" }, t("\u9009\u62E9\u76EE\u6807", "Choose target")), ...layout.blocks.filter((a) => a.id !== b.id).map((a) => (0, import_react.createElement)("option", { key: a.id, value: a.id }, blockName(a)))))
+          )
         )
       )),
       (0, import_react.createElement)("details", null, (0, import_react.createElement)("summary", null, t("\u63D2\u69FD\uFF08\u4E0D\u53D1\u9001\u6587\u672C\uFF09", "Slots (no emitted text)")), ...layout.slots.map((s) => (0, import_react.createElement)("p", { key: s.id }, `${s.id} \u2192 ${s.targetSourceId} ${s.group ?? ""} \xB7 ${s.duplicate ? t("\u91CD\u590D\uFF0C\u672A\u91CD\u590D\u53D1\u9001", "duplicate, no duplicate output") : s.nodeIds.length ? t("\u5DF2\u7ED1\u5B9A", "bound") : t("\u7A7A\u63D2\u69FD", "empty")}`))),
@@ -474,7 +502,8 @@ var assemblyCss = `
 .dtv-assembly-screen select{appearance:none;-webkit-appearance:none;padding-right:40px;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16'%3E%3Cpath d='m4 6 4 4 4-4' fill='none' stroke='%23787880' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;background-size:16px 16px}@media(forced-colors:active){.dtv-assembly-screen select{appearance:auto;-webkit-appearance:auto;background-image:none}}
 .dta-row{border:1px solid var(--dta-border);border-left:5px solid var(--assembly-color);border-radius:14px;margin:10px 0;background:var(--dsw-alias-bg-base,#fff);overflow:hidden}.dta-row[data-dragover=true]{outline:2px solid #4386dc}.dta-summary{display:flex;align-items:center;gap:14px;padding:15px 17px;min-height:69px}.dta-summary input{width:20px;height:20px;accent-color:#2484ed}.dta-handle{cursor:grab;color:var(--dsw-alias-label-tertiary,#858993);font-size:22px;line-height:1}.dta-name{flex:1;font-size:17px;min-width:0;overflow-wrap:anywhere;cursor:pointer}.dta-summary-meta{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;flex:0 0 318px;margin:0;font-size:12px;line-height:1.5}.dta-summary-meta dt{color:var(--dsw-alias-label-tertiary,#858993);font-size:11px}.dta-summary-meta dd{margin:3px 0 0;color:var(--dsw-alias-label-secondary);overflow-wrap:anywhere}.dta-detail{padding:4px 20px 20px;border-top:1px solid var(--dta-border)}.dta-properties>*,.dta-summary-meta>div{min-width:0}.dta-properties>*+*,.dta-summary-meta>div+div{border-left:1px solid var(--dsw-alias-state-business-primary,#4d6bfe);padding-left:14px}.dta-properties label,.dta-fields label{display:flex;flex-direction:column;gap:8px}.dta-fields{display:flex;flex-direction:column;gap:16px;margin:16px 0}.dta-fields .dta-field-name{max-width:320px}.dta-preview-depth{margin:12px 0}.dta-properties{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin:16px 0}.dta-detail textarea{width:100%;min-height:130px;resize:vertical}.dtv-assembly-screen pre{white-space:pre-wrap;overflow-wrap:anywhere;font:13px/1.6 ui-monospace,monospace;max-height:360px;overflow:auto}.dta-child{margin:10px 0;padding:10px 14px;border-left:3px solid #ae73cf;background:var(--dsw-alias-bg-layer-2,var(--dsw-alias-bg-base));border-radius:6px}.dtv-assembly-screen small{display:block;opacity:.7;overflow-wrap:anywhere}
 .dta-row[data-dragging=true]{height:4px;min-height:4px;margin:5px 10px;border:0;border-radius:999px;background:var(--dsw-alias-state-business-primary);box-shadow:0 0 0 1px color-mix(in srgb,var(--dsw-alias-state-business-primary) 25%,transparent)}.dta-row[data-dragging=true]>*{opacity:0}.dta-drop-placeholder{min-height:42px;border:2px dashed var(--dsw-alias-state-business-primary);border-radius:8px;background:color-mix(in srgb,var(--dsw-alias-state-business-primary) 7%,transparent);display:flex;align-items:center;justify-content:center;color:var(--dsw-alias-state-business-primary);pointer-events:none}.dtv-assembly-screen .dta-handle{touch-action:none;user-select:none;background:transparent;border:0;padding:2px}.dta-origin{font-size:11px;color:var(--dsw-alias-label-secondary);margin-top:2px}.dta-legend{display:flex;gap:12px;flex-wrap:wrap;margin:12px 0}.dta-legend span{border-left:4px solid var(--assembly-color);padding-left:6px;font-size:12px}
-.dta-resource-layout{display:flex;flex-direction:column;gap:16px;min-width:0}.dta-resource-layout h3,.dta-resource-layout p{margin:0}.dta-resource-layout>h3:not(:first-child){padding-top:8px}.dta-resource-layout>button{align-self:flex-start}.dta-resource-policy{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px 16px}.dta-resource-policy label,.dta-resource-body>label{display:grid;gap:8px;min-width:0}.dta-resource-blocks{display:grid;gap:12px;min-width:0}.dta-resource-blocks>.dta-row{margin:0;border-left:1px solid var(--dta-border)}.dta-resource-layout .dta-summary{display:grid;grid-template-columns:24px minmax(0,1fr);gap:4px 12px;padding:16px 18px;min-height:0}.dta-resource-layout .dta-summary>.dta-handle{grid-row:1 / span 2}.dta-resource-layout .dta-summary>small{grid-column:2}.dta-resource-body{display:grid;gap:12px;padding:0 18px 18px;min-width:0}.dta-resource-body .dta-notice{margin:0;padding:10px 12px}.dta-resource-body details[open]>summary{margin-bottom:10px}.dta-resource-body .dta-child+.dta-child{margin-top:10px}.dta-resource-layout summary{cursor:pointer;overflow-wrap:anywhere}.dta-resource-body .dta-child{margin:0;padding:12px 14px}.dta-resource-body pre{margin:8px 0 0}.dta-resource-layout>.dta-notice{margin:0}.dta-resource-layout>.dta-notice>button{margin-top:12px}.dta-layout-override{display:flex;flex-wrap:wrap;align-items:center;gap:12px 16px;margin-top:12px}.dta-layout-override>code{flex:0 1 auto;min-width:0;max-width:100%;overflow-wrap:anywhere}.dta-layout-override>button{flex:0 0 auto}
+.dta-resource-layout{display:flex;flex-direction:column;gap:16px;min-width:0}.dta-resource-layout h3,.dta-resource-layout p{margin:0}.dta-resource-layout>h3:not(:first-child){padding-top:8px}.dta-resource-layout>button{align-self:flex-start}.dta-resource-policy{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px 16px}.dta-resource-policy label,.dta-resource-body>label,.dta-position-menu label{display:grid;gap:8px;min-width:0}.dta-resource-blocks{display:grid;gap:12px;min-width:0}.dta-resource-blocks>.dta-row{margin:0;border-left:1px solid var(--dta-border)}.dta-resource-layout .dta-summary{display:grid;grid-template-columns:24px minmax(0,1fr);gap:4px 12px;padding:16px 18px;min-height:0}.dta-resource-layout .dta-summary>.dta-handle{grid-row:1 / span 2}.dta-resource-layout .dta-summary>small{grid-column:2}.dta-resource-body{display:grid;gap:12px;padding:0 18px 18px;min-width:0}.dta-resource-body .dta-notice{margin:0;padding:10px 12px}.dta-resource-body details[open]>summary{margin-bottom:10px}.dta-resource-body .dta-child+.dta-child{margin-top:10px}.dta-resource-layout summary{cursor:pointer;overflow-wrap:anywhere}.dta-resource-body .dta-child{margin:0;padding:12px 14px}.dta-resource-body pre{margin:8px 0 0}.dta-resource-layout>.dta-notice{margin:0}.dta-resource-layout>.dta-notice>button{margin-top:12px}.dta-layout-override{display:flex;flex-wrap:wrap;align-items:center;gap:12px 16px;margin-top:12px}.dta-layout-override>code{flex:0 1 auto;min-width:0;max-width:100%;overflow-wrap:anywhere}.dta-layout-override>button{flex:0 0 auto}
+.dta-position-menu>p{margin-bottom:12px}.dta-resource-blocks>.dta-row[data-drop-side=before]{box-shadow:0 -3px #4386dc}.dta-resource-blocks>.dta-row[data-drop-side=after]{box-shadow:0 3px #4386dc}.dta-resource-blocks>.dta-row[data-resource-dragging=true]{opacity:.55}.dta-resource-layout .dta-handle:active{cursor:grabbing}
 @container(max-width:600px){.dta-resource-layout .dta-summary{padding:12px;gap:4px 8px}.dta-resource-body{padding:0 12px 12px}.dta-resource-policy{grid-template-columns:1fr}}
 
 @container(max-width:600px){.dta-summary-meta{display:none}.dta-grid,.dta-properties{grid-template-columns:1fr}.dta-properties>*+*{border-left:0;border-top:1px solid var(--dsw-alias-state-business-primary,#4d6bfe);padding:12px 0 0}.dta-head,.dta-body{padding:15px}.dta-summary{gap:8px;padding:12px 10px}.dta-fields .dta-field-name{max-width:100%}}
@@ -620,6 +649,25 @@ function AssemblyPanelContent({ selectionTarget, sessionId, sessionLabel: sessio
     return parser && (rule.inputMode === "text" || rule.kind === "custom") ? { ...rule, kind: parser.id, inputMode: "text", role: parser.roles.includes(rule.role) ? rule.role : parser.roles[0], lifetime: parser.lifetimes.includes(rule.lifetime) ? rule.lifetime : parser.lifetimes[0], depth: parser.depth === false ? null : rule.depth } : rule;
   };
   const editablePreset = (preset) => ({ ...preset, rules: preset.rules.map(editableRule) });
+  const editLayout = (next) => {
+    if (busy) return;
+    const nextDraft = { ...draft, layout: next.layout, placement: layoutPlacement(next) };
+    const gen = generation.current;
+    setDraft(nextDraft);
+    setDirty(true);
+    return run(async () => {
+      try {
+        const data = await api("/preview", "POST", { sessionId, preset: editablePreset(nextDraft) });
+        if (gen !== generation.current) return;
+        setPreview(data.preview);
+        setStatus("");
+      } catch (e) {
+        if (gen !== generation.current) return;
+        setPreview(null);
+        throw e;
+      }
+    });
+  };
   const controlRows = (rules) => contextControlRows(rules, sources.map((s) => s.id));
   const editRule = (id, patch) => edit({ rules: controlRows(draft.rules).map((r) => r.id === id ? { ...editableRule(r), ...patch } : r) });
   const toggle = (id) => setExpanded((old) => ({ ...old, [id]: !old[id] }));
@@ -907,7 +955,7 @@ function AssemblyPanelContent({ selectionTarget, sessionId, sessionLabel: sessio
           setTab("expanded");
         }), Boolean(selectionTarget && (typeof selectionTarget.previewAssembly !== "function" || selectionTarget.editable === false)), void 0, tab === "expanded" && !preview?.actual), button("actual", () => run(actualRequest), !sessionId, void 0, tab === "expanded" && !!preview?.actual)),
         (0, import_react2.createElement)("div", { className: "dta-legend" }, ...[...new Set(sources.map((s) => s.pluginId))].map((plugin) => (0, import_react2.createElement)("span", { key: plugin, style: { "--assembly-color": sourceColor(plugin) } }, originName(plugin)))),
-        tab === "layout" ? (0, import_react2.createElement)(ResourceLayoutEditor, { preset: draft, preview: preview?.actual ? null : preview, locale, busy, onChange: (next) => edit({ layout: next.layout, placement: layoutPlacement(next) }), onPreview: () => run(async () => {
+        tab === "layout" ? (0, import_react2.createElement)(ResourceLayoutEditor, { preset: draft, preview: preview?.actual ? null : preview, locale, busy, onChange: editLayout, onPreview: () => run(async () => {
           const data = await api("/preview", "POST", { sessionId, preset: editablePreset(draft) });
           setPreview(data.preview);
         }) }) : tab === "rules" ? (0, import_react2.createElement)(

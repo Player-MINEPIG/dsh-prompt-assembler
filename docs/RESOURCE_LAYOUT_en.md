@@ -6,7 +6,7 @@ Sources (presets, character cards, worldbooks, memory) supply content; they are 
 
 Use “Policy and current resource layout” to choose layout source, identity handling and missing-target fallback. Source configuration retains toggles, text parsing, delivery and retention. Preview resolves current resources and shows each block’s entries, text, original/effective roles, resource/field provenance, internal order, slot binding, retention and runtime constraints. Content expanded into another body through a macro retains child provenance and cannot be dragged out independently.
 
-A free block’s handle moves its entire contiguous output, preserving source-defined internal order. The dropdown provides keyboard access. Slot-bound blocks disable ordinary dragging; only “Override slot” explicitly detaches them and saves a custom position. Restore source position removes that override. History, depth-bound blocks and retained snapshots have runtime-managed positions.
+A free block’s handle moves its entire contiguous output, preserving source-defined internal order. “More move options” contains the alternative keyboard controls. Dragging highlights the drop position and automatically refreshes current resources after dropping; changes still require saving and applying. Slot-bound blocks explain their lock; choosing a target under “Customize position” explicitly detaches them and enables subsequent dragging. Restore source position removes that override. History, depth-bound blocks and retained snapshots have runtime-managed positions.
 
 ## Composable policy
 
