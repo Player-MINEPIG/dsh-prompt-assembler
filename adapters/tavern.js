@@ -126,7 +126,7 @@ export const DEFAULT_RULES = Object.freeze([
   { id: 'phi', kind: 'phi', enabled: true },
 ])
 // Slot references take precedence; unclaimed resources keep their own positions.
-const SLOT_LAYOUT = { version: 1, source: 'preset-slots', identity: 'position', fallback: 'source-order', overrides: [], priority: ['preset', 'user', 'resource', 'default'] }
+const SLOT_LAYOUT = { version: 1, source: 'preset-slots', identity: 'position', fallback: 'source-order', overrides: [], priority: ['preset', 'resource', 'default'] }
 export const BUILTINS = Object.freeze([
   { id: 'builtin-st', ...normalizePreset({ format: FORMAT, version: 1, name: '预设插槽优先（进阶） / Preset slots first (advanced)', layout: SLOT_LAYOUT, rules: DEFAULT_RULES }) },
 ])

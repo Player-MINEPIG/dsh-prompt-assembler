@@ -5,8 +5,9 @@ export type Stability = 'asset' | 'conversation' | 'evaluation' | 'assembly' | '
 export interface Rule { id: string; kind: string; enabled: boolean; role: Role; lifetime: Lifetime; depth: number | null; text: string; name: string; inputMode?: 'source' | 'text'; delivery?: 'context' | 'pre-step' }
 export type RuleInput = Pick<Rule, 'id' | 'kind'> & Partial<Omit<Rule, 'id' | 'kind'>>
 export interface LayoutOverride { target: string; anchor: string; side: 'before' | 'after'; detach: boolean }
-export interface ResourcePosition { sourceId: string; positionId: string; enabled: boolean; placement: 'source' | 'list' }
+export interface ResourcePosition { sourceId: string; positionId: string; enabled: boolean; placement: 'source' | 'list'; anchor?: 'end' | { sourceId: string; positionId: string; side: 'before' | 'after' } }
 export interface PositionDescriptor { configurable?: boolean; note?: [string, string]; id: string; name: [string, string]; match?: { field?: string; group?: string; depth?: boolean }; anchor?: { sourceId: string; fields?: string[]; side: 'before' | 'after' }; macros?: string[] }
+/** Legacy four-item priority lists are accepted; normalization removes user, since manual positions always override automatic rules. */
 export interface ResourceLayoutPolicy { priority?: Array<'user' | 'preset' | 'resource' | 'default'> | 'user' | 'preset'; positions?: ResourcePosition[]; version: 1; source: 'manual' | 'preset-slots'; identity: 'preserve' | 'position'; fallback: 'source-order' | 'error'; overrides: LayoutOverride[] }
 export interface ResourceLayout { sortingStages?: Array<{ strategy: 'user' | 'preset' | 'resource' | 'default'; nodeIds: string[] }>; priorityOrder?: string[]; positionDecisions?: Array<Record<string, any>>; version: 1; legacy: boolean; policy: ResourceLayoutPolicy | null; slots: Array<Record<string, any>>; blocks: Array<Record<string, any>> }
 export function normalizeLayout(value: unknown): ResourceLayoutPolicy | undefined

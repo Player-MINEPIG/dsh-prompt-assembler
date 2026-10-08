@@ -20,7 +20,7 @@ test('reference catalog has distinct effects and names explain placement rather 
   assert.deepEqual(pairs('builtin-native-slots'), [['HEAD','system'],['LORE','system'],['OLD','user'],['NOW','user'],['TAIL','user']])
   assert.deepEqual(pairs('builtin-st'), [['HEAD','user'],['LORE','system'],['OLD','user'],['NOW','user'],['TAIL','system']])
   assert.deepEqual(pairs('builtin-native-roles'), [['LORE','system'],['TAIL','system'],['OLD','user'],['NOW','user'],['HEAD','user']])
-  for (const id of ['builtin-native-slots','builtin-st']) assert.deepEqual(run(id).resourceLayout.policy.priority, ['preset','user','resource','default'])
+  for (const id of ['builtin-native-slots','builtin-st']) assert.deepEqual(run(id).resourceLayout.policy.priority, ['preset','resource','default'])
 })
 test('RP defaults to standard slots; withdrawn built-ins, explicit opt-outs and custom snapshots survive restart unchanged', () => {
   const root = mkdtempSync(join(tmpdir(), 'builtin-catalog-'))

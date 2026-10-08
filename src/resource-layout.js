@@ -9,7 +9,7 @@ export function normalizeLayout(value) {
     if (!o || ![o.target, o.anchor].every(s => typeof s === 'string' && s.length > 0 && s.length <= 4096) || o.target === o.anchor || seen.has(o.target) || !['before', 'after'].includes(o.side) || typeof o.detach !== 'boolean') throw new TypeError('Invalid layout override')
     seen.add(o.target); return { target: o.target, anchor: o.anchor, side: o.side, detach: o.detach }
   })
-  const priority = normalizePriority(value.priority)
+  const priority = normalizePriority(value.priority) ?? ['preset', 'resource', 'default']
   const positions = normalizePositions(value.positions)
   return { version: 1, source: value.source, identity: value.identity, fallback: value.fallback, overrides, ...(priority ? { priority } : {}), ...(positions ? { positions } : {}) }
 }

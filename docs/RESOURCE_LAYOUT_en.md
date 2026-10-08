@@ -2,7 +2,7 @@
 
 [中文](RESOURCE_LAYOUT.md) · [Usage](USAGE_en.md) · [Backend limits](BACKENDS_en.md)
 
-The editor has two pages. Resource positions lists every potential content position declared by providers, with switches and drag handles; no asset preview is required. Assembly result loads current assets and applies the selected sorting policy, showing emitted content, provenance, roles, order and decisions. Reading the latest recorded request is a separate read-only action; editing a draft cannot change that record.
+The editor has two pages. Resource positions lists every potential content position declared by providers, with switches and drag handles. With a session or opening draft, background resolution updates categories with a definite single position; empty and split categories retain their configured positions with an explanation. Assembly result loads current assets and applies the selected sorting policy, showing emitted content, provenance, roles, order and decisions. Reading the latest recorded request is a separate read-only action; editing a draft cannot change that record.
 
 ## Configuration units
 
@@ -18,17 +18,17 @@ Assembly errors remain visible until revalidation succeeds; editing or saving do
 
 ## Priority and switches
 
-Each position follows its source or uses user order. Moving a row marks only that position as user-ordered. Other positions continue following their preset/source; the list supplies neighboring semantic anchors, and empty positions emit no text.
+Dragging creates a custom position that always overrides automatic placement. Follow source position restores automatic placement. Only the dragged category becomes custom; other categories retain automatic rules. Internal entry order remains source-defined and original macro/slot references do not duplicate the detached content.
 
-Sorting priority is an ordered, draggable list. `user` (manual order), `preset` (preset slots/macros), `resource` (resource-defined anchors/depth) and `default` (source list order) appear exactly once. Assembly executes each strategy in list order and excludes already placed resources from subsequent passes; all 24 permutations can be saved.
+Automatic priority contains only `preset` (preset slots/macros), `resource` (resource anchors/depth), and `default` (source order). Higher rules win; each item uses its highest applicable rule. All six permutations are supported. Preset ownership retains reference placement, resource ownership uses relative anchors/depth, and default ownership uses source order.
 
-When preset ownership wins, content stays at the reference. A winning user move emits the category independently without duplicate inline content. A winning resource rule applies its declared relative anchor or depth. Default precedence uses source list order. Missing anchors follow the selected fallback policy. Results show the priority list used and the resulting decisions.
+Custom positions store stable source-category anchors, such as before `input/content`; `anchor:"end"` denotes the end. Overrides apply after automatic anchors settle, so custom positions follow anchors when automatic rules change. Anchors contain no activated entries or list indices. Manual dependencies resolve anchor-first; cycles reject assembly and missing targets follow the fallback policy.
 
-With position adaptation enabled on the standard backend, priority resolves logical placement before roles and native delivery are projected. A winning manual category can follow history or current input. Moving it to the end places it after the remaining contributions even when later categories are empty, using user pre-step delivery. Preserved source roles still obey identity boundaries; incompatible moves report a runtime conflict.
+With position adaptation enabled on the standard backend, priority resolves logical placement before roles and native delivery are projected. A custom-position category can follow history or current input. Moving it to the end places it after the remaining contributions even when later categories are empty, using user pre-step delivery. Preserved source roles still obey identity boundaries; incompatible moves report a runtime conflict.
 
 Native history, tool transactions, retained snapshots and delivery regions are hard constraints, explained separately rather than pretending to be reorderable rules. Native system roles are not silently changed to simulate arbitrary ordering; identity adaptation is a separate choice. Inclusion switches do not compete in position priority: disabling a position excludes standalone and referenced content but never deletes durable history or retained snapshots. Native history/current-input anchors remain mandatory.
 
-New strategies initially list user, preset, resource and default; users can freely reorder them. Existing policies are not silently rewritten. Legacy `priority:user|preset` and absent-priority `source` choices appear as equivalent initial lists. Reordering saves the full array. Older asset-specific `overrides` remain compatible with an explicit removal action; Position-adapted native layouts resolve semantic positions before identity projection and then apply legacy overrides inside valid native regions; preserve-role and advanced layouts retain the existing override order.
+New strategies default to preset, resource, default. Reading legacy four-item lists removes `user` while retaining the relative order of the three automatic rules. Legacy `priority:user|preset` and layouts without a priority use those defaults. Existing manual positions now always override automatic placement. Reading does not rewrite stored files; saving uses the new representation. Older asset-specific `overrides` remain compatible, are excluded from automatic rules, and can be cleared. Position-adapted native layouts resolve semantic positions before identity projection and apply legacy overrides inside valid native regions.
 
 ## Protocol and persistence
 
@@ -42,21 +42,21 @@ Preset format version 1 remains unchanged. Optional layout fields include:
   "source": "preset-slots",
   "identity": "preserve",
   "fallback": "source-order",
-  "priority": ["user", "preset", "resource", "default"],
+  "priority": ["preset", "resource", "default"],
   "overrides": [],
   "positions": [
-    {"sourceId":"worldbook","positionId":"after","enabled":true,"placement":"list"},
+    {"sourceId":"worldbook","positionId":"after","enabled":true,"placement":"list","anchor":{"sourceId":"worldbook","positionId":"before","side":"before"}},
     {"sourceId":"worldbook","positionId":"before","enabled":true,"placement":"source"}
   ]
 }
 ```
 
-Positions contain no resource IDs, entry IDs, state revisions or activation lists. Replacement assets and newly activated entries are evaluated afresh. `fallback` continues to select diagnosed fallback or assembly rejection; unknown providers/positions produce `POSITION_SOURCE_MISSING`. A known position with no current content is not a missing target.
+Positions contain no resource IDs, entry IDs, state revisions or activation lists. Replacement assets and newly activated entries are evaluated afresh. `fallback` continues to select diagnosed fallback or assembly rejection; unknown providers/positions produce `POSITION_SOURCE_MISSING`. An empty known position keeps its configuration row; if explicitly selected as a custom anchor, missing-target behavior follows the fallback setting.
 
-`positionRows(preset,sources)` returns the complete configuration list; `configurePosition` builds switch/order edits. `normalizeLayout`, `describeResourceLayout` and `withBlockMove` retain compatibility; the last is for asset-specific overrides. Result nodes include `positionId` and `positionDecision`; `resourceLayout.positionDecisions` summarizes switches and decisions, while `POSITION_CONFLICT` explains runtime/preset precedence.
+`positionRows(preset,sources)` returns the complete configuration list; `configurePosition` builds switch/order edits. `normalizeLayout`, `describeResourceLayout` and `withBlockMove` retain compatibility; the last is for asset-specific overrides. Result nodes include `positionId` and `positionDecision`; `resourceLayout.positionDecisions` summarizes switches and decisions, while `POSITION_CONFLICT` explains identity/runtime limits on custom placement. `resolvedPositionRows` projects definite positions into the editor without saving that resolved order or changing applied snapshots.
 
 Preview and sending share resolution and ordering. Native previews exclude pending input and user-context contributions may reuse retained snapshots, so a current assembly result is not a complete network request; read a recorded actual request for frozen evidence. The UI cannot generate content from an unregistered plugin.
 
-Validation: `node --test test/resource-positions.test.mjs test/plugin-client.test.mjs`. `test/resource-layout-host.test.mjs` uses `DSH_ASSEMBLER_STOCK_ROOT` / `DSH_ASSEMBLER_CORE_ROOT` and temporary profiles to check persisted policies, replacement assets, priority ordering and offline real requests. Browser acceptance covers configuration without preview, switches, dragging, priority changes, results, saving and applying.
+Validation: `node --test test/resource-positions.test.mjs test/plugin-client.test.mjs`. `test/resource-layout-host.test.mjs` uses `DSH_ASSEMBLER_STOCK_ROOT` / `DSH_ASSEMBLER_CORE_ROOT` and temporary profiles to check persisted policies, replacement assets, priority ordering and offline real requests. Browser acceptance covers empty categories, background position resolution, switches, dragging, priority changes, results, saving and applying.
 
-Sorting proceeds through the saved list one strategy at a time. Each pass consumes only unplaced resources; later passes cannot move resources consumed by an earlier pass. Result `sortingStages` records which nodes each pass placed. Resource cards explain declared stability before loading assets. Result cards explicitly distinguish existing native messages, native system/context/pre-step retention, request-only content, and separately retained assembly snapshots. Neither list has up/down buttons.
+Automatic rules determine ownership by priority, excluding custom positions. Result `sortingStages` lists custom positions and the nodes owned by each automatic rule; it describes ownership, not an editable execution pipeline. Resource cards explain declared stability before loading assets. Result cards explicitly distinguish existing native messages, native system/context/pre-step retention, request-only content, and separately retained assembly snapshots. Neither list has up/down buttons.

@@ -63,7 +63,7 @@ function assembleResolved({ preset: suppliedPreset, previous = null, snapshots =
   const positionOf = (entry, block) => blockPosition(entry.descriptor, block)
   const settingOf = (entry, block) => positionSettings.get(positionKey(entry.descriptor.id, positionOf(entry, block)?.id))
   const positionEnabled = (entry, block) => block.type === 'reference' || settingOf(entry, block)?.enabled !== false || (preset.backend === 'native' && ['history', 'input'].includes(entry.descriptor.id))
-  const userPlaced = (entry, block) => block.type !== 'reference' && settingOf(entry, block)?.placement === 'list' && positionWins(preset, 'user', 'preset') && positionWins(preset, 'user', 'default') && (block.depth == null && !positionOf(entry, block)?.anchor || positionWins(preset, 'user', 'resource')) && !['native-system', 'history', 'input'].includes(entry.descriptor.id)
+  const userPlaced = (entry, block) => block.type !== 'reference' && settingOf(entry, block)?.placement === 'list' && !['native-system', 'history', 'input'].includes(entry.descriptor.id)
   const preferSource = (entry, block) => block.type !== 'native' && listed.has(entry.rule.id) && (positionWins(preset, 'default', 'preset') || Array.isArray(preset.layout?.priority) && (block.depth != null || positionOf(entry, block)?.anchor) && positionWins(preset, 'resource', 'preset'))
   const positionEvents = []
   for (const entry of entries) for (const block of entry.blocks) if (!positionEnabled(entry, block)) positionEvents.push({ sourceId: entry.descriptor.id, positionId: positionOf(entry, block)?.id, decision: 'disabled' })
@@ -199,7 +199,7 @@ function assembleResolved({ preset: suppliedPreset, previous = null, snapshots =
     let depth = controlled && block.type !== 'native' ? placementRule.depth
       : block.depth ?? (listed.has(entry.rule.id) ? targetRule.depth : entry.rule.depth)
     if (block.type !== 'native') {
-      const userDepth = settingOf(entry, block)?.placement === 'list' && positionWins(preset, 'user', 'resource') && positionWins(preset, 'user', 'default') && (!reference?.slotId || positionWins(preset, 'user', 'preset'))
+      const userDepth = settingOf(entry, block)?.placement === 'list'
       const presetDepth = Array.isArray(preset.layout?.priority) && reference?.slotId && positionWins(preset, 'preset', 'resource')
       if (depth != null && (userDepth || presetDepth || positionWins(preset, 'default', 'resource'))) depth = null
     }

@@ -357,7 +357,7 @@ async function dragRow(document, handle, target) {
   } finally { document.elementFromPoint = previous }
 }
 
-test('resource configuration lists empty positions without preview and loads results only on demand', async () => {
+test('resource configuration resolves positions in the background and keeps empty categories', async () => {
   const ui = dom(), previews = [], saved = []
   const layoutPreset = { ...preset, layout: { version: 1, source: 'preset-slots', identity: 'preserve', fallback: 'source-order', priority: 'preset', overrides: [] }, rules: [{ id: 'worldbook', kind: 'worldbook', enabled: true, role: 'preserve', lifetime: 'request' }] }
   const sources = [{ id: 'worldbook', pluginId: 'pmp-dsh-tavern', name: 'World books', roles: ['preserve'], lifetimes: ['request'], supportsModule: true, moduleAvailable: false, positions: [{ id: 'before', name: ['前置', 'Before'], macros: ['worldInfoBefore'] }, { id: 'after', name: ['后置', 'After'], macros: ['worldInfoAfter'] }] }]
@@ -368,7 +368,7 @@ test('resource configuration lists empty positions without preview and loads res
       return json({ ...library, presets: [layoutPreset], sources })
     }
     await act(async () => ui.root.render(h(AssemblyPanel, { standalone: true, locale: 'en', sessionId: 's', fetcher })))
-    assert.equal(previews.length, 0)
+    assert.ok(previews.length >= 1)
     assert.match(ui.document.body.textContent, /worldInfoBefore/)
     assert.match(ui.document.body.textContent, /worldInfoAfter/)
     assert.match(ui.document.body.textContent, /No content is currently available/)
@@ -377,11 +377,11 @@ test('resource configuration lists empty positions without preview and loads res
     await dragRow(ui.document, ui.document.querySelector('[aria-label="Move position: After"]'), ui.document.querySelector('[data-position-key="worldbook#before"]'))
     assert.equal([...ui.document.querySelectorAll('button')].some(b => ['Up', 'Down', '↑', '↓'].includes(b.textContent)), false)
     assert.match(ui.document.querySelector('.dta-position-stability').textContent, /Constant entries/)
-    assert.equal(previews.length, 0)
+    assert.ok(previews.length >= 1)
     await act(async () => button(ui.document, 'Assembly result').click())
-    assert.equal(previews.length, 1)
-    assert.equal(previews[0].preset.layout.priority, 'preset')
-    assert.equal(previews[0].preset.layout.positions.find(p => p.positionId === 'before').enabled, false)
+    assert.ok(previews.length >= 1)
+    assert.deepEqual(previews.at(-1).preset.layout.priority, ['preset', 'resource', 'default'])
+    assert.equal(previews.at(-1).preset.layout.positions.find(p => p.positionId === 'before').enabled, false)
     assert.match(ui.document.body.textContent, /Disabled; excluded/)
     assert.equal(ui.document.querySelectorAll('[data-position-key]').length, 0)
     await act(async () => button(ui.document, 'Save rules').click())
@@ -399,11 +399,11 @@ test('failed result loading preserves position draft for retry', async () => {
       return json({ preview: { nodes: [], messages: [], diagnostics: [] } })
     }
     await act(async () => ui.root.render(h(AssemblyPanel, { standalone: true, locale: 'en', fetcher })))
-    await dragRow(ui.document, ui.document.querySelector('[aria-label="Drag priority: Preset slots and macro references"]'), ui.document.querySelector('[data-priority="user"]'))
+    await dragRow(ui.document, ui.document.querySelector('[aria-label="Drag priority: Resource position and depth"]'), ui.document.querySelector('[data-priority="preset"]'))
     await act(async () => button(ui.document, 'Assembly result').click())
     assert.match(ui.document.querySelector('[role="alert"]').textContent, /Preview offline/)
     await act(async () => button(ui.document, 'Assembly result').click())
-    assert.deepEqual(requests[1].preset.layout.priority, ['preset', 'user', 'resource', 'default'])
+    assert.deepEqual(requests[1].preset.layout.priority, ['resource', 'preset', 'default'])
   } finally { await ui.close() }
 })
 
@@ -480,10 +480,33 @@ for (const openingDraft of [false,true]) test(`failed validation survives edits/
   assert.match(ui.document.querySelector('[data-assembly-validation-error]').textContent,/revalidation is required/)
   await act(()=>button(ui.document,'Apply to this session').click())
   assert.equal(calls.filter(x=>x==='apply').length,0)
-  assert.equal(calls.filter(x=>x==='preview').length,2)
+  assert(calls.filter(x=>x==='preview').length >= 2)
   rejected=false
   await act(()=>button(ui.document,'Apply to this session').click())
-  assert.deepEqual(calls.slice(-2),['preview','apply'])
+  assert.equal(calls.filter(x => x === 'apply').length, 1)
+  assert.equal(calls[calls.indexOf('apply') - 1], 'preview')
   assert.equal(ui.document.querySelector('[data-assembly-validation-error]'),null)
  }finally{await ui.close()}
+})
+
+test('automatic priority changes refresh definite editor positions without changing manual policy', async () => {
+  const ui = dom()
+  const current = { ...preset, layout: { version: 1, source: 'preset-slots', identity: 'position', fallback: 'source-order', priority: ['preset', 'resource', 'default'], overrides: [] }, rules: [{ id: 'worldbook', kind: 'worldbook', enabled: true, role: 'preserve', lifetime: 'request' }] }
+  const sources = [{ id: 'worldbook', pluginId: 'pmp-dsh-tavern', name: 'World books', roles: ['preserve'], lifetimes: ['request'], positions: [{ id: 'before', name: ['前置', 'Before'] }, { id: 'after', name: ['后置', 'After'] }] }]
+  try {
+    const fetcher = async (url, options) => {
+      if (!url.endsWith('/preview')) return json({ ...library, presets: [current], sources })
+      const p = JSON.parse(options.body).preset
+      const order = p.layout.priority[0] === 'resource' ? ['after', 'before'] : ['before', 'after']
+      return json({ preview: { nodes: order.map(positionId => ({ id: positionId, source: { module: 'worldbook' }, positionId })), messages: [], diagnostics: [] } })
+    }
+    await act(async () => ui.root.render(h(AssemblyPanel, { standalone: true, locale: 'en', sessionId: 's', fetcher })))
+    const keys = () => [...ui.document.querySelectorAll('[data-position-key]')].map(n => n.dataset.positionKey)
+    assert.deepEqual(keys(), ['worldbook#before', 'worldbook#after'])
+    assert.equal(ui.document.querySelectorAll('[data-priority]').length, 3)
+    assert.equal(ui.document.querySelector('[data-priority="user"]'), null)
+    await dragRow(ui.document, ui.document.querySelector('[aria-label="Drag priority: Resource position and depth"]'), ui.document.querySelector('[data-priority="preset"]'))
+    assert.deepEqual(keys(), ['worldbook#after', 'worldbook#before'])
+    assert.match(ui.document.body.textContent, /Definite positions follow current resources/)
+  } finally { await ui.close() }
 })

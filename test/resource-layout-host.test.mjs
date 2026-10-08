@@ -60,7 +60,7 @@ for (const backend of ['native', 'core']) {
         assert.deepEqual(new AssemblyPresetStore(directory, { unified: true }).selection('fixture').layout, configured.layout)
         const resolved = await face.runtime.preview({ preset: configured, agent, sessionId: 'fixture' })
         const lore = resolved.nodes.filter(n => n.source.module === 'worldbook').map(n => n.text)
-        assert.deepEqual(lore, (Array.isArray(priority) ? priority[0] : priority) === 'user' ? ['POSITION_AFTER', 'POSITION_BEFORE'] : ['POSITION_BEFORE', 'POSITION_AFTER'])
+        assert.deepEqual(lore, ['POSITION_AFTER', 'POSITION_BEFORE'])
         agent.followup(llm.createUserMessage({ content: [{ type: 'text', text: `POSITION_${priority}` }], source: { kind: 'user' } })); await agent.whenIdle()
         assert.deepEqual(errors, [])
         const actual = requests.at(-1).map(textOf).join('\n\n')
