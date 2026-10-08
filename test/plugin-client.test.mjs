@@ -341,12 +341,17 @@ async function dragRow(document, handle, target) {
   handle.setPointerCapture = () => { captured = true }
   handle.hasPointerCapture = () => captured
   handle.releasePointerCapture = () => { captured = false }
-  target.getBoundingClientRect = () => ({ top: 0, height: 40 })
+  target.closest('[data-sort-index]').getBoundingClientRect = () => ({ top: 0, height: 40 })
   const previous = document.elementFromPoint
   document.elementFromPoint = () => target
   try {
     await act(() => Simulate.pointerDown(handle, { button: 0, pointerId: 1 }))
+    assert.ok(document.querySelector('[data-dragging="true"]'), 'source collapses to its origin marker')
+    assert.match(document.querySelector('.dta-drop-placeholder').textContent, /Drop here:/)
+    await act(() => Simulate.pointerMove(handle, { pointerId: 1, clientX: 0, clientY: 0 }))
+    assert.equal(target.closest('[data-sort-index]').previousElementSibling.className, 'dta-drop-placeholder', 'drop placeholder precedes the hovered row')
     await act(() => Simulate.pointerUp(handle, { pointerId: 1, clientX: 0, clientY: 0 }))
+    assert.equal(document.querySelector('.dta-drop-placeholder'), null, 'placeholder clears after drop')
   } finally { document.elementFromPoint = previous }
 }
 
@@ -422,5 +427,26 @@ for (const backend of ['native', 'core']) test(`result cards explain native hist
       assert.ok(notes.every(n => n.includes('Does not enter native message history')))
       assert.match(notes[3], /retained separately/)
     }
+  } finally { await ui.close() }
+})
+
+test('cancelling a shared list drag clears origin and placeholder without editing the draft', async () => {
+  const { Simulate } = await import('react-dom/test-utils')
+  const ui = dom(), saved = []
+  try {
+    const fetcher = async (url, options) => {
+      if (options.method === 'PUT') { saved.push(JSON.parse(options.body)); return json({ preset: saved.at(-1) }) }
+      return json(library)
+    }
+    await act(() => ui.root.render(h(AssemblyPanel, { standalone: true, locale: 'en', sessionId: 's', fetcher })))
+    const handle = ui.document.querySelector('[aria-label="Drag priority: Preset slots and macro references"]')
+    handle.setPointerCapture = () => {}
+    await act(() => Simulate.pointerDown(handle, { button: 0, pointerId: 1 }))
+    assert.match(ui.document.querySelector('.dta-drop-placeholder').textContent, /Preset slots/)
+    await act(() => Simulate.pointerCancel(handle))
+    assert.equal(ui.document.querySelector('.dta-drop-placeholder'), null)
+    assert.equal(ui.document.querySelector('[data-dragging="true"]'), null)
+    await act(() => button(ui.document, 'Save rules').click())
+    assert.equal(saved[0].layout, undefined)
   } finally { await ui.close() }
 })

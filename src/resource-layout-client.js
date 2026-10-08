@@ -1,9 +1,9 @@
-import { createElement as h, useState } from 'react'
+import { createElement as h } from 'react'
+import { SortableList } from './sortable-list.js'
 import { configurePosition, positionRows, priorityOrder } from './resource-positions.js'
 
 /** Configuration comes from provider capabilities, never from activated preview blocks. */
 export function ResourcePositionEditor({ preset, sources, locale = 0, busy, onChange, sourceColor, originName, sourceName = id => sources.find(s => s.id === id)?.name ?? id }) {
-  const [drag, setDrag] = useState(null), [drop, setDrop] = useState(null), [priorityDrop, setPriorityDrop] = useState(null)
   const t = (zh, en) => locale === 0 ? zh : en
   const rows = positionRows(preset, sources)
   const policy = preset.layout ?? { version: 1, source: 'preset-slots', priority: ['user', 'preset', 'resource', 'default'], identity: 'preserve', fallback: 'source-order', overrides: [] }
@@ -16,45 +16,26 @@ export function ResourcePositionEditor({ preset, sources, locale = 0, busy, onCh
     if (at < 0) return
     next.splice(at, 0, id); changePolicy({ priority: next })
   }
-  const priorityTarget = e => {
-    const row = document.elementFromPoint(e.clientX, e.clientY)?.closest('[data-priority]')
-    if (!row || !e.currentTarget.closest('.dta-priorities')?.contains(row)) return null
-    const before = e.clientY < row.getBoundingClientRect().top + row.getBoundingClientRect().height / 2
-    return { id: row.dataset.priority, before }
-  }
   const fixed = row => ['native-system', 'history', 'input'].includes(row.sourceId)
   const update = (row, patch, before) => onChange(configurePosition(preset, sources, row.key, patch, before))
   const title = row => row.source.positions ? row.position.name[locale] ?? row.position.name[0] : sourceName(row.sourceId)
-  const destination = e => {
-    const row = document.elementFromPoint(e.clientX, e.clientY)?.closest('[data-position-key]')
-    if (!row || !e.currentTarget.closest('.dta-position-list')?.contains(row)) return null
-    const key = row.dataset.positionKey, index = rows.findIndex(r => r.key === key)
-    return { key, before: e.clientY < row.getBoundingClientRect().top + row.getBoundingClientRect().height / 2, index }
-  }
   return h('section', { className: 'dta-resource-layout', 'aria-label': t('资源位置配置', 'Resource positions') },
     h('p', null, t('配置所有可能提供内容的位置，不需要先加载具体资源。宏引用和插槽归属在装配时解析；空位置也保留在此清单。', 'Configure every potential content position without loading assets. Macros and slots resolve during assembly; empty positions remain in this list.')),
     !preset.layout && h('p', { className: 'dta-notice' }, t('当前策略保留原有行为；第一次修改位置或排序策略时采用资源位置配置。', 'The strategy keeps its existing behavior until you edit a position or sorting policy.')),
     h('h3', null, t('排序优先级', 'Sorting priority')),
     h('p', null, t('从上到下逐个使用排序策略。已由前一策略排好的资源不再参与后续排序；后续策略只处理剩余资源。拖动手柄调整策略顺序。', 'Apply strategies from top to bottom. Each strategy sorts only the remaining resources; resources already placed are excluded from later passes. Drag the handles to reorder strategies.')),
-    h('div', { className: 'dta-priorities', 'aria-label': t('排序优先级列表', 'Sorting priority list') }, ...priorities.map((id, index) => h('div', { key: id, className: 'dta-priority-row', 'data-priority': id, 'data-drop-side': priorityDrop?.id === id ? priorityDrop.before ? 'before' : 'after' : undefined },
-      h('button', { type: 'button', className: 'dta-handle', disabled: busy, 'aria-label': `${t('拖动优先级', 'Drag priority')}: ${priorityNames[id]}`,
-        onPointerDown: e => { if (e.button !== 0) return; e.preventDefault(); e.currentTarget.setPointerCapture(e.pointerId) },
-        onPointerMove: e => { if (e.currentTarget.hasPointerCapture(e.pointerId)) setPriorityDrop(priorityTarget(e)) },
-        onPointerUp: e => { if (!e.currentTarget.hasPointerCapture(e.pointerId)) return; const target = priorityTarget(e); e.currentTarget.releasePointerCapture(e.pointerId); if (target && target.id !== id) movePriority(id, target.before ? target.id : priorities[priorities.indexOf(target.id) + 1] ?? null); setPriorityDrop(null) },
-        onPointerCancel: () => setPriorityDrop(null), onLostPointerCapture: () => setPriorityDrop(null) }, '⠿'),
-      h('span', null, `${index + 1}. ${priorityNames[id]}`)))),
+    h(SortableList, { className: 'dta-priorities', label: t('排序优先级列表', 'Sorting priority list'), items: priorities, itemKey: id => id, itemName: id => priorityNames[id], handleLabel: t('拖动优先级', 'Drag priority'), busy, locale, onMove: movePriority,
+      renderItem: (id, index, handle) => h('div', { className: 'dta-priority-row', 'data-priority': id }, handle, h('span', null, `${index + 1}. ${priorityNames[id]}`)) }),
     h('div', { className: 'dta-resource-policy' },
       h('label', null, t('身份处理', 'Identity'), h('select', { disabled: busy, value: policy.identity, onChange: e => changePolicy({ identity: e.target.value }) }, h('option', { value: 'preserve' }, t('保留来源身份', 'Preserve source roles')), h('option', { value: 'position' }, t('允许按位置适配', 'Allow position adaptation')))),
       h('label', null, t('缺失定位', 'Missing targets'), h('select', { disabled: busy, value: policy.fallback, onChange: e => changePolicy({ fallback: e.target.value }) }, h('option', { value: 'source-order' }, t('回退并说明原因', 'Fall back with explanation')), h('option', { value: 'error' }, t('拒绝装配', 'Reject assembly'))))),
     h('small', null, t('原生历史、工具事务和留存边界始终由 DSH 管理。关闭位置会排除该位置的内容；拖动设置用户排列。', 'DSH always owns native history, tool transactions and retention boundaries. Turning a position off excludes its content; dragging sets user order.')),
     preset.layout?.overrides.length > 0 && h('div', { className: 'dta-notice' }, t('此策略还含有旧的具体资源定位。可先在结果页检查；清除后仅使用这里的通用位置配置。', 'This strategy also contains older asset-specific overrides. Inspect the result before clearing them to use only reusable positions.'), h('button', { disabled: busy, onClick: () => changePolicy({ overrides: [] }) }, t('清除旧资源定位', 'Clear asset-specific overrides'))),
-    h('div', { className: 'dta-position-list' }, ...rows.map((row, index) => h('article', { key: row.key, className: 'dta-position-row', 'data-position-key': row.key, 'data-drop-side': drop?.key === row.key ? drop.before ? 'before' : 'after' : undefined, 'data-resource-dragging': drag === row.key, style: { '--assembly-color': sourceColor(row.source.pluginId) } },
-      h('div', { className: 'dta-position-summary' },
-        h('button', { className: 'dta-handle', type: 'button', disabled: busy || fixed(row) || row.missing || row.position.configurable === false, 'aria-label': `${t('移动位置', 'Move position')}: ${title(row)}`,
-          onPointerDown: e => { if (e.button !== 0) return; e.preventDefault(); e.currentTarget.setPointerCapture(e.pointerId); setDrag(row.key) },
-          onPointerMove: e => { if (e.currentTarget.hasPointerCapture(e.pointerId)) setDrop(destination(e)) },
-          onPointerUp: e => { if (!e.currentTarget.hasPointerCapture(e.pointerId)) return; const target = destination(e); e.currentTarget.releasePointerCapture(e.pointerId); if (target && target.key !== row.key) update(row, {}, target.before ? target.key : rows[target.index + 1]?.key ?? null); setDrag(null); setDrop(null) },
-          onPointerCancel: () => { setDrag(null); setDrop(null) }, onLostPointerCapture: () => { setDrag(null); setDrop(null) } }, fixed(row) ? '🔒' : '⠿'),
+    h(SortableList, { className: 'dta-position-list', items: rows, itemKey: row => row.key, itemName: title, handleLabel: t('移动位置', 'Move position'), busy, locale,
+      canMove: row => !fixed(row) && !row.missing && row.position.configurable !== false,
+      onMove: (row, before) => update(row, {}, before?.key ?? null),
+      renderItem: (row, index, handle) => h('article', { className: 'dta-position-row', 'data-position-key': row.key, style: { '--assembly-color': sourceColor(row.source.pluginId) } },
+      h('div', { className: 'dta-position-summary' }, handle,
         h('input', { type: 'checkbox', checked: row.enabled, disabled: busy || row.missing || row.position.configurable === false || preset.backend === 'native' && ['history', 'input'].includes(row.sourceId), 'aria-label': `${t('启用位置', 'Enable position')}: ${title(row)}`, onChange: e => update(row, { enabled: e.target.checked }) }),
         h('div', null, h('strong', null, title(row)), h('small', { className: 'dta-origin' }, `${originName(row.source.pluginId)} · ${sourceName(row.sourceId)}`))),
       h('div', { className: 'dta-position-body' },
@@ -63,7 +44,7 @@ export function ResourcePositionEditor({ preset, sources, locale = 0, busy, onCh
         h('small', null, row.missing ? t('来源未注册；保留配置，装配时按缺失定位规则处理。', 'Provider unavailable; configuration is retained and uses the missing-target policy.') : row.source.moduleAvailable === false ? t('当前没有可用内容；配置仍可保存，资源可用后生效。', 'No content is currently available; save the policy for when resources become available.') : fixed(row) ? t('位置由运行时管理', 'Position managed by runtime') : row.placement === 'list' ? t('用户排列；轮到该策略时只排列尚未定位的资源', 'User order; applied only to resources not placed by an earlier strategy') : t('跟随预设插槽或资源自身位置', 'Follow preset slots or resource-defined position')),
         row.position.note && h('small', null, row.position.note[locale]),
         !fixed(row) && row.position.configurable !== false && row.placement === 'list' && h('div', { className: 'dta-position-actions' },
-          row.placement === 'list' && h('button', { disabled: busy, onClick: () => update(row, { placement: 'source' }) }, t('跟随资源位置', 'Follow source position')))))))
+          row.placement === 'list' && h('button', { disabled: busy, onClick: () => update(row, { placement: 'source' }) }, t('跟随资源位置', 'Follow source position'))))) })
   )
 }
 export function PositionDecisions({ preview, sources, locale = 0, sourceName = id => sources.find(s => s.id === id)?.name ?? id }) {
