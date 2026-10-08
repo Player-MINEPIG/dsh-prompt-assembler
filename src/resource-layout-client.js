@@ -2,12 +2,15 @@ import { createElement as h, useState } from 'react'
 import { withBlockMove } from './resource-layout.js'
 
 /** Current resources are rendered separately from reusable source configuration. */
-export function ResourceLayoutEditor({ preset, preview, locale = 0, busy, onChange, onPreview }) {
+export function ResourceLayoutEditor({ preset, preview, locale = 0, busy, onChange, onPreview, sourceColor = () => '#999999', originName = plugin => plugin ?? '—', sourceName = kind => kind ?? '—' }) {
   const [drag, setDrag] = useState(null), [drop, setDrop] = useState(null), [error, setError] = useState('')
   const t = (zh, en) => locale === 0 ? zh : en
   const terms = { 'native-system': '原生指令', history: '原生历史', input: '本步输入', worldbook: '世界书', character: '角色卡', description: '角色描述', before: '前置组', after: '后置组', depth: '深度组', preserve: '保留原身份', free: '自由块', slot: '插槽绑定', runtime: '运行时管理', request: '每轮重新装配', snapshot: '留存快照', native: '原生留存', 'source-defined': '按来源顺序', 'before-input:pre-step': '输入前投递', 'after-input:pre-step': '输入后投递', 'after-input:context': '原生 context', system: 'system', user: 'user', assistant: 'assistant' }
   const label = value => locale === 0 ? terms[value] ?? value : value
   const blockName = block => block.name.split(' · ').map(label).join(' · ')
+  const origins = block => [...new Map(block.entries.map(({ source }) => [JSON.stringify([source?.plugin, source?.module]), source ?? {}])).values()]
+  const blockColor = block => { const plugins = [...new Set(block.entries.map(entry => entry.source?.plugin))]; return sourceColor(plugins.length === 1 ? plugins[0] : null) }
+  const sourceLabel = source => `${originName(source?.plugin)} · ${sourceName(source?.module)}`
   const layout = preview?.resourceLayout
   const update = patch => onChange({ ...preset, layout: { ...preset.layout, ...patch } })
   const move = (target, anchor, side, detach = false) => {
@@ -33,7 +36,7 @@ export function ResourceLayoutEditor({ preset, preview, locale = 0, busy, onChan
     h('button', { disabled: busy, onClick: onPreview }, t('刷新当前资源', 'Refresh current resources')),
     error && h('p', { role: 'alert' }, error),
     !layout ? h('p', null, t('预览以解析当前资源及限制。', 'Preview to resolve current resources and constraints.')) : h('div', { className: 'dta-resource-blocks' },
-      ...layout.blocks.map((b, i) => h('article', { key: b.id, className: 'dta-row', 'data-resource-block': b.id, 'data-drop-side': drop?.anchor === b.id ? drop.side : undefined, 'data-resource-dragging': drag === b.id },
+      ...layout.blocks.map((b, i) => h('article', { key: b.id, className: 'dta-row', 'data-resource-block': b.id, style: { '--assembly-color': blockColor(b) }, 'data-drop-side': drop?.anchor === b.id ? drop.side : undefined, 'data-resource-dragging': drag === b.id },
         h('div', { className: 'dta-summary' },
           h('button', { type: 'button', className: 'dta-handle', disabled: busy || !preset.layout || !b.movable, 'aria-label': `${t('移动整块', 'Move whole block')}: ${blockName(b)}`,
             title: b.movable ? t('拖动整块', 'Drag whole block') : t('位置已锁定', 'Position locked'),
@@ -41,12 +44,13 @@ export function ResourceLayoutEditor({ preset, preview, locale = 0, busy, onChan
             onPointerMove: e => { if (e.currentTarget.hasPointerCapture(e.pointerId)) setDrop(dropAt(e)) },
             onPointerUp: e => { if (!e.currentTarget.hasPointerCapture(e.pointerId)) return; const target = dropAt(e); e.currentTarget.releasePointerCapture(e.pointerId); if (target) move(b.id, target.anchor, target.side); setDrag(null); setDrop(null) },
             onLostPointerCapture: () => { setDrag(null); setDrop(null) }, onPointerCancel: () => { setDrag(null); setDrop(null) } }, b.movable ? '⠿' : '🔒'),
-          h('strong', null, `${i + 1}. ${blockName(b)}`), h('small', null, `${b.originalRoles.map(label).join('/')} → ${b.effectiveRoles.map(label).join('/')} · ${label(b.region)} · ${label(b.binding)}`)),
+          h('strong', null, `${i + 1}. ${blockName(b)}`),
+          h('div', { className: 'dta-resource-origins' }, ...origins(b).map((source, i) => h('span', { key: i, className: 'dta-resource-origin', style: { '--assembly-color': sourceColor(source.plugin) } }, sourceLabel(source)))), h('small', null, `${b.originalRoles.map(label).join('/')} → ${b.effectiveRoles.map(label).join('/')} · ${label(b.region)} · ${label(b.binding)}`)),
         h('div', { className: 'dta-resource-body' },
         h('small', null, `${t('留存', 'Retention')}: ${b.retention.map(label).join('/')} · ${b.reason === 'user-override' ? t('用户自定义位置', 'User position override') : b.slotId ? t('来源插槽决定位置', 'Source slot owns position') : t('来源默认顺序', 'Source default order')}`),
         b.slotId && h('p', null, `${t('位置由插槽锁定', 'Position locked by slot')}: ${b.slotId}`),
         ...b.limitations.map(reason => h('p', { key: reason, className: 'dta-notice' }, reason === 'NATIVE_CONTEXT_REUSES_HISTORY_POSITION' ? t('原生 context 可能复用历史中的旧位置；此处顺序仅表示新快照的位置，精确位置以实际请求为准。', 'Native context can reuse an earlier history position. This order describes new snapshots; actual requests determine exact placement.') : t('原生历史、深度或留存快照的位置由运行时约束。', 'Native history, depth or retained snapshots constrain this position.'))),
-        h('details', null, h('summary', null, `${t('内容与来源', 'Content and provenance')} · ${b.entries.length} · ${label(b.internalOrder)}`), ...b.entries.map(entry => h('div', { key: entry.id, className: 'dta-child' }, h('small', null, `${entry.source?.module} / ${entry.source?.resourceId ?? ''} / ${entry.source?.field} · ${entry.originalRole} → ${entry.effectiveRole} · ${label(entry.lifetime)}`), h('pre', null, entry.text), ...(entry.children ?? []).map((child, index) => h('pre', { key: index }, `${child.source?.module ?? ''} / ${child.source?.field ?? ''}\n${child.text ?? ''}`))))),
+        h('details', null, h('summary', null, `${t('内容与来源', 'Content and provenance')} · ${b.entries.length} · ${label(b.internalOrder)}`), ...b.entries.map(entry => h('div', { key: entry.id, className: 'dta-child', style: { borderLeftColor: sourceColor(entry.source?.plugin) } }, h('small', null, `${sourceLabel(entry.source)} / ${entry.source?.resourceId ?? ''} / ${entry.source?.field} · ${entry.originalRole} → ${entry.effectiveRole} · ${label(entry.lifetime)}`), h('pre', null, entry.text), ...(entry.children ?? []).map((child, index) => h('pre', { key: index }, `${sourceLabel(child.source)} / ${child.source?.field ?? ''}\n${child.text ?? ''}`))))),
         preset.layout && (b.movable || b.overridable) && h('details', { className: 'dta-position-menu' },
           h('summary', null, b.overridable ? t('自定义位置', 'Customize position') : t('更多移动方式', 'More move options')),
           b.overridable && h('p', null, t('选择目标后将解除插槽位置绑定，可再通过拖拽调整。', 'Choosing a target overrides the slot position; you can then drag this block.')),
