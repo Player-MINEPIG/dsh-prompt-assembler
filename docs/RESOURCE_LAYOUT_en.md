@@ -12,6 +12,10 @@ MVU declares its standalone variable-state and update-instruction injection. Var
 
 Source, parser, role, delivery, retention and native-context settings are under the configuration page's Source, text and delivery settings disclosure. The result page is read-only and does not present empty configuration rows as emitted output.
 
+With the standard backend, Preserve source roles routes system content before history and user content into native user delivery regions. Slot priority orders content within role and runtime boundaries instead of forcing role changes across slots. World-book depth cannot override this identity choice. Only Allow position adaptation maps roles from slots and depth 0/1. The native-instructions switch is independent and can always be turned off.
+
+Assembly errors remain visible until revalidation succeeds; editing or saving does not establish validity. Before applying the current or default strategy, the UI previews it again against the current session or opening draft and refuses application on failure. Checks exclude unsent input; actual requests still revalidate changing resources.
+
 ## Priority and switches
 
 Each position follows its source or uses user order. Moving a row marks only that position as user-ordered. Other positions continue following their preset/source; the list supplies neighboring semantic anchors, and empty positions emit no text.

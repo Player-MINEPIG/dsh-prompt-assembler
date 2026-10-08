@@ -27,6 +27,7 @@ function harness() {
       }
       return json({ ok: true, policy: structuredClone(stored), revision, capabilities: { mode: selection?.backend === 'core' ? 'advanced' : 'standard' } })
     }
+    if (url.endsWith('/preview')) return json({preview:{nodes:[],messages:[],diagnostics:[]}})
     if (url.endsWith('/selection')) {
       selection = JSON.parse(options.body).id ? { id: preset.id, name: preset.name, backend: preset.backend } : null
       return json({ selection })

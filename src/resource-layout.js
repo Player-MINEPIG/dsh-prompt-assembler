@@ -15,7 +15,7 @@ export function normalizeLayout(value) {
 }
 export function layoutPlacement(preset) {
   if (!preset.layout) return preset.placement
-  return preset.backend === 'native' ? preset.layout.source === 'preset-slots' ? 'native-slots' : 'native-roles' : preset.layout.source === 'preset-slots' ? 'st' : 'modules'
+  return preset.backend === 'native' ? preset.layout.source === 'preset-slots' && preset.layout.identity === 'position' ? 'native-slots' : 'native-roles' : preset.layout.source === 'preset-slots' ? 'st' : 'modules'
 }
 const region = (n, preset) => preset.backend !== 'native' ? 'request' : n.source?.module === 'history' ? 'history' : n.source?.module === 'input' ? 'input' : n.role === 'system' || n.source?.module === 'native-system' ? 'system' : `${n.nativePlacement ?? 'after-input'}:${n.nativeDelivery ?? preset.rules.find(r => r.id === n.ruleId)?.delivery ?? 'context'}`
 function groupKey(n, preset) {

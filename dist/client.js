@@ -407,7 +407,7 @@ function normalizeLayout(value) {
 }
 function layoutPlacement(preset) {
   if (!preset.layout) return preset.placement;
-  return preset.backend === "native" ? preset.layout.source === "preset-slots" ? "native-slots" : "native-roles" : preset.layout.source === "preset-slots" ? "st" : "modules";
+  return preset.backend === "native" ? preset.layout.source === "preset-slots" && preset.layout.identity === "position" ? "native-slots" : "native-roles" : preset.layout.source === "preset-slots" ? "st" : "modules";
 }
 
 // src/resource-layout-client.js
@@ -893,6 +893,7 @@ function AssemblyPanelContent({ selectionTarget, sessionId, sessionLabel: sessio
   const [items, setItems] = (0, import_react4.useState)([]), [draft, setDraft] = (0, import_react4.useState)(null), [selection, setSelection] = (0, import_react4.useState)(null), [capable, setCapable] = (0, import_react4.useState)(false), [capabilities, setCapabilities] = (0, import_react4.useState)(null);
   const [status, setStatus] = (0, import_react4.useState)(""), [error, setError] = (0, import_react4.useState)(false), [busy, setBusy] = (0, import_react4.useState)(false), [tab, setTab] = (0, import_react4.useState)("rules"), [preview, setPreview] = (0, import_react4.useState)(null), [dirty, setDirty] = (0, import_react4.useState)(false), [expanded, setExpanded] = (0, import_react4.useState)({});
   const [historyDirty, setHistoryDirty] = (0, import_react4.useState)(false);
+  const [validationFailure, setValidationFailure] = (0, import_react4.useState)(null);
   const appliedBackend = selection?.backend ?? "native";
   const file = (0, import_react4.useRef)(), stage = (0, import_react4.useRef)(), dialog = (0, import_react4.useRef)(), generation = (0, import_react4.useRef)(0), mounted = (0, import_react4.useRef)(true);
   (0, import_react4.useLayoutEffect)(() => {
@@ -1012,6 +1013,17 @@ function AssemblyPanelContent({ selectionTarget, sessionId, sessionLabel: sessio
   };
   const editablePreset = (preset) => ({ ...preset, rules: preset.rules.map(editableRule) });
   const editLayout = (next) => edit({ rules: next.rules, layout: next.layout, placement: layoutPlacement(next) });
+  async function validateCurrent(candidate = draft) {
+    try {
+      const data = await api("/preview", "POST", { sessionId, preset: editablePreset(candidate) });
+      if (!data.preview) throw new Error(locale === 0 ? "\u672A\u8FD4\u56DE\u88C5\u914D\u6821\u9A8C\u7ED3\u679C" : "Assembly validation result is unavailable");
+      setValidationFailure(null);
+      return data.preview;
+    } catch (error2) {
+      setValidationFailure({ id: candidate.id, candidate, message: error2.message });
+      throw error2;
+    }
+  }
   const controlRows = (rules) => contextControlRows(rules, sources.map((s) => s.id));
   const editRule = (id, patch) => edit({ rules: controlRows(draft.rules).map((r) => r.id === id ? { ...editableRule(r), ...patch } : r) });
   const toggle = (id) => setExpanded((old) => ({ ...old, [id]: !old[id] }));
@@ -1284,6 +1296,12 @@ function AssemblyPanelContent({ selectionTarget, sessionId, sessionLabel: sessio
         }
       })),
       status && (0, import_react4.createElement)("div", { role: error ? "alert" : "status", className: "dta-notice", "data-error": error }, status),
+      validationFailure && validationFailure.id === draft?.id && (0, import_react4.createElement)(
+        "div",
+        { role: "alert", className: "dta-notice", "data-assembly-validation-error": true },
+        validationFailure.candidate === draft ? locale === 0 ? "\u5F53\u524D\u8D44\u6E90\u88C5\u914D\u6821\u9A8C\u5931\u8D25\uFF1A" : "Current-resource validation failed: " : locale === 0 ? "\u914D\u7F6E\u5DF2\u4FEE\u6539\u6216\u4FDD\u5B58\uFF0C\u5C1A\u672A\u901A\u8FC7\u91CD\u65B0\u6821\u9A8C\u3002\u4E0A\u6B21\u9519\u8BEF\uFF1A" : "Configuration changed or saved; revalidation is required. Last error: ",
+        validationFailure.message
+      ),
       !draft ? (0, import_react4.createElement)("div", null, !error && (0, import_react4.createElement)("p", null, t("loading")), error && button("retry", () => setReload((n) => n + 1))) : (0, import_react4.createElement)(
         "div",
         null,
@@ -1309,9 +1327,9 @@ function AssemblyPanelContent({ selectionTarget, sessionId, sessionLabel: sessio
         (0, import_react4.createElement)("div", { className: "dta-notice" }, draft.layout ? locale === 0 ? "\u5148\u914D\u7F6E\u8D44\u6E90\u4F4D\u7F6E\uFF0C\u518D\u52A0\u8F7D\u5F53\u524D\u8D44\u6E90\u67E5\u770B\u88C5\u914D\u7ED3\u679C\u3002\u6392\u5E8F\u7B56\u7565\u6309\u5217\u8868\u4F9D\u6B21\u5904\u7406\u5C1A\u672A\u5B9A\u4F4D\u7684\u8D44\u6E90\uFF0C\u8FD0\u884C\u65F6\u7EA6\u675F\u59CB\u7EC8\u751F\u6548\u3002" : "Configure resource positions, then load current assets to see the assembled result. Sorting strategies process the remaining resources in list order, within runtime constraints." : t(adaptiveNative ? draft.placement === "native-slots" ? "nativeSlotsHint" : "nativeRolesHint" : nativeDraft ? "nativeHint" : "coreHint")),
         nativeError && (0, import_react4.createElement)("div", { className: "dta-notice", role: "alert" }, nativeError),
         (0, import_react4.createElement)("div", { className: "dta-tabs" }, (0, import_react4.createElement)("button", { "aria-pressed": tab === "rules", onClick: () => setTab("rules") }, t("rules")), button("preview", () => run(async () => {
-          const data = await api("/preview", "POST", { sessionId, preset: editablePreset(draft) });
-          setPreview(data.preview);
-          if (slotMode) setSlotAnalysis({ draft, preview: data.preview });
+          const result = await validateCurrent();
+          setPreview(result);
+          if (slotMode) setSlotAnalysis({ draft, preview: result });
           setTab("expanded");
         }), Boolean(selectionTarget && (typeof selectionTarget.previewAssembly !== "function" || selectionTarget.editable === false)), void 0, tab === "expanded" && !preview?.actual)),
         (0, import_react4.createElement)("div", { className: "dta-result-tools" }, button("actual", () => run(actualRequest), !sessionId)),
@@ -1339,6 +1357,7 @@ function AssemblyPanelContent({ selectionTarget, sessionId, sessionLabel: sessio
         (0, import_react4.createElement)("div", { className: "dta-toolbar" }, button("apply", async () => {
           if (!await changeHistoryBackend(draft.backend ?? "core")) return;
           run(async () => {
+            await validateCurrent();
             const preset = dirty || !draft.id ? await save() : draft;
             const data = await api("/selection", "PUT", { sessionId, id: preset.id });
             setSelection(data.selection);
@@ -1349,6 +1368,7 @@ function AssemblyPanelContent({ selectionTarget, sessionId, sessionLabel: sessio
           const nextBackend = items.find((p) => p.id === defaultId)?.backend ?? "core";
           if (!await (nextBackend === appliedBackend ? discard() : leave())) return;
           run(async () => {
+            await validateCurrent(items.find((p) => p.id === defaultId));
             const data = await api("/selection", "PUT", { sessionId, id: defaultId });
             setSelection(data.selection);
             setDraft(items.find((p) => p.id === defaultId));

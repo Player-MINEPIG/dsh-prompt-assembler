@@ -38,10 +38,10 @@ test('missing override diagnoses fallback or rejects explicitly', () => {
   assert.ok(run(moved, gone).diagnostics.some(d => d.code === 'LAYOUT_TARGET_MISSING'))
   assert.throws(() => run({ ...moved, layout: { ...moved.layout, fallback: 'error' } }, gone), /no longer available/)
 })
-test('mixed authored roles preserved by core; native conflicts require explicit adaptation', () => {
+test('mixed authored roles preserved by core; native rejects assistant and adapts only when requested', () => {
   const mixed = { preset: { id: 'p', prompts: [prompt('a', 'A', 'user'), prompt('b', '{{history}}{{input}}'), prompt('c', 'C', 'assistant')] } }
   assert.deepEqual(run(base, mixed).messages.map(m => m.role), ['user', 'user', 'user', 'assistant'])
-  assert.throws(() => run({ ...base, backend: 'native' }, mixed), /Preserving identity conflicts/)
+  assert.throws(() => run({ ...base, backend: 'native' }, mixed), /cannot preserve assistant/)
   const r = run({ ...base, backend: 'native', layout: { ...policy, identity: 'position' } }, mixed)
   assert.deepEqual(r.messages.map(m => m.role), ['system', 'user', 'user', 'user'])
   assert.equal(contains(r.resourceLayout, 'C').entries[0].originalRole, 'assistant')

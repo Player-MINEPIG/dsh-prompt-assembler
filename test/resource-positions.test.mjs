@@ -159,3 +159,27 @@ test('sorting passes consume resources once and only move the remaining resource
   assert.equal(claimed[0].nodeIds.length, 4)
   assert.ok(claimed.slice(1).every(s => s.nodeIds.length === 0), 'later passes cannot touch resources consumed by default')
 })
+
+
+test('toggling native instructions keeps source roles and never forces slot identity adaptation', () => {
+  const registry=createDefaultRegistry()
+  const data={preset:{prompts:[
+    {identifier:'user-head',enabled:true,role:'user',content:'USER BEFORE HISTORY'},
+    marker('chatHistory'),
+    {identifier:'system-tail',enabled:true,role:'system',content:'SYSTEM AFTER HISTORY'}
+  ]},loreEntries:[{id:'depth',resourceId:'book',position:'after',requestedPosition:'at_depth',depth:0,role:'system',content:'SYSTEM DEPTH ZERO'}]}
+  let p=preset('native')
+  for(const enabled of [false,true,false]) {
+    p=configurePosition(p,registry.list(),positionKey('native-system','content'),{enabled})
+    const normalized=normalizePreset(p)
+    assert.equal(normalized.placement,'native-roles')
+    const result=run(normalized,data,registry)
+    assert.equal(result.messages.some(m=>textOf(m)==='NATIVE'),enabled)
+    for(const text of ['SYSTEM AFTER HISTORY','SYSTEM DEPTH ZERO'])assert.equal(result.nodes.find(n=>n.text===text).role,'system')
+    assert.equal(result.nodes.find(n=>n.text==='USER BEFORE HISTORY').role,'user')
+    const history=result.nodes.findIndex(n=>n.source.module==='history')
+    assert(result.nodes.findIndex(n=>n.text==='SYSTEM AFTER HISTORY')<history)
+    assert(result.nodes.findIndex(n=>n.text==='USER BEFORE HISTORY')>history)
+    assert(!result.diagnostics.some(d=>d.code==='NATIVE_ROLE_ADJUSTED'))
+  }
+})

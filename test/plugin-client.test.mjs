@@ -128,6 +128,7 @@ test('mounted dirty editor prompts on native navigation and cancellation keeps w
   try {
     await assembler.open()
     const fetcher = async (url, options) => {
+      if (url.endsWith('/preview')) return json({preview:{nodes:[],messages:[],diagnostics:[]}})
       if (options.method === 'POST') return json({ preset: { ...preset, id: 'saved' } })
       if (options.method === 'PUT') { selections.push(JSON.parse(options.body)); return json({ selection: { id: 'saved', name: 'Strategy' } }) }
       return json(library)
@@ -455,4 +456,34 @@ test('cancelling a shared list drag clears origin and placeholder without editin
     await act(() => button(ui.document, 'Save rules').click())
     assert.equal(saved[0].layout, undefined)
   } finally { await ui.close() }
+})
+
+
+for (const openingDraft of [false,true]) test(`failed validation survives edits/save and blocks apply until rechecked (draft=${openingDraft})`,async()=>{
+ const ui=dom(),calls=[];let rejected=true
+ const current={...preset,rules:[{id:'native',kind:'native-system',enabled:true,role:'preserve',lifetime:'request'}]}
+ const preview=async()=>{calls.push('preview');if(rejected)throw Error('SOURCE ROLE CONFLICT');return {preview:{nodes:[],messages:[],diagnostics:[]}}}
+ const target={id:'draft',editable:true,getSelection:async()=>current,previewAssembly:preview,applyAssembly:async()=>{calls.push('apply');return {selection:current}}}
+ const fetcher=async(url,options)=>{
+  if(url.endsWith('/preview')){try{return json(await preview())}catch(error){return new Response(JSON.stringify({error:error.message}),{status:409})}}
+  if(url.endsWith('/selection')){calls.push('apply');return json({selection:current})}
+  if(options.method==='PUT'){calls.push('save');return json({preset:{...JSON.parse(options.body),id:'p'}})}
+  return json({...library,presets:[current],sources:[{id:'native-system',name:'Native instructions',pluginId:'DSH',roles:['preserve'],lifetimes:['request']}]})
+ }
+ try{
+  await act(()=>ui.root.render(h(AssemblyPanel,{standalone:true,locale:'en',fetcher,...openingDraft?{selectionTarget:target}:{sessionId:'s'}})))
+  await act(()=>button(ui.document,'Assembly result').click())
+  assert.match(ui.document.querySelector('[data-assembly-validation-error]').textContent,/SOURCE ROLE CONFLICT/)
+  const toggle=ui.document.querySelector('[aria-label="Enable position: Native instructions"]')
+  await act(()=>toggle.click())
+  await act(()=>button(ui.document,'Save rules').click())
+  assert.match(ui.document.querySelector('[data-assembly-validation-error]').textContent,/revalidation is required/)
+  await act(()=>button(ui.document,'Apply to this session').click())
+  assert.equal(calls.filter(x=>x==='apply').length,0)
+  assert.equal(calls.filter(x=>x==='preview').length,2)
+  rejected=false
+  await act(()=>button(ui.document,'Apply to this session').click())
+  assert.deepEqual(calls.slice(-2),['preview','apply'])
+  assert.equal(ui.document.querySelector('[data-assembly-validation-error]'),null)
+ }finally{await ui.close()}
 })

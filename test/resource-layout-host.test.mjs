@@ -7,6 +7,7 @@ import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import plugin from '../src/plugin.js'
 import { AssemblyPresetStore } from '../src/store.js'
+import { configurePosition, positionKey } from '../src/resource-positions.js'
 import { withBlockMove } from '../src/resource-layout.js'
 import { registerTavernSources, DEFAULT_RULES } from '../adapters/tavern.js'
 import { textOf } from '../src/assemble.js'
@@ -64,6 +65,27 @@ for (const backend of ['native', 'core']) {
         assert.deepEqual(errors, [])
         const actual = requests.at(-1).map(textOf).join('\n\n')
         assert.ok(actual.includes(lore.join('\n\n')))
+      }
+      if (backend === 'native') {
+        assets.preset={id:'mixed',prompts:[
+          {identifier:'lead',enabled:true,role:'user',content:'USER_HEAD'},
+          {identifier:'chatHistory',marker:true,enabled:true},
+          {identifier:'tail',enabled:true,role:'system',content:'SYSTEM_TAIL'},
+        ]}
+        assets.loreEntries=[{id:'depth',resourceId:'book',content:'SYSTEM_DEPTH_ZERO',position:'after',depth:0,role:'system'}]
+        let configured={...saved,layout:{...saved.layout,overrides:[],positions:[]}}
+        for(const enabled of [false,true,false]) {
+          configured=face.store.save(configurePosition(configured,face.registry.list(),positionKey('native-system','content'),{enabled}),saved.id)
+          const resolved=await face.runtime.preview({preset:configured,agent,sessionId:'fixture'})
+          assert.equal(resolved.nodes.some(n=>n.source.module==='native-system'),enabled)
+          face.store.apply('fixture',configured.id)
+          agent.followup(llm.createUserMessage({content:[{type:'text',text:'TOGGLE INPUT'}],source:{kind:'user'}}));await agent.whenIdle()
+          assert.deepEqual(errors,[])
+          const actual=requests.at(-1)
+          assert.equal(actual.some(m=>m.role==='system'&&textOf(m).includes('NATIVE')),enabled)
+          assert(actual.some(m=>m.role==='system'&&textOf(m).includes('SYSTEM_TAIL')&&textOf(m).includes('SYSTEM_DEPTH_ZERO')))
+          assert(actual.some(m=>m.role==='user'&&textOf(m).includes('USER_HEAD')))
+        }
       }
     } finally { await ctx.fiber.dispose(); rmSync(directory, { recursive: true, force: true }) }
   })
