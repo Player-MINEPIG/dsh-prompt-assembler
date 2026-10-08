@@ -510,3 +510,55 @@ test('automatic priority changes refresh definite editor positions without chang
     assert.match(ui.document.body.textContent, /Definite positions follow current resources/)
   } finally { await ui.close() }
 })
+
+for (const locale of ['zh-CN', 'en']) test(`priority errors explain recovery and clear when switching strategies: ${locale}`, async () => {
+  const { Simulate } = await import('react-dom/test-utils')
+  const ui = dom()
+  const good = { ...preset, id: 'good', name: 'Working strategy' }
+  try {
+    const fetcher = async (url, options) => {
+      if (url.endsWith('/preview')) return new Response(JSON.stringify({ error: 'Invalid position priority order' }), { status: 400 })
+      return json({ ...library, presets: [preset, good] })
+    }
+    await act(async () => ui.root.render(h(AssemblyPanel, { standalone: true, sessionId: 's', locale, close() {}, fetcher })))
+    await act(async () => button(ui.document, locale === 'en' ? 'Assembly result' : '装配结果').click())
+    const error = ui.document.querySelector('[data-error=true]')
+    assert.ok(error)
+    assert.match(error.textContent, locale === 'en' ? /Refresh the page/ : /刷新页面/)
+    assert.match(error.textContent, /Tavern.*Assembler/)
+    assert.match(error.textContent, locale === 'en' ? /save a copy/ : /另存为副本/)
+    assert.equal(error.querySelector('details pre').textContent, 'Invalid position priority order')
+    await act(async () => Simulate.change(ui.document.querySelector('.dta-grid select'), { target: { value: 'good' } }))
+    assert.equal(ui.document.querySelector('[data-error=true]'), null)
+  } finally { await ui.close() }
+})
+
+test('all built-in strategies render, preview and pass application preflight with current priorities', async () => {
+  const { Simulate } = await import('react-dom/test-utils')
+  const { AssemblyPresetStore } = await import('../adapters/tavern-runtime.js')
+  const { createDefaultRegistry } = await import('../adapters/tavern.js')
+  const { assembleRequest } = await import('../src/assemble.js')
+  const { mkdtempSync, rmSync } = await import('node:fs')
+  const { tmpdir } = await import('node:os')
+  const directory = mkdtempSync(`${tmpdir()}/builtins-client-`), store = new AssemblyPresetStore(directory)
+  const { BUILTINS: nativeBuiltins } = await import('../src/model.js')
+  const presets = [...nativeBuiltins, ...store.list()], registry = createDefaultRegistry(), ui = dom(), applied = []
+  try {
+    assert.equal(presets.length, 4)
+    const fetcher = async (url, options) => {
+      const body = options.body && JSON.parse(options.body)
+      if (url.endsWith('/preview')) return json({ preview: assembleRequest({ registry, preset: body.preset, nativeMessages: [{ id: 'old', role: 'user', content: [{ type: 'text', text: 'OLD' }] }, { id: 'now', role: 'user', content: [{ type: 'text', text: 'NOW' }] }], inputIds: ['now'], assets: { preset: { prompts: [{ identifier: 'main', content: 'HEAD', role: 'system', enabled: true }, { identifier: 'chatHistory', marker: true, enabled: true }, { identifier: 'jailbreak', content: 'TAIL', role: 'user', enabled: true }] } } }) })
+      if (url.endsWith('/selection')) { applied.push(body.id); return json({ selection: presets.find(p => p.id === body.id) }) }
+      return json({ ...library, presets, defaultPresetId: presets[0].id, sources: registry.list(), capabilities: { native: true, core: true } })
+    }
+    await act(async () => ui.root.render(h(AssemblyPanel, { standalone: true, sessionId: 's', locale: 'en', close() {}, fetcher })))
+    for (const candidate of presets) {
+      await act(async () => Simulate.change(ui.document.querySelector('.dta-grid select'), { target: { value: candidate.id } }))
+      await act(async () => button(ui.document, 'Assembly result').click())
+      assert.equal(ui.document.querySelector('[data-error=true]'), null, candidate.id)
+      assert.ok(ui.document.querySelectorAll('.dta-row').length, candidate.id)
+      await act(async () => button(ui.document, 'Apply to this session').click())
+      assert.equal(applied.at(-1), candidate.id)
+    }
+  } finally { await ui.close(); rmSync(directory, { recursive: true, force: true }) }
+})
