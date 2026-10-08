@@ -5,7 +5,7 @@
 See [resource layout](RESOURCE_LAYOUT_en.md) for current blocks, slots, stable positioning and legacy compatibility.
 ## Backend selection
 
-Choose Standard for public DSH interfaces, or Advanced for the optional addon and prepared core. Legacy strategies remain advanced. Standard history/input cannot be disabled or moved out of order; no arbitrary depth or assistant contributions. User context and pre-step both persist in history. Standard mode offers four Tavern references: preset slots first (RP default), roles first, lore and PHI last, and PHI last. See [backend rules](BACKENDS_en.md).
+Choose Standard for public DSH interfaces, or Advanced for the optional addon and prepared core. Legacy strategies remain advanced. Standard history/input cannot be disabled or moved out of order; no arbitrary depth or assistant contributions. User context and pre-step both persist in history. Standard mode offers two Tavern references: preset slots first (RP default) and roles first. See [backend rules](BACKENDS_en.md).
 
 ## Entry and interface
 

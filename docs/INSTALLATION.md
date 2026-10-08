@@ -29,7 +29,7 @@ node core-extension/scripts/switch-runtime.mjs install --runtime /path/to/runtim
 node core-extension/scripts/switch-runtime.mjs uninstall --runtime /path/to/runtime --home /path/to/dsh-home --profile web
 ```
 
-卸载只移除进阶 addon 并恢复标准核心。仍绑定进阶策略的会话切回标准预设插槽优先，原选择备份保留在 profile 的 `.assembler-core-switch/selections-before-uninstall.json`；自定义策略、标准选择、关闭状态及 DSH 会话日志保留。重新安装不自动恢复旧进阶选择。首次安装也保留已有显式选择；请在界面选择进阶插槽或世界书与 PHI 后置策略以测试进阶行为。核心备份与切换 receipt 位于 profile 的 `.assembler-core-switch/`，回退前不要删除。两条指令只针对显式路径，要求目标 Host 已停止。
+卸载只移除进阶 addon 并恢复标准核心。仍绑定进阶策略的会话切回标准预设插槽优先，原选择备份保留在 profile 的 `.assembler-core-switch/selections-before-uninstall.json`；自定义策略、标准选择、关闭状态及 DSH 会话日志保留。重新安装不自动恢复旧进阶选择。首次安装也保留已有显式选择；请在界面选择进阶插槽策略以测试进阶行为。核心备份与切换 receipt 位于 profile 的 `.assembler-core-switch/`，回退前不要删除。两条指令只针对显式路径，要求目标 Host 已停止。
 
 扩展仅在 `agentLoop.requestAssemblyVersion===1` 时可挂载。只有准备后的核心、没有 addon，也不能应用 core 策略。两者缺任一，旧进阶策略仍可编辑/预览，但应用返回 409。标准包不包含准备工具或 addon bundle；root `scripts/prepare-request-assembly.mjs` 仅是源码开发兼容入口。
 
