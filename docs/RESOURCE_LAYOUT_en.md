@@ -20,13 +20,15 @@ Assembly errors remain visible until revalidation succeeds; editing or saving do
 
 Each position follows its source or uses user order. Moving a row marks only that position as user-ordered. Other positions continue following their preset/source; the list supplies neighboring semantic anchors, and empty positions emit no text.
 
-Sorting priority is an ordered, draggable list. `user` (user position configuration), `preset` (preset slots/macros), `resource` (resource-defined anchors/depth) and `default` (source list order) appear exactly once. Assembly executes each strategy in list order and excludes already placed resources from subsequent passes; all 24 permutations can be saved.
+Sorting priority is an ordered, draggable list. `user` (manual order), `preset` (preset slots/macros), `resource` (resource-defined anchors/depth) and `default` (source list order) appear exactly once. Assembly executes each strategy in list order and excludes already placed resources from subsequent passes; all 24 permutations can be saved.
 
 When preset ownership wins, content stays at the reference. A winning user move emits the category independently without duplicate inline content. A winning resource rule applies its declared relative anchor or depth. Default precedence uses source list order. Missing anchors follow the selected fallback policy. Results show the priority list used and the resulting decisions.
 
+With position adaptation enabled on the standard backend, priority resolves logical placement before roles and native delivery are projected. A winning manual category can follow history or current input. Moving it to the end places it after the remaining contributions even when later categories are empty, using user pre-step delivery. Preserved source roles still obey identity boundaries; incompatible moves report a runtime conflict.
+
 Native history, tool transactions, retained snapshots and delivery regions are hard constraints, explained separately rather than pretending to be reorderable rules. Native system roles are not silently changed to simulate arbitrary ordering; identity adaptation is a separate choice. Inclusion switches do not compete in position priority: disabling a position excludes standalone and referenced content but never deletes durable history or retained snapshots. Native history/current-input anchors remain mandatory.
 
-New strategies initially list user, preset, resource and default; users can freely reorder them. Existing policies are not silently rewritten. Legacy `priority:user|preset` and absent-priority `source` choices appear as equivalent initial lists. Reordering saves the full array. Older asset-specific `overrides` remain compatible with an explicit removal action; semantic ordering runs afterward, subject to runtime constraints.
+New strategies initially list user, preset, resource and default; users can freely reorder them. Existing policies are not silently rewritten. Legacy `priority:user|preset` and absent-priority `source` choices appear as equivalent initial lists. Reordering saves the full array. Older asset-specific `overrides` remain compatible with an explicit removal action; Position-adapted native layouts resolve semantic positions before identity projection and then apply legacy overrides inside valid native regions; preserve-role and advanced layouts retain the existing override order.
 
 ## Protocol and persistence
 

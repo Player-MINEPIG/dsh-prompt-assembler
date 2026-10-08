@@ -183,3 +183,30 @@ test('toggling native instructions keeps source roles and never forces slot iden
     assert(!result.diagnostics.some(d=>d.code==='NATIVE_ROLE_ADJUSTED'))
   }
 })
+
+for (const identity of ['position', 'preserve']) test(`native: manual depth tail is resolved before identity projection (${identity})`, () => {
+  const registry = createDefaultRegistry()
+  const base = preset('native')
+  base.layout = { ...base.layout, identity, priority: ['user', 'preset', 'resource', 'default'] }
+  const moved = configurePosition(base, registry.list(), positionKey('worldbook', 'depth'), {}, null)
+  const data = { ...assets, preset: { prompts: [
+    { identifier: 'open', enabled: true, role: 'system', content: 'OPEN' },
+    marker('chatHistory'),
+    { identifier: 'close', enabled: true, role: 'user', content: 'CLOSE' },
+  ] }, loreEntries: [0, 1, 2].map(id => ({ id: String(id), requestedPosition: 'at_depth', depth: 0, role: 'system', content: `DEPTH ${id}` })) }
+  const result = run(moved, data)
+  const depth = result.nodes.filter(n => n.source.module === 'worldbook')
+  assert.deepEqual(depth.map(n => n.text), ['DEPTH 0', 'DEPTH 1', 'DEPTH 2'])
+  assert(depth.every(n => n.depth == null && n.nativeRequestedDepth == null))
+  if (identity === 'position') {
+    assert.deepEqual(result.messages.map(textOf).slice(-4), ['CLOSE', 'DEPTH 0', 'DEPTH 1', 'DEPTH 2'])
+    assert(depth.every(n => n.role === 'user' && n.nativePlacement === 'after-input' && n.nativeDelivery === 'pre-step'))
+    assert(!result.diagnostics.some(d => d.code === 'POSITION_CONFLICT' && d.sourceId === 'worldbook'))
+    const restored = run(configurePosition(moved, registry.list(), positionKey('worldbook', 'depth'), { placement: 'source' }), data)
+    assert(restored.nodes.filter(n => n.source.module === 'worldbook').every(n => n.nativeDepthAnchor === 'after-history'))
+  } else {
+    assert(depth.every(n => n.role === 'system'))
+    assert(result.nodes.indexOf(depth.at(-1)) < result.nodes.findIndex(n => n.source.module === 'history'))
+    assert(result.diagnostics.some(d => d.code === 'POSITION_CONFLICT' && d.winner === 'runtime'))
+  }
+})

@@ -1,3 +1,4 @@
+import { applyPositionStrategies } from './resource-positions.js'
 const fail = (message, node) => { throw Object.assign(new Error(message), { status: 409, code: 'ASSEMBLY_NATIVE_UNSUPPORTED', detail: node && { ruleId: node.ruleId, field: node.source?.field, name: node.name } }) }
 const kind = node => node.source?.module
 const presetOwned = node => kind(node) === 'preset' || node.placementSource === 'preset'
@@ -50,17 +51,22 @@ export function projectNativeOrder(nodes, preset, diagnostics) {
     }
     nodes.splice(0, nodes.length, ...rest)
   }
+  // Position-adapted layouts must resolve semantic positions before roles and
+  // native delivery regions become fixed. Preserve-role layouts sort in regions.
+  const sortingStages = preset.layout?.identity === 'position'
+    ? applyPositionStrategies(nodes, preset, diagnostics, true) : null
   const historyIndex = nodes.indexOf(history), inputIndex = nodes.indexOf(input)
   const groups = [[], [history], [], [input], [], []]
   for (const node of nodes) {
     if (node === history || node === input) continue
     if (kind(node) === 'native-system') { groups[0].push(node); continue }
     const index = nodes.indexOf(node), rule = preset.rules.find(r => r.id === node.ruleId)
-    if (slots && presetOwned(node) || node.nativeDepthAnchor) {
+    const manual = sortingStages !== null && node.positionDecision === 'user'
+    if (slots && presetOwned(node) || node.nativeDepthAnchor || manual) {
       // A history slot fixes the system/user boundary. With only an input slot,
       // authored system prefixes remain system and user prefixes follow history.
       const role = node.nativeDepthAnchor ? node.nativeDepthAnchor === 'before-history' ? 'system' : 'user'
-        : historySlot ? index < historyIndex ? 'system' : 'user' : index > inputIndex ? 'user' : node.role
+        : historySlot || manual ? index < historyIndex ? 'system' : 'user' : index > inputIndex ? 'user' : node.role
       if (role !== node.role && preset.layout?.identity === 'preserve') fail('Preserving identity conflicts with this native slot position; explicitly allow position adaptation or use manual layout.', node)
       if (role !== node.role) {
         node.authoredRole = node.role
@@ -73,8 +79,8 @@ export function projectNativeOrder(nodes, preset, diagnostics) {
     if (node.role === 'system') { node.nativePlacement = 'system'; groups[0].push(node); continue }
     // Slot placement needs ordered accepted messages, including the area before
     // input. Context snapshots may be reused at an old position by native DSH.
-    node.nativeDelivery = (slots && presetOwned(node) || node.nativeDepthAnchor) ? 'pre-step' : rule?.delivery ?? 'context'
-    if ((slots && presetOwned(node) || node.nativeDepthAnchor) && rule?.delivery === 'context') diagnostics.push({ code: 'NATIVE_DELIVERY_ADJUSTED', id: node.id, name: node.name, from: 'context', to: 'pre-step' })
+    node.nativeDelivery = (slots && presetOwned(node) || node.nativeDepthAnchor || manual) ? 'pre-step' : rule?.delivery ?? 'context'
+    if ((slots && presetOwned(node) || node.nativeDepthAnchor || manual) && rule?.delivery === 'context') diagnostics.push({ code: 'NATIVE_DELIVERY_ADJUSTED', id: node.id, name: node.name, from: 'context', to: 'pre-step' })
     node.nativePlacement = node.nativeDelivery === 'pre-step' && index < inputIndex ? 'before-input' : 'after-input'
     groups[node.nativePlacement === 'before-input' ? 2 : node.nativeDelivery === 'context' ? 4 : 5].push(node)
   }
@@ -83,4 +89,5 @@ export function projectNativeOrder(nodes, preset, diagnostics) {
     diagnostics.push({ code: 'NATIVE_PLACEMENT_ADJUSTED', id: node.id, name: node.name, role: node.role, placement: node.nativePlacement })
   }
   nodes.splice(0, nodes.length, ...ordered)
+  return sortingStages
 }

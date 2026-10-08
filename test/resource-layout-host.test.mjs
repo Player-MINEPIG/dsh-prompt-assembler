@@ -86,6 +86,23 @@ for (const backend of ['native', 'core']) {
           assert(actual.some(m=>m.role==='system'&&textOf(m).includes('SYSTEM_TAIL')&&textOf(m).includes('SYSTEM_DEPTH_ZERO')))
           assert(actual.some(m=>m.role==='user'&&textOf(m).includes('USER_HEAD')))
         }
+        assets.preset = { id: 'slot-tail', prompts: [
+          { identifier: 'open', enabled: true, role: 'system', content: 'OPEN' },
+          { identifier: 'chatHistory', marker: true, enabled: true },
+          { identifier: 'close', enabled: true, role: 'user', content: 'CLOSE' },
+        ] }
+        assets.loreEntries = [0, 1, 2].map(id => ({ id: String(id), resourceId: 'book', requestedPosition: 'at_depth', depth: 0, role: 'system', content: `MANUAL_DEPTH_${id}` }))
+        configured = { ...configured, layout: { ...configured.layout, identity: 'position', priority: ['user', 'preset', 'resource', 'default'] } }
+        configured = face.store.save(configurePosition(configured, face.registry.list(), positionKey('worldbook', 'depth'), {}, null), saved.id)
+        face.store.apply('fixture', configured.id)
+        for (let turn = 0; turn < 2; turn++) {
+          const preview = await face.runtime.preview({ preset: configured, agent, sessionId: 'fixture' })
+          assert.deepEqual(preview.nodes.slice(-3).map(n => [n.role, n.text]), assets.loreEntries.map(e => ['user', e.content]))
+          agent.followup(llm.createUserMessage({ content: [{ type: 'text', text: `TAIL INPUT ${turn}` }], source: { kind: 'user' } })); await agent.whenIdle()
+          assert.deepEqual(errors, [])
+          assert.deepEqual(requests.at(-1).slice(-3).map(m => [m.role, textOf(m)]), assets.loreEntries.map(e => ['user', e.content]))
+        }
+
       }
     } finally { await ctx.fiber.dispose(); rmSync(directory, { recursive: true, force: true }) }
   })

@@ -218,8 +218,9 @@ function assembleResolved({ preset: suppliedPreset, previous = null, snapshots =
   // Evaluate in list order; explicit claims already exclude fallback duplicates.
   for (const { entry, block } of roots) emit(entry, block)
   for (const rule of rules) nodes.push(...plans.get(rule.id))
+  let sortingStages = null
   if (adaptive) {
-    projectNativeOrder(nodes, preset, diagnostics)
+    sortingStages = projectNativeOrder(nodes, preset, diagnostics)
     for (const control of placementControls) {
       if (['preset', 'history', 'input'].includes(preset.rules.find(r => r.id === control.ruleId)?.kind)) continue
       const fixed = nodes.filter(n => n.ruleId === control.ruleId && n.nativeDepthAnchor)
@@ -256,7 +257,7 @@ function assembleResolved({ preset: suppliedPreset, previous = null, snapshots =
     if (!inserted) nodes.push(node)
   }
   applyLayoutOverrides(nodes, preset, diagnostics)
-  const sortingStages = applyPositionStrategies(nodes, preset, diagnostics)
+  sortingStages ??= applyPositionStrategies(nodes, preset, diagnostics)
   // Native markers are nested in the preset output, not dropped from the request.
   let messages = [], expanded = []
   const snapshotRules = rules.filter(r => r.lifetime === 'snapshot' && byRule.has(r.id))
