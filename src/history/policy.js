@@ -1,0 +1,156 @@
+import { createHash } from 'node:crypto'
+import { supportsReplayTextEdits } from './replay.js'
+
+const clone = value => structuredClone(value)
+export const historyHash = value => createHash('sha256').update(JSON.stringify(value)).digest('hex')
+export const DEFAULT_HISTORY_POLICY = Object.freeze({
+  version: 1, enabled: false, sources: [
+    { kind: 'dsh-prompt-assembler', include: false },
+    { kind: 'runtime-context', include: false },
+    { kind: 'ptc-mode', include: false },
+    { kind: 'tool', include: false },
+  ], contentTypes: { text: true, image: true, reasoning: false }, fragments: [],
+})
+const bad = message => { throw Object.assign(new TypeError(message), { status: 400, code: 'HISTORY_POLICY_INVALID' }) }
+const keys = (value, allowed) => {
+  if (!value || typeof value !== 'object' || Array.isArray(value) || Object.keys(value).some(k => !allowed.includes(k))) bad('Unknown history policy field')
+}
+export function normalizeHistoryPolicy(input = DEFAULT_HISTORY_POLICY) {
+  keys(input, ['version', 'enabled', 'sources', 'contentTypes', 'fragments'])
+  if (input.version !== 1 || typeof input.enabled !== 'boolean') bad('Expected policy version 1 and enabled boolean')
+  if (!Array.isArray(input.sources) || input.sources.length > 100 || !Array.isArray(input.fragments) || input.fragments.length > 100) bad('Too many or invalid rules')
+  const sources = input.sources.map(rule => {
+    keys(rule, ['kind', 'include'])
+    if (typeof rule.kind !== 'string' || !/^[\w.:/-]{1,160}$/.test(rule.kind) || typeof rule.include !== 'boolean') bad('Invalid source selector')
+    return { ...rule }
+  })
+  if (new Set(sources.map(s => s.kind)).size !== sources.length) bad('Duplicate source selector')
+  keys(input.contentTypes, ['text', 'image', 'reasoning'])
+  if (['text', 'image', 'reasoning'].some(k => typeof input.contentTypes[k] !== 'boolean')) bad('Content type controls must be boolean')
+  const fragments = input.fragments.map(rule => {
+    keys(rule, ['id', 'sourceKind', 'start', 'end', 'mode', 'enabled'])
+    if (typeof rule.id !== 'string' || !/^[\w.-]{1,80}$/.test(rule.id) || typeof rule.sourceKind !== 'string' || !/^[\w.:/-]{1,160}$/.test(rule.sourceKind)) bad('Invalid fragment identity/source')
+    if ([rule.start, rule.end].some(v => typeof v !== 'string' || !v.trim() || v.length > 256 || /[\r\n]/.test(v)) || rule.start === rule.end) bad('Use distinct nonempty single-line delimiters')
+    if (!['lines', 'literal'].includes(rule.mode) || typeof rule.enabled !== 'boolean') bad('Invalid fragment mode')
+    return { ...rule }
+  })
+  if (new Set(fragments.map(r => r.id)).size !== fragments.length) bad('Duplicate fragment rule id')
+  return { version: 1, enabled: input.enabled, sources, contentTypes: { ...input.contentTypes }, fragments }
+}
+
+// Exact delimiters, not regex. Line mode deliberately ignores quoted inline examples.
+// Nested/unbalanced delimiters preserve the entire block, not a guessed partial range.
+export function matchHistoryFragments(text, rule) {
+  const tokens = []
+  if (rule.mode === 'lines') {
+    let offset = 0, fenced = false
+    for (const line of text.split('\n')) {
+      const value = line.replace(/\r$/, '')
+      if (/^(```|~~~)/.test(value)) fenced = !fenced
+      if (!fenced && [rule.start, rule.end].includes(value)) {
+        tokens.push({ type: value === rule.start ? 'start' : 'end', offset, end: offset + line.length + (offset + line.length < text.length ? 1 : 0) })
+      }
+      offset += line.length + 1
+    }
+  } else {
+    for (const [type, delimiter] of [['start', rule.start], ['end', rule.end]]) {
+      let from = 0, index
+      while ((index = text.indexOf(delimiter, from)) !== -1) { tokens.push({ type, offset: index, end: index + delimiter.length }); from = index + delimiter.length }
+    }
+    tokens.sort((a, b) => a.offset - b.offset)
+  }
+  let open = null
+  const ranges = []
+  for (const token of tokens) {
+    if (token.type === 'start') {
+      if (open !== null) return { ranges: [], warning: 'AMBIGUOUS_FRAGMENT' }
+      open = token
+    } else {
+      if (open === null || token.offset < open.end) return { ranges: [], warning: 'AMBIGUOUS_FRAGMENT' }
+      ranges.push({ start: open.offset, end: token.end, ruleId: rule.id }); open = null
+    }
+  }
+  return open === null ? { ranges } : { ranges: [], warning: 'UNCLOSED_FRAGMENT' }
+}
+
+function mergedRanges(ranges) {
+  const result = []
+  for (const range of [...ranges].sort((a, b) => a.start - b.start)) {
+    const previous = result.at(-1)
+    if (previous && range.start < previous.end) { previous.end = Math.max(previous.end, range.end); previous.ruleIds.push(range.ruleId) }
+    else result.push({ start: range.start, end: range.end, ruleIds: [range.ruleId] })
+  }
+  return result
+}
+const messageOf = event => event.type === 'user/message' ? event.data : event.data?.message
+
+/** Pure copy-on-request filtering. No Session mutations or projection registrations. */
+export function filterHistory({ messages, events, policy: input, currentStepSeq = Infinity, reasoningSafety = null }) {
+  const policy = normalizeHistoryPolicy(input), original = clone(messages)
+  const eventById = new Map()
+  for (const event of events) {
+    if (!['user/message', 'assistant/message', 'system/message', 'developer/message', 'tool/result'].includes(event.type)) continue
+    const message = messageOf(event)
+    if (message?.id) eventById.set(message.id, event)
+  }
+  const warnings = [], decisions = [], output = [], preview = []
+  const known = new Set(['user', 'model', 'tool', 'system-prompt', ...policy.sources.map(r => r.kind)])
+  const sources = new Map(policy.sources.map(r => [r.kind, r.include]))
+  // A caller cannot override a tool-bearing request with an unsafe capability claim.
+  const transactionPresent = original.some(m => m.role === 'tool' || m.content?.some(b => b.type === 'tool-call'))
+  const canOmitReasoning = reasoningSafety?.canOmit === true && typeof reasoningSafety.contract === 'string' && reasoningSafety.contract.length > 0 && !reasoningSafety.toolsPresent && !transactionPresent
+  // Stock DSH reuses its latest runtime-context snapshot when unchanged. Age alone
+  // does not make that snapshot obsolete; it may contain this step's active context.
+  const activeRuntimeId = original.findLast(m => m.source?.kind === 'runtime-context')?.id
+  for (const message of original) {
+    const event = eventById.get(message.id), kind = message.source?.kind ?? 'unknown'
+    const decision = { messageId: message.id, seq: event?.seq ?? null, sourceKind: kind, role: message.role, beforeHash: historyHash(message), action: 'keep', blocks: [], reasons: [] }
+    const warn = code => { warnings.push({ code, messageId: message.id, seq: decision.seq }); decision.reasons.push(code) }
+    const old = event && event.seq < currentStepSeq
+    const replayTextOnly = supportsReplayTextEdits(message)
+    const protectedMessage = message.id === activeRuntimeId || message.role === 'system' || message.role === 'developer' || message.role === 'tool' || message.content?.some(b => b.type === 'tool-call') || (message.source?.replayState !== undefined && !replayTextOnly)
+    let changed = clone(message)
+    if (policy.enabled && old && !protectedMessage) {
+      if (!known.has(kind)) warn('UNKNOWN_SOURCE_RETAINED')
+      else if (sources.get(kind) === false) {
+        if (replayTextOnly) warn('SOURCE_REPLAY_RETAINED')
+        else if (!canOmitReasoning && message.content.some(b => b.type === 'reasoning')) warn('SOURCE_REQUIRED_REASONING_RETAINED')
+        else { changed = null; decision.action = 'exclude'; decision.reasons.push('SOURCE_EXCLUDED') }
+      }
+      if (changed && known.has(kind)) {
+        changed.content = message.content.flatMap((block, index) => {
+          if (policy.contentTypes[block.type] === false) {
+            if (replayTextOnly) warn('REPLAY_BLOCKS_RETAINED')
+            else if (block.type === 'reasoning' && !canOmitReasoning) warn('REASONING_REQUIRED_OR_UNVERIFIED')
+            else { decision.blocks.push({ index, type: block.type, action: 'exclude' }); return [] }
+          }
+          if (block.type !== 'text' || message.role !== 'assistant') return [clone(block)]
+          const ranges = []
+          for (const rule of policy.fragments.filter(r => r.enabled && r.sourceKind === kind)) {
+            const matched = matchHistoryFragments(block.text, rule)
+            if (matched.warning) warn(matched.warning)
+            ranges.push(...matched.ranges)
+          }
+          const merged = mergedRanges(ranges)
+          if (!merged.length) return [clone(block)]
+          let cursor = 0, kept = ''
+          for (const range of merged) { kept += block.text.slice(cursor, range.start); cursor = range.end }
+          kept += block.text.slice(cursor)
+          decision.blocks.push({ index, type: 'text', action: 'edit', ranges: merged, beforeHash: historyHash(block.text), afterHash: historyHash(kept) })
+          return kept || replayTextOnly ? [{ ...block, text: kept }] : []
+        })
+        if (!changed.content.length) { changed = null; decision.action = 'exclude'; decision.reasons.push('EMPTY_AFTER_FILTER') }
+        else if (decision.blocks.length) decision.action = 'edit'
+      }
+    } else if (policy.enabled) {
+      decision.reasons.push(!old ? 'CURRENT_OR_ASSEMBLED_CONTENT' : message.id === activeRuntimeId ? 'CURRENT_RUNTIME_CONTEXT' : 'PROTECTED_PROTOCOL_MESSAGE')
+    }
+    if (changed) output.push(changed)
+    decision.afterHash = changed ? historyHash(changed) : null
+    decisions.push(decision)
+    preview.push({ ...decision, original: message, effective: changed })
+  }
+  if (!output.length && original.length) throw Object.assign(new Error('History policy would leave an empty request'), { status: 409, code: 'HISTORY_POLICY_EMPTY' })
+  return { messages: output, preview, audit: { version: 1, policy, policyHash: historyHash(policy), applied: policy.enabled, scope: 'current-native-surface', currentStepSeq: Number.isFinite(currentStepSeq) ? currentStepSeq : null,
+    reasoningSafety: { canOmit: canOmitReasoning, contract: reasoningSafety?.contract ?? null }, beforeHash: historyHash(original), afterHash: historyHash(output), decisions, warnings } }
+}
