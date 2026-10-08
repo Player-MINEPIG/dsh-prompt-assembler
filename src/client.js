@@ -1,3 +1,5 @@
+import { HistoryPanel, historyPanelCss } from './history-panel.js'
+import { actualAssemblyResult } from './actual-result.js'
 import { layoutPlacement } from './resource-layout.js'
 import { ResourcePositionEditor, PositionDecisions, SummaryMetadata } from './resource-layout-client.js'
 import { contextControlRows, isContextControl } from './native-context.js'
@@ -108,7 +110,7 @@ export function AssemblyPanel(props) {
   // A session change disposes all pending editor state, including async closures.
   return h(AssemblyPanelContent, { ...props, key: props.selectionTarget?.id ?? props.sessionId ?? 'no-session' })
 }
-function AssemblyPanelContent({ selectionTarget, sessionId, sessionLabel, onCreateSession, createSessionControls, interfaceControls, standalone = false, close, registerBeforeLeave, chromeMode, locale: selectedLocale = 'zh-CN', fetcher = globalThis.fetch, apiRoot = '/dsh-prompt-assembler/api/v1/assembly-presets', traceRoot, refreshEvent = 'dsh-prompt-assembler:refresh' }) {
+function AssemblyPanelContent({ selectionTarget, sessionId, sessionLabel, onCreateSession, createSessionControls, interfaceControls, standalone = false, close, registerBeforeLeave, chromeMode, locale: selectedLocale = 'zh-CN', fetcher = globalThis.fetch, apiRoot = '/dsh-prompt-assembler/api/v1/assembly-presets', traceRoot, historyApiRoot, historyFragmentPresets, refreshEvent = 'dsh-prompt-assembler:refresh' }) {
   const locale = selectedLocale === 'zh-CN' ? 0 : 1, t = key => labels[key]?.[locale] ?? key
   const [confirmation, setConfirmation] = useState(null)
   const confirmationResolve = useRef(null)
@@ -119,6 +121,8 @@ function AssemblyPanelContent({ selectionTarget, sessionId, sessionLabel, onCrea
   const [sources, setSources] = useState([]), [addParser, setAddParser] = useState('custom'), [addKind, setAddKind] = useState(''), [defaultId, setDefaultId] = useState(BUILTINS[0].id)
   const [items, setItems] = useState([]), [draft, setDraft] = useState(null), [selection, setSelection] = useState(null), [capable, setCapable] = useState(false), [capabilities, setCapabilities] = useState(null)
   const [status, setStatus] = useState(''), [error, setError] = useState(false), [busy, setBusy] = useState(false), [tab, setTab] = useState('rules'), [preview, setPreview] = useState(null), [dirty, setDirty] = useState(false), [expanded, setExpanded] = useState({})
+  const [historyDirty, setHistoryDirty] = useState(false)
+  const appliedBackend = selection?.backend ?? 'native'
   const file = useRef(), stage = useRef(), dialog = useRef(), generation = useRef(0), mounted = useRef(true)
   // Dim only the conversation body; shell navigation and side editors stay interactive.
   useLayoutEffect(() => {
@@ -156,7 +160,9 @@ function AssemblyPanelContent({ selectionTarget, sessionId, sessionLabel, onCrea
   useEffect(() => { const refresh = () => run(async () => { const gen = generation.current; const data = await api(`?sessionId=${encodeURIComponent(sessionId ?? '')}`); if (gen !== generation.current || !mounted.current) return; setItems(data.presets); setSelection(data.selection); setCapable(data.capability); setCapabilities(data.capabilities ?? null); setSources(data.sources ?? []) }); window.addEventListener(refreshEvent, refresh); return () => window.removeEventListener(refreshEvent, refresh) }, [sessionId, selectionTarget, chromeMode, refreshEvent])
   useEffect(() => { let active = true; api(`?sessionId=${encodeURIComponent(sessionId ?? '')}`).then(data => { if (active) setSelection(data.selection) }).catch(() => {}); return () => { active = false } }, [chromeMode, sessionId, selectionTarget])
   const discard = () => !busy && (!dirty || confirm(t('discard')))
-  useEffect(() => registerBeforeLeave?.(discard), [dirty, busy, registerBeforeLeave])
+  const leave = () => !busy && (!(dirty || historyDirty) || confirm(t('discard')))
+  const changeHistoryBackend = backend => backend === appliedBackend || !historyDirty || confirm(t('discard'))
+  useEffect(() => registerBeforeLeave?.(leave), [dirty, historyDirty, busy, registerBeforeLeave])
   const edit = patch => { if (busy) return; setDraft(d => ({ ...d, ...patch })); setDirty(true); setPreview(null) }
   const editableRule = rule => { const source = sources.find(s => s.id === rule.kind); const parser = sources.find(s => s.id === source?.textParserAliasFor && s.acceptsText); return parser && (rule.inputMode === 'text' || rule.kind === 'custom') ? { ...rule, kind: parser.id, inputMode: 'text', role: parser.roles.includes(rule.role) ? rule.role : parser.roles[0], lifetime: parser.lifetimes.includes(rule.lifetime) ? rule.lifetime : parser.lifetimes[0], depth: parser.depth === false ? null : rule.depth } : rule }
   const editablePreset = preset => ({ ...preset, rules: preset.rules.map(editableRule) })
@@ -206,8 +212,7 @@ function AssemblyPanelContent({ selectionTarget, sessionId, sessionLabel, onCrea
   async function actualRequest() {
     const show = record => {
       if (!record?.messages) return false
-      const result = record.metadata?.assembly ?? { diagnostics: [], nodes: record.messages.map((m, index) => ({ id: m.id ?? `actual-${index}`, module: m.role === 'system' ? 'native-system' : 'history', name: m.role === 'system' || m.source?.form === 'snapshot' ? 'source-unrecorded' : m.role, role: m.role, source: { plugin: m.source?.plugin ?? 'DSH', field: m.source?.kind }, stability: 'snapshot', lifetime: 'native', locked: true, text: (m.content ?? []).map(b => b.type === 'text' ? b.text : `[${b.type}]`).join('\n') })) }
-      setPreview({ ...result, diagnostics: result.diagnostics ?? [], nodes: result.nodes ?? [], messages: record.messages, actual: true }); setTab('expanded'); setStatus(''); return true
+      setPreview(actualAssemblyResult(record)); setTab('expanded'); setStatus(''); return true
     }
     if (!traceRoot) {
       const data = await api(`/actual?sessionId=${encodeURIComponent(sessionId)}`)
@@ -228,14 +233,14 @@ function AssemblyPanelContent({ selectionTarget, sessionId, sessionLabel, onCrea
     }
     setStatus(t(draft?.backend === 'native' ? 'noActualNative' : 'noActual'))
   }
-  const safeClose = async () => { if (registerBeforeLeave || await discard()) close() }
+  const safeClose = async () => { if (registerBeforeLeave || await leave()) close() }
   useEffect(() => {
     const previous = document.activeElement
     dialog.current?.querySelector('button')?.focus()
     return () => { previous?.focus?.() }
   }, [])
-  useEffect(() => { const warn = e => { if (dirty) { e.preventDefault(); e.returnValue = '' } }; window.addEventListener('beforeunload', warn); return () => window.removeEventListener('beforeunload', warn) }, [dirty])
-  useEffect(() => { if (registerBeforeLeave) return; const handler = e => { if (e.key === 'Escape') { e.stopImmediatePropagation(); safeClose() } }; window.addEventListener('keydown', handler); return () => window.removeEventListener('keydown', handler) }, [dirty, busy, registerBeforeLeave])
+  useEffect(() => { const warn = e => { if (dirty || historyDirty) { e.preventDefault(); e.returnValue = '' } }; window.addEventListener('beforeunload', warn); return () => window.removeEventListener('beforeunload', warn) }, [dirty, historyDirty])
+  useEffect(() => { if (registerBeforeLeave) return; const handler = e => { if (e.key === 'Escape') { e.stopImmediatePropagation(); safeClose() } }; window.addEventListener('keydown', handler); return () => window.removeEventListener('keydown', handler) }, [dirty, historyDirty, busy, registerBeforeLeave])
   const nativeDraft = draft?.backend === 'native'
   const adaptiveNative = nativeDraft && ['native-roles', 'native-slots'].includes(draft.placement)
   const slotMode = nativeDraft && draft.placement === 'native-slots'
@@ -310,7 +315,7 @@ function AssemblyPanelContent({ selectionTarget, sessionId, sessionLabel, onCrea
       h('div', { className: 'dta-summary' }, h('span', { className: 'dta-name', role: 'button', tabIndex: 0, onClick: () => toggle(node.id), onKeyDown: e => { if (e.key === 'Enter') toggle(node.id) }, 'aria-expanded': !!expanded[node.id], title: nodeName(node) }, nodeName(node), node.sourceStatus === 'name-unrecorded' && h('small', null, t('sourceNameUnrecorded')), node.sourceStatus === 'historical-system' && h('small', null, t('historicalSystemHint')), node.sourceStatus === 'current-name' && h('small', null, t('sourceNameCurrent')), node.sourceStatus === 'section-only' && h('small', null, t('sourceFieldsUnrecorded')), h('small', { className: 'dta-origin' }, `${originName(node.source.plugin)} · ${sourceName(node.source.module)} · ${positionReason(node.positionDecision) ?? (node.depth == null ? t('listPosition') : t('previewDepth') + ': ' + node.depth)}`)), summaryMetadata(node.stability, retention, node.role, historyNote(node))),
       expanded[node.id] && h('div', { className: 'dta-detail' }, h('div', { className: 'dta-properties' }, h('div', null, t('source'), h('small', null, `${node.source.plugin} / ${node.source.resourceId ?? ''} / ${node.source.field}`), h('small', null, sourceInfo(node.module))), h('div', null, t('stability'), h('small', null, t(node.stability))), h('div', null, t('lifetime'), h('small', null, t(retention)), h('small', null, t(preview?.backend === 'native' ? 'nativeRetentionHint' : 'recorded')))), h('div', { className: 'dta-preview-depth' }, `${t('previewDepth')}: ${node.depth == null ? t('listPosition') : node.depth}`), node.locked && h('small', null, `${t('locked')}: ${node.lockReason}`), ...(node.children ?? []).map(child => h('div', { key: child.id, className: 'dta-child', style: { borderLeftColor: sourceColor(child.source?.plugin) } }, `🔒 ${nodeName(child)}`, h('small', null, child.lockReason), h('small', null, [originName(child.source?.plugin), child.source?.resourceId, child.source?.field, child.source?.sourceKind].filter(Boolean).join(' / ')), h('pre', null, child.text))), h('pre', null, node.text)))
   }
-  return h('div', { ref: stage, className: `dta-stage${standalone ? ' dta-standalone' : ''}` }, h('section', { ref: dialog, className: 'dtv-assembly-screen', role: 'dialog', 'aria-modal': standalone, 'aria-label': t('title') }, h('style', null, assemblyCss),
+  return h('div', { ref: stage, className: `dta-stage${standalone ? ' dta-standalone' : ''}` }, h('section', { ref: dialog, className: 'dtv-assembly-screen', role: 'dialog', 'aria-modal': standalone, 'aria-label': t('title') }, h('style', null, assemblyCss, historyPanelCss),
     confirmation && h('div', { className: 'dta-confirm-shade' }, h('div', { className: 'dta-confirm', role: 'alertdialog', 'aria-modal': true, 'aria-label': confirmation, onKeyDown: e => { if (e.key === 'Escape') { e.stopPropagation(); answerConfirmation(false) } else if (e.key === 'Tab') { e.preventDefault(); const buttons = [...e.currentTarget.querySelectorAll('button')]; const at = buttons.indexOf(document.activeElement); buttons[(at + (e.shiftKey ? -1 : 1) + buttons.length) % buttons.length]?.focus() } } }, h('p', null, confirmation), h('div', { className: 'dta-toolbar' }, h('button', { type: 'button', onClick: () => answerConfirmation(false) }, t('cancel')), h('button', { type: 'button', className: 'primary', onClick: () => answerConfirmation(true) }, t('confirm'))))),
     h('header', { className: 'dta-head' }, h('div', null, h('h2', null, t('title')), h('p', null, t('intro')), sessionLabel !== undefined && h('p', { 'data-assembly-session': sessionId ?? '' }, `${t('session')}: ${sessionLabel || t('newSession')}`)), h('button', { onClick: safeClose, 'aria-label': t('close') }, '×')),
     h('div', { className: 'dta-body' }, h('fieldset', { className: 'dta-content', disabled: busy, style: { border: 0, padding: 0, minWidth: 0 } },
@@ -331,9 +336,10 @@ function AssemblyPanelContent({ selectionTarget, sessionId, sessionLabel, onCrea
         h('h3', { className: 'dta-section-title' }, t('applicationSection')),
         h('div', { className: 'dta-notice' }, `${t('applied')}: ${selection?.name ?? t('legacy')}`, selection?.id?.startsWith('builtin-') && !items.some(p => p.id === selection.id) && h('small', null, t('withdrawnPreset')), !capable && h('small', null, t('unavailable'))),
         onCreateSession && h('div', null, createSessionControls, h('div', { className: 'dta-toolbar' }, button('createSession', () => run(async () => { const preset = dirty || !draft.id ? await save() : draft; if (!mounted.current) return; await onCreateSession(preset.id) }), !draftAvailable, 'primary'))),
-        h('div', { className: 'dta-toolbar' }, button('apply', () => run(async () => { const preset = dirty || !draft.id ? await save() : draft; const data = await api('/selection', 'PUT', { sessionId, id: preset.id }); setSelection(data.selection); setStatus(t('appliedStatus')); window.dispatchEvent(new window.Event(refreshEvent)) }), (!sessionId && !selectionTarget) || !draftAvailable || selectionTarget?.editable === false, 'primary'), button('reset', async () => { if (!await discard()) return; run(async () => { const data = await api('/selection', 'PUT', { sessionId, id: defaultId }); setSelection(data.selection); setDraft(items.find(p => p.id === defaultId)); setDirty(false); setPreview(null); setTab('rules'); setStatus(t('appliedStatus')); window.dispatchEvent(new window.Event(refreshEvent)) }) }, (!sessionId && !selectionTarget) || !capable || selectionTarget?.editable === false), button('disable', () => run(async () => { const data = await api('/selection', 'PUT', { sessionId, id: null }); setSelection(data.selection); window.dispatchEvent(new window.Event(refreshEvent)) }), (!sessionId && !selectionTarget) || !selection || selectionTarget?.editable === false)),
+        h('div', { className: 'dta-toolbar' }, button('apply', async () => { if (!await changeHistoryBackend(draft.backend ?? 'core')) return; run(async () => { const preset = dirty || !draft.id ? await save() : draft; const data = await api('/selection', 'PUT', { sessionId, id: preset.id }); setSelection(data.selection); setStatus(t('appliedStatus')); window.dispatchEvent(new window.Event(refreshEvent)) }) }, (!sessionId && !selectionTarget) || !draftAvailable || selectionTarget?.editable === false, 'primary'), button('reset', async () => { const nextBackend = items.find(p => p.id === defaultId)?.backend ?? 'core'; if (!await (nextBackend === appliedBackend ? discard() : leave())) return; run(async () => { const data = await api('/selection', 'PUT', { sessionId, id: defaultId }); setSelection(data.selection); setDraft(items.find(p => p.id === defaultId)); setDirty(false); setPreview(null); setTab('rules'); setStatus(t('appliedStatus')); window.dispatchEvent(new window.Event(refreshEvent)) }) }, (!sessionId && !selectionTarget) || !capable || selectionTarget?.editable === false), button('disable', async () => { if (!await changeHistoryBackend('native')) return; run(async () => { const data = await api('/selection', 'PUT', { sessionId, id: null }); setSelection(data.selection); window.dispatchEvent(new window.Event(refreshEvent)) }) }, (!sessionId && !selectionTarget) || !selection || selectionTarget?.editable === false)),
         draft.builtin && h('small', null, t('defaultHint')),
         !sessionId && h('small', null, selectionTarget ? t('deferredSelection') : t('noSession')),
+        sessionId && !selectionTarget && h(HistoryPanel, { sessionId, backend: appliedBackend, fetcher, root: historyApiRoot, fragmentPresets: historyFragmentPresets, onDirtyChange: setHistoryDirty, locale }),
       ), interfaceControls && h('section', { className: 'dta-interface-settings', 'aria-label': t('interfaceSettings') }, h('h3', { className: 'dta-section-title' }, t('interfaceSettings')), interfaceControls)))))
 }
 
