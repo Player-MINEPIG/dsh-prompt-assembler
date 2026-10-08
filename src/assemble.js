@@ -59,6 +59,10 @@ function assembleResolved({ preset: suppliedPreset, previous = null, snapshots =
   const enabled = kind => rules.some(r => r.kind === kind)
   const diagnostics = structuredClone(assets.diagnostics ?? []).filter(d => !((preset.placement === 'st' || adaptive) && d.code === 'WORLD_BOOK_POSITION_APPROXIMATED' && d.originalPosition === 'at_depth'))
   diagnostics.push(...resolution.diagnostics, ...entries.flatMap(e => e.diagnostics ?? []))
+  if (adaptive) for (let i = diagnostics.length - 1; i >= 0; i--) {
+    const d = diagnostics[i]
+    if (d.code === 'WORLD_BOOK_POSITION_APPROXIMATED' && entries.some(e => e.descriptor.id === 'worldbook' && e.blocks.some(b => b.group === d.originalPosition && b.source?.resourceId === d.resourceId && b.source?.field === String(d.entryId)))) diagnostics.splice(i, 1)
+  }
   const variables = new Map(), macros = new Map(), claims = new Map(), nodes = [], deferred = [], nativeById = new Map(nativeMessages.map(m => [m.id, m])), requiredNative = new Set()
   const key = (entry, block) => `${entry.rule.id}:${block.id}`
   const origin = (entry, block) => ({ plugin: entry.descriptor.pluginId, module: entry.descriptor.id, sourceId: entry.descriptor.id, version: entry.descriptor.version, resourceId: block.source?.resourceId ?? null, field: block.source?.field ?? block.id,
@@ -106,7 +110,7 @@ function assembleResolved({ preset: suppliedPreset, previous = null, snapshots =
   }
   // Preset slots own their references even if another module is dragged ahead
   // of the preset. Keep legacy claim precedence in other placement modes.
-  const claimGroups = preset.placement === 'native-slots'
+  const claimGroups = adaptive
     ? [roots.filter(r => r.entry.descriptor.id === 'preset'), roots.filter(r => r.entry.descriptor.id !== 'preset')]
     : [roots]
   for (const group of claimGroups) {
@@ -160,7 +164,8 @@ function assembleResolved({ preset: suppliedPreset, previous = null, snapshots =
       rendered = entry.renderText({ text: expanded, context: request, variables, block, diagnostics, identity })
       if (typeof rendered !== 'string') throw new TypeError('renderText must synchronously return text')
       if (!rendered) return
-      role = adaptive && (entry.descriptor.id === 'preset' || reference?.authoredRole)
+      role = preset.placement === 'native-roles' && entry.descriptor.id === 'worldbook' ? block.role ?? 'system'
+        : adaptive && (entry.descriptor.id === 'preset' || reference?.authoredRole)
         ? reference?.authoredRole ?? block.role ?? 'system'
         : targetRule.role === 'preserve' ? block.role ?? 'system' : targetRule.role
       lifetime = targetRule.lifetime; contentHash = hash({ text: rendered, role })
@@ -174,7 +179,7 @@ function assembleResolved({ preset: suppliedPreset, previous = null, snapshots =
       : block.depth ?? (listed.has(entry.rule.id) ? targetRule.depth : entry.rule.depth)
     const nativeRequestedDepth = adaptive && depth != null ? depth : null
     if (nativeRequestedDepth !== null) {
-      diagnostics.push({ code: 'NATIVE_DEPTH_APPROXIMATED', id: identity, name: block.name || block.id, depth })
+      if (!(preset.placement === 'native-slots' && entry.descriptor.id === 'worldbook' && [0, 1].includes(nativeRequestedDepth))) diagnostics.push({ code: 'NATIVE_DEPTH_APPROXIMATED', id: identity, name: block.name || block.id, depth })
       depth = null
     }
     const node = { id: identity, ruleId: targetRule.id, module: targetRule.kind, name: block.name || block.id, role, text: rendered, messages, source: origin(entry, block),
@@ -191,7 +196,9 @@ function assembleResolved({ preset: suppliedPreset, previous = null, snapshots =
     projectNativeOrder(nodes, preset, diagnostics)
     for (const control of placementControls) {
       if (['preset', 'history', 'input'].includes(preset.rules.find(r => r.id === control.ruleId)?.kind)) continue
-      control.independent = nodes.filter(n => n.ruleId === control.ruleId && n.source.module !== 'preset' && n.placementSource !== 'preset').length
+      const fixed = nodes.filter(n => n.ruleId === control.ruleId && n.nativeDepthAnchor)
+      control.owned += fixed.length
+      control.independent = nodes.filter(n => n.ruleId === control.ruleId && n.source.module !== 'preset' && n.placementSource !== 'preset' && !n.nativeDepthAnchor).length
       control.control = control.owned ? control.independent ? 'mixed' : 'preset' : control.independent ? 'independent' : 'empty'
     }
     for (const node of nodes) if (node.lifetime !== 'native') { node.hash = hash({ text: node.text, role: node.role }); node.changed = previous?.nodes?.find(n => n.id === node.id)?.hash !== node.hash }

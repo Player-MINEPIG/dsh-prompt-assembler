@@ -140,12 +140,62 @@ test('before/after slots bracket character fields and never claim depth entries'
     const result=await plan(prompts,{...assets,placement,rules:rules=>rules.map(r=>r.kind==='worldbook'?{...r,role:'preserve'}:r)})
     assert.deepEqual(result.logical.nodes.filter(n=>['BEFORE','CHAR','AFTER'].includes(n.text)).map(n=>n.text),['BEFORE','CHAR','AFTER'])
     assert.equal(result.logical.nodes.find(n=>n.text==='DEPTH').placementSource,null)
-    assert.equal(result.logical.nodes.find(n=>n.text==='DEPTH').role,'user')
-    assert.equal(result.logical.placementControls.find(c=>c.ruleId==='worldbook').control,'mixed')
+    assert.equal(result.logical.nodes.find(n=>n.text==='DEPTH').role,placement === 'native-slots' ? 'system' : 'user')
+    assert.equal(result.logical.placementControls.find(c=>c.ruleId==='worldbook').control,placement === 'native-slots' ? 'preset' : 'mixed')
   }
   const {assembleRequest}=await import('../src/assemble.js')
   const {BUILTINS}=await import('../adapters/tavern.js')
   const result=assembleRequest({registry:createDefaultRegistry(),preset:BUILTINS[0],assets:{...assets,preset:{prompts}},nativeMessages:[msg('OLD'),msg('NOW')],inputIds:['NOW']})
   assert.deepEqual(result.messages.map(textOf),['BEFORE','CHAR','AFTER','OLD','DEPTH','NOW','CLOSE'])
   assert.equal(result.nodes.find(n=>n.text==='DEPTH').role,'user')
+})
+
+const marker = (identifier, role = 'system') => ({ identifier, role, marker: true, enabled: true })
+const lore = (id, requestedPosition, role = 'system', extra = {}) => ({ id, comment: id, content: id, requestedPosition, position: requestedPosition.startsWith('before') ? 'before' : 'after', role, ...extra })
+test('all six worldbook positions follow preset slots, adapt roles, and survive module movement', async () => {
+  const prompts = [marker('worldInfoBefore'), marker('charDescription'), marker('worldInfoAfter'),
+    prompt('split','user','{{history}}'), marker('dialogueExamples'), prompt('authorNote','system','NOTE'), prompt('inputSlot','user','{{input}}')]
+  const loreEntries = [lore('CB','before_character_definition','user'), lore('CA','after_character_definition','assistant'),
+    lore('EB','before_example_messages'), lore('EA','after_example_messages'), lore('NB','before_author_note'), lore('NA','after_author_note')]
+  for (const target of ['preset','history','end']) {
+    const result = await plan(prompts,{placement:'native-slots',loreEntries,character:{data:{description:'CHAR',messageExample:'EXAMPLES'}},rules:rs=>moveLore(rs,target)})
+    assert.deepEqual(result.logical.messages.map(textOf),['CB','CHAR','CA','OLD','EB','EXAMPLES','EA','NB','NOTE','NA','NOW'])
+    assert.deepEqual(result.logical.messages.map(m=>m.role),['system','system','system',...Array(8).fill('user')])
+    assert.ok(result.logical.nodes.filter(n=>n.source.module==='worldbook').every(n=>n.placementSource==='preset'))
+    assert.equal(result.logical.placementControls.find(c=>c.ruleId==='worldbook').control,'preset')
+  }
+})
+test('worldbook slots exist around empty anchors and warn when an anchor is disabled or absent', async () => {
+  const entries=[lore('EB','before_example_messages'),lore('EA','after_example_messages'),lore('NB','before_author_note'),lore('NA','after_author_note')]
+  const present=await plan([marker('dialogueExamples'),marker('authorNote'),marker('chatHistory')],{placement:'native-slots',loreEntries:entries})
+  assert.deepEqual(present.logical.messages.map(textOf),['EB','EA','NB','NA','OLD','NOW'])
+  for (const prompts of [[],[{...marker('authorNote'),enabled:false}]]) {
+    const missing=await plan(prompts,{placement:'native-slots',loreEntries:entries})
+    assert.equal(missing.logical.diagnostics.filter(d=>d.code==='WORLD_BOOK_SLOT_MISSING').length,4)
+    assert.equal(missing.logical.nodes.filter(n=>n.source.module==='worldbook').length,4)
+  }
+})
+test('slot depth zero/one maps around history without splitting it; larger source depths remain approximate', async () => {
+  const loreEntries=[lore('D0','at_depth','system',{depth:0}),lore('D1','at_depth','user',{depth:1}),lore('D2','at_depth','system',{depth:2})]
+  for (const empty of [false,true]) for (const target of ['preset','end']) {
+    const result=await plan([prompt('p','user','OPEN{{history}}BETWEEN{{input}}CLOSE')],{placement:'native-slots',loreEntries,rules:rs=>moveLore(rs,target,'preserve'),...(empty?{history:[],inputs:[]}: {})})
+    const texts=result.logical.messages.map(textOf)
+    assert.deepEqual(texts.filter(t=>t!=='D2'),empty?['OPEN','D1','D0','BETWEEN','CLOSE']:['OPEN','D1','OLD','D0','BETWEEN','NOW','CLOSE'])
+    assert.deepEqual(result.logical.nodes.filter(n=>n.nativeDepthAnchor).map(n=>[n.text,n.role,n.nativeDepthAnchor]),[['D1','system','before-history'],['D0','user','after-history']])
+    assert.deepEqual(result.logical.diagnostics.filter(d=>d.code==='NATIVE_DEPTH_APPROXIMATED').map(d=>d.depth),[2])
+    assert.deepEqual(result.beforeInput.map(textOf),['D0','BETWEEN'])
+    assert.equal(result.logical.placementControls.find(c=>c.ruleId==='worldbook').control,'mixed')
+  }
+  const noSlots=await plan([],{placement:'native-slots',loreEntries:loreEntries.slice(0,2)})
+  assert.deepEqual(noSlots.logical.messages.map(textOf),['D1','OLD','D0','NOW'])
+})
+test('roles first keeps worldbook roles and slot order ahead of module placement', async () => {
+  const prompts=[prompt('lead','user','LEAD'),marker('worldInfoBefore','system'),prompt('middle','user','MID'),marker('worldInfoAfter','user'),marker('dialogueExamples','user'),prompt('authorNote','user','NOTE')]
+  const loreEntries=[lore('A1','after_character_definition','user'),lore('B1','before_character_definition','user'),lore('B2','before_character_definition','user'),lore('AS','after_character_definition','system'),lore('EB','before_example_messages','user'),lore('EA','after_example_messages','user'),lore('NB','before_author_note','user'),lore('NA','after_author_note','user')]
+  for(const target of ['preset','end']) {
+    const result=await plan(prompts,{loreEntries,rules:rs=>moveLore(rs,target,'system').map(r=>({...r,delivery:'context'}))})
+    assert.deepEqual(result.logical.messages.map(textOf),['AS','OLD','NOW','LEAD','B1','B2','MID','A1','EB','EA','NB','NOTE','NA'])
+    assert.equal(result.logical.nodes.find(n=>n.text==='AS').role,'system')
+    assert.ok(result.logical.nodes.filter(n=>n.source.module==='worldbook'&&n.text!=='AS').every(n=>n.role==='user'))
+  }
 })

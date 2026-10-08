@@ -31,6 +31,31 @@ function characterFields(assets) {
     system: selection.preferCharacterSystemPrompt === false ? '' : data.systemPrompt ?? data.system_prompt ?? '',
     phi: selection.preferCharacterPostHistory === false ? '' : data.postHistoryInstructions ?? data.post_history_instructions ?? '' }
 }
+const worldbookAnchors = [
+  { ids: ['dialogueExamples'], before: 'before_example_messages', after: 'after_example_messages' },
+  { ids: ['authorNote', 'authorsNote'], before: 'before_author_note', after: 'after_author_note' },
+]
+const adaptiveWorldbook = preset => preset.backend === 'native' && ['native-slots', 'native-roles'].includes(preset.placement)
+function worldbookGroup(entry, context, diagnostics) {
+  if (entry.requestedPosition === 'at_depth') return 'depth'
+  const anchor = worldbookAnchors.find(a => [a.before, a.after].includes(entry.requestedPosition))
+  if (adaptiveWorldbook(context.preset) && anchor) {
+    if (context.assets.preset?.prompts?.some(p => p.enabled && anchor.ids.includes(p.identifier))) return entry.requestedPosition
+    diagnostics.push({ code: 'WORLD_BOOK_SLOT_MISSING', name: entry.comment || String(entry.id), position: entry.requestedPosition, anchor: anchor.ids[0] })
+  }
+  return entry.position ?? 'after'
+}
+function insertWorldbookAnchors(blocks, prompts) {
+  for (const anchor of worldbookAnchors) {
+    const prompt = prompts.find(p => p.enabled && anchor.ids.includes(p.identifier))
+    if (!prompt) continue
+    const id = `preset:${prompt.identifier}`
+    const matches = blocks.flatMap((b, i) => b.id === id || b.id.startsWith(id + ':') ? [i] : [])
+    if (!matches.length) continue
+    blocks.splice(matches.at(-1) + 1, 0, ref(`${id}:world-after`, 'worldbook', undefined, { group: anchor.after, owner: id, role: prompt.role }))
+    blocks.splice(matches[0], 0, ref(`${id}:world-before`, 'worldbook', undefined, { group: anchor.before, owner: id, role: prompt.role }))
+  }
+}
 /** No privileged registration path: these descriptors also serve the public UI catalog. */
 export function registerTavernSources(registry, { worldbookPolicy, worldbookValidateResolved } = {}) {
   const dispose = [], register = source => dispose.push(registry.register({ pluginId: 'pmp-dsh-tavern', stability: 'asset', renderText: renderTavernText, contentGuide: contentGuides[source.id], ...source }))
@@ -46,8 +71,8 @@ export function registerTavernSources(registry, { worldbookPolicy, worldbookVali
     return { blocks, macros: { description: 'description', personality: 'personality', scenario: 'scenario', mesexamples: 'examples', charDescription: 'description', charPersonality: 'personality' } }
   } })
   register({ id: 'persona', name: '用户设定', resolve: ({ assets }) => ({ blocks: [text('persona', assets.user?.description, { source: { resourceId: assets.user?.id, field: 'persona' } })], macros: { persona: 'persona' } }) })
-  register({ id: 'worldbook', name: '世界书', stability: 'conversation', validateResolved: worldbookValidateResolved, resolve: context => { const { assets, preset } = context; const output = { blocks: (assets.loreEntries ?? []).map(e => text(`worldbook:${e.id ?? e.uid}`, e.content, {
-    name: e.comment || `worldbook:${e.id ?? e.uid}`, group: e.requestedPosition === 'at_depth' ? 'depth' : e.position ?? 'after', stability: e.constant ? 'asset' : 'conversation', role: e.role ?? 'system',
+  register({ id: 'worldbook', name: '世界书', stability: 'conversation', validateResolved: worldbookValidateResolved, resolve: context => { const { assets, preset } = context; const diagnostics = []; const output = { diagnostics, blocks: (assets.loreEntries ?? []).map(e => text(`worldbook:${e.id ?? e.uid}`, e.content, {
+    name: e.comment || `worldbook:${e.id ?? e.uid}`, group: worldbookGroup(e, context, diagnostics), stability: e.constant ? 'asset' : 'conversation', role: e.role ?? 'system',
     ...(e.requestedPosition === 'at_depth' ? { depth: e.depth ?? 0 } : {}), source: { resourceId: e.resourceId, field: String(e.uid ?? e.id) },
   })) }; return worldbookPolicy ? worldbookPolicy(context, output) : output } })
   register({ id: 'preset', name: '预设正文', textParserAliasFor: 'tavern.text', parseText: parseTavernText, lifetimes: ['request'], dependencies: ['character', 'persona', 'history', 'input', 'worldbook', 'phi'], resolve({ assets, preset }) {
@@ -58,6 +83,7 @@ export function registerTavernSources(registry, { worldbookPolicy, worldbookVali
       const id = `preset:${p.identifier}`
       if (p.marker) {
         if (markerFields[p.identifier]) { const [sourceId, field] = markerFields[p.identifier]; blocks.push(ref(id, sourceId, [field], { honorEnabled: false, useOwnerRule: true, owner: id, role: p.role })) }
+        else if (['authorNote', 'authorsNote'].includes(p.identifier)) blocks.push(text(id, '', { role: p.role }))
         else if (['chatHistory', 'history', 'input', 'worldInfoBefore', 'worldInfoAfter'].includes(p.identifier)) references(blocks, id, p.identifier, { role: p.role })
         else diagnostics.push({ code: 'UNSUPPORTED_MARKER', owner: id })
         continue
@@ -69,6 +95,7 @@ export function registerTavernSources(registry, { worldbookPolicy, worldbookVali
       const toPhi = !['st', 'native-roles', 'native-slots'].includes(preset.placement) && p.identifier === 'jailbreak' && preset.rules.some(r => r.kind === 'phi' && r.enabled)
       tavernText(blocks, id, raw, { name: p.name, role: p.role, source: src, claims, ...(toPhi ? { targetSourceId: 'phi' } : {}), ...(p.injectionPosition === 1 ? { depth: p.injectionDepth ?? 0, order: p.injectionOrder ?? p.st?.injection_order ?? 100 } : {}) })
     }
+    if (adaptiveWorldbook(preset)) insertWorldbookAnchors(blocks, assets.preset?.prompts ?? [])
     return { blocks, diagnostics }
   } })
   register({ id: 'phi', name: '后置指令（PHI）', dependencies: ['character'], resolve: (_, rule) => ({ blocks: [ref('phi', 'character', ['phi'], { honorEnabled: false, useOwnerRule: true, lock: false, owner: 'phi' }), text('additional-phi', rule.text, { source: { field: rule.id } })] }) })

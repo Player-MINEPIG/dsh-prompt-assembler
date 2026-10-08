@@ -36,17 +36,31 @@ export function projectNativeOrder(nodes, preset, diagnostics) {
     if (historySlot) nodes.push(input)
     else nodes.unshift(history)
   }
+  // Native slot depth is a boundary mapping, never an insertion into history.
+  const depthNodes = requestedSlots ? nodes.filter(n => kind(n) === 'worldbook' && [0, 1].includes(n.nativeRequestedDepth)) : []
+  if (depthNodes.length) {
+    const rest = nodes.filter(n => !depthNodes.includes(n))
+    const at = rest.indexOf(history)
+    const before = depthNodes.filter(n => n.nativeRequestedDepth > 0), after = depthNodes.filter(n => n.nativeRequestedDepth === 0)
+    rest.splice(at, 1, ...before, history, ...after)
+    for (const node of depthNodes) {
+      node.nativeDepthAnchor = node.nativeRequestedDepth === 0 ? 'after-history' : 'before-history'
+      node.locked = true; node.lockReason = 'native-depth-boundary'
+      diagnostics.push({ code: 'NATIVE_DEPTH_BOUNDARY', id: node.id, name: node.name, depth: node.nativeRequestedDepth, placement: node.nativeDepthAnchor })
+    }
+    nodes.splice(0, nodes.length, ...rest)
+  }
   const historyIndex = nodes.indexOf(history), inputIndex = nodes.indexOf(input)
   const groups = [[], [history], [], [input], [], []]
   for (const node of nodes) {
     if (node === history || node === input) continue
     if (kind(node) === 'native-system') { groups[0].push(node); continue }
-    if (!['system', 'user'].includes(node.role)) fail(`Native ordering cannot preserve ${node.role}: ${node.name}`, node)
     const index = nodes.indexOf(node), rule = preset.rules.find(r => r.id === node.ruleId)
-    if (slots && presetOwned(node)) {
+    if (slots && presetOwned(node) || node.nativeDepthAnchor) {
       // A history slot fixes the system/user boundary. With only an input slot,
       // authored system prefixes remain system and user prefixes follow history.
-      const role = historySlot ? index < historyIndex ? 'system' : 'user' : index > inputIndex ? 'user' : node.role
+      const role = node.nativeDepthAnchor ? node.nativeDepthAnchor === 'before-history' ? 'system' : 'user'
+        : historySlot ? index < historyIndex ? 'system' : 'user' : index > inputIndex ? 'user' : node.role
       if (role !== node.role) {
         node.authoredRole = node.role
         diagnostics.push({ code: 'NATIVE_ROLE_ADJUSTED', id: node.id, name: node.name, from: node.role, to: role })
@@ -54,11 +68,12 @@ export function projectNativeOrder(nodes, preset, diagnostics) {
         node.messages = node.messages.map(m => ({ ...m, role, source: { kind: role === 'system' ? 'system-prompt' : 'tavern-assembly' } }))
       }
     }
+    if (!['system', 'user'].includes(node.role)) fail(`Native ordering cannot preserve ${node.role}: ${node.name}`, node)
     if (node.role === 'system') { node.nativePlacement = 'system'; groups[0].push(node); continue }
     // Slot placement needs ordered accepted messages, including the area before
     // input. Context snapshots may be reused at an old position by native DSH.
-    node.nativeDelivery = slots && presetOwned(node) ? 'pre-step' : rule?.delivery ?? 'context'
-    if (slots && presetOwned(node) && rule?.delivery === 'context') diagnostics.push({ code: 'NATIVE_DELIVERY_ADJUSTED', id: node.id, name: node.name, from: 'context', to: 'pre-step' })
+    node.nativeDelivery = (slots && presetOwned(node) || node.nativeDepthAnchor) ? 'pre-step' : rule?.delivery ?? 'context'
+    if ((slots && presetOwned(node) || node.nativeDepthAnchor) && rule?.delivery === 'context') diagnostics.push({ code: 'NATIVE_DELIVERY_ADJUSTED', id: node.id, name: node.name, from: 'context', to: 'pre-step' })
     node.nativePlacement = node.nativeDelivery === 'pre-step' && index < inputIndex ? 'before-input' : 'after-input'
     groups[node.nativePlacement === 'before-input' ? 2 : node.nativeDelivery === 'context' ? 4 : 5].push(node)
   }
