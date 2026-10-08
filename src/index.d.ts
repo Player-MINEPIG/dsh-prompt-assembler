@@ -100,7 +100,7 @@ export function projectSystemSnapshots(logical: AssemblyResult, nativeMessages: 
 
 export const name: "dsh-prompt-assembler"
 export const inject: string[]
-export function apply(ctx: any, config: { storageDir: string; security?: Record<string, unknown> }): { registry: RequestSourceRegistry; store: AssemblyPresetStore; runtime: RequestAssembler; migrateLegacy(root: string): boolean; attachTavern(options: Record<string, unknown>): () => void }
+export function apply(ctx: any, config: { storageDir: string; security?: Record<string, unknown> }): { registry: RequestSourceRegistry; store: AssemblyPresetStore; runtime: RequestAssembler; history: { store: { get(sessionId: string): { revision: number; policy: Json }; save(sessionId: string, policy: Json, expectedRevision: number): { revision: number; policy: Json } }; readEvents(session: { id: string }): Promise<any[]>; readContext(sessionId: string): Promise<Record<string, any>> }; migrateLegacy(root: string): boolean; attachTavern(options: Record<string, unknown>): () => void }
 declare const plugin: { name: typeof name; inject: typeof inject; apply: typeof apply }
 export default plugin
 

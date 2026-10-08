@@ -7,6 +7,16 @@ The final messages and policy evidence are recorded in `request/assembly`. Origi
 streams and displayed transcripts stay unchanged. No persistent message projection interpreter is installed.
 Standard mode uses the stock public pre-step and surface-replacement APIs to clean old plugin injections; it needs no protocol-1 core.
 
+## Installed entry points and usage
+
+Open prompt assembly settings and expand “Model history filtering” in the current-session application area. Select retained sources, inspect matching previews, then save history rules. These rules belong to the session and are saved independently from assembly strategies. Switching a strategy preserves history settings. New sessions start disabled.
+
+The assembler plugin mounts standard cleanup using one shared `HistoryPolicyStore`; the optional core plugin mounts advanced request filtering. The actually applied backend determines API capabilities and editor controls. Editing a strategy does not change those capabilities early. When switching to advanced mode, the standard hook first restores still-live owned placeholders before filtering the request copy.
+
+History and assembly APIs share the existing security router and browser/desktop transport. Cold-session previews use public inspect and sessions.prepare without creating an Agent. Tavern supplies the MVU example and embedding, without copying the generic engine or settings store. The `./history-policy` package export provides the Tavern example and mounting function.
+
+Actual requests use the recorded final messages. Advanced result cards reconcile history text using `metadata.historyPolicy`, while original layout and event audit remain intact. Standard provenance uses built-in replacement events and `data.historyPolicy/sourceEventSeqs`. Layout assembly precedes history filtering.
+
 ## Standard: source cleanup
 
 `registerStandardHistoryPolicy` automatically cleans consumed plugin `user/message` events, using exact
@@ -174,8 +184,7 @@ session-specific, never global. One Host owns `history-policies.json`, saved thr
 concurrent writes from multiple processes are unsupported.
 
 `mountHistoryPolicyPanel(container,{sessionId,request?,fragmentPresets?})` returns `{ready,dispose}`.
-Inject the existing authenticated transport for desktop. Both modes mount this panel; capabilities come from the server. Dispose and remount on session/backend switch or unload. Supply nodes to advanced previews to simulate standard-placeholder restoration on switching. This change supplies an independent component, leaving root wiring and the
-other implementation branch's client files to the integrator.
+Inject the existing authenticated transport for desktop. Both modes mount this panel; capabilities come from the server. Dispose and remount on session/backend switch or unload. Supply nodes to advanced previews to simulate standard-placeholder restoration on switching. The installed plugin mounts this component; independent callers can also reuse it.
 
 ## Audit and compatibility
 

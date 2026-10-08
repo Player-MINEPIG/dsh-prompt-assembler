@@ -5,6 +5,8 @@ import { BUILTINS } from './model.js'
 import { createAssemblyApi } from './server.js'
 import { connectMemoryManager } from '../adapters/memory-manager.js'
 import { secureAssemblerApi } from './api-security.js'
+import { connectHistoryPolicy } from './history/integration.js'
+import { HISTORY_API_ROOT } from './history/server.js'
 import { API_ROOT, API_V1, PLUGIN_ID } from './identity.js'
 
 export const name = PLUGIN_ID
@@ -26,8 +28,9 @@ export function apply(ctx, config = {}) {
   const runtime = new RequestAssembler({ ctx, store, registry, resources, sessionReads,
     afterAssembly: (...args) => provider?.afterAssembly?.(...args) })
   runtime.validateResult = (...args) => provider?.validateResult?.(...args)
+  const history = connectHistoryPolicy(ctx, { runtime, storageDir: config.storageDir })
   const face = {
-    registry, store, runtime,
+    registry, store, runtime, history,
     migrateLegacy: root => store.migrateLegacy(root),
     attachTavern(options) {
       if (provider) throw new Error('Tavern source provider is already attached')
@@ -62,9 +65,13 @@ export function apply(ctx, config = {}) {
   if (typeof ctx.inject === 'function') {
     connectMemoryManager(ctx, registry)
     ctx.inject(['webServer'], scope => {
-      const handler = secureAssemblerApi(createAssemblyApi({ store, runtime,
+      const assembly = createAssemblyApi({ store, runtime,
         agents: () => ctx.get('agents'), sessions: () => ctx.get('sessions'),
-        inspect: id => ctx.get('sessionController').inspect(id), readActual: id => provider?.readActual?.(id), root: API_V1 }), config.security)
+        inspect: id => ctx.get('sessionController').inspect(id), readActual: id => provider?.readActual?.(id), root: API_V1 })
+      const handler = secureAssemblerApi((req, res) => {
+        const path = new URL(req.url, 'http://localhost').pathname
+        return (path === HISTORY_API_ROOT || path.startsWith(`${HISTORY_API_ROOT}/`) ? history.handler : assembly)(req, res)
+      }, config.security)
       scope.effect(() => scope.webServer.register({ kind: 'prefix', path: API_ROOT, handler }), 'assembler: HTTP API')
     })
   }

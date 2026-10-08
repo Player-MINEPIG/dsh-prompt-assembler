@@ -41,7 +41,7 @@ for(const inHistory of [false,true])test(`standard install on stock rc.2: ${inHi
   try {
     await ctx.plugin(SystemPrompt,{includeHarnessIdentity:false,personaPrefix:'OFFICIAL'})
     for(const name of ['session','agent','session-projection','llm','tools','agent-loop'])await ctx.plugin((await load(`dsh-${name}`)).default,name==='agent-loop'?{agents:[]}:{})
-    ctx.provide('sessionController',{})
+    ctx.provide('sessionController', { inspect: id => ({ events: ctx.sessions.get(id).snapshotEvents() }) })
     ctx.on('agent/error',e=>errors.push(e.error))
     class Provider extends llm.LlmAdapter {
       async resolveModel(provider,id){return {provider,id,name:id,...inHistory?{systemPromptUpdate:'in-history'}:{}}}
@@ -135,7 +135,7 @@ for (const inHistory of [false, true]) test(`native preset ordering uses public 
   try {
     await ctx.plugin(SystemPrompt, { includeHarnessIdentity: false, personaPrefix: 'OFFICIAL' })
     for (const name of ['session', 'agent', 'session-projection', 'llm', 'tools', 'agent-loop']) await ctx.plugin((await load(`dsh-${name}`)).default, name === 'agent-loop' ? { agents: [] } : {})
-    ctx.provide('sessionController', {}); ctx.on('agent/error', e => errors.push(e.error))
+    ctx.provide('sessionController', { inspect: id => ({ events: ctx.sessions.get(id).snapshotEvents() }) }); ctx.on('agent/error', e => errors.push(e.error))
     class Provider extends llm.LlmAdapter {
       async resolveModel(provider, id) { return { provider, id, name: id, ...inHistory ? { systemPromptUpdate: 'in-history' } : {} } }
       async *stream(request) {

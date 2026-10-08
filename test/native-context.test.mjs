@@ -33,7 +33,7 @@ for (const route of ['native','core']) {
       for(const name of ['session','agent','session-projection','llm','tools','agent-loop']) await ctx.plugin((await load(`dsh-${name}`)).default,name==='agent-loop'?{agents:[]}:{})
       await ctx.plugin((await load('dsh-sandbox-policy')).default,{mode:'read-only',workspaceRoot:dir})
       await ctx.plugin((await load('dsh-user-approval')).default,{policy:'ask'})
-      ctx.provide('sessionController',{})
+      ctx.provide('sessionController', { inspect: id => ({ events: ctx.sessions.get(id).snapshotEvents() }) })
       ctx.systemPrompt.context({name:'third-party:worldbook',order:200,text:'FOREIGN CONTEXT'})
       ctx.on('agent/error',e=>errors.push(e.error))
       class Provider extends llm.LlmAdapter {

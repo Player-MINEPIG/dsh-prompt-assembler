@@ -19,7 +19,7 @@ for (const backend of ['native', 'core']) {
     try {
       await ctx.plugin(SystemPrompt, { includeHarnessIdentity: false, personaPrefix: 'NATIVE' })
       for (const name of ['session', 'agent', 'session-projection', 'llm', 'tools', 'agent-loop']) await ctx.plugin((await load(`dsh-${name}`)).default, name === 'agent-loop' ? { agents: [] } : {})
-      ctx.provide('sessionController', {})
+      ctx.provide('sessionController', { inspect: id => ({ events: ctx.sessions.get(id).snapshotEvents() }) })
       ctx.on('agent/error', e => errors.push(e.error))
       class Offline extends llm.LlmAdapter {
         async resolveModel(provider, id) { return { provider, id, name: id, systemPromptUpdate: 'in-history' } }

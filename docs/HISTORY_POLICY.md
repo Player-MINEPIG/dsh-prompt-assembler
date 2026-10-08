@@ -6,6 +6,16 @@
 `request/assembly`。原始 Session 事件、模型 stream 和聊天展示不改；不会注册卸载后仍需保留的
 消息投影解释器。标准版使用 stock DSH 的公开 pre-step 和 surface replacement 清理旧插件注入，不需要协议 1 核心。
 
+## 正式入口与操作
+
+打开提示词装配策略，在当前会话应用区域展开「模型历史筛选」。选择保留来源，先查看匹配预览，再点「保存历史规则」。这份规则属于当前会话，与装配策略分别保存；切换装配策略不会丢弃历史规则。新会话默认关闭。
+
+assembler 主插件挂载标准版清理钩子，共用 `HistoryPolicyStore`；可选 core 插件挂载进阶筛选钩子。实际已应用的 backend 决定 API 能力和编辑器控件，编辑中的策略不会提前改变能力。切换到进阶版时，标准钩子先恢复仍有效的隐藏占位，再由进阶路径筛选请求副本。
+
+历史 API 与装配 API 共用已有安全路由及浏览器/桌面 transport。冷会话通过公共 inspect 和 sessions.prepare 预览，不创建 Agent。Tavern 只提供 MVU 示例和界面嵌入，不复制通用引擎或策略存储。包级 `./history-policy` 导出 Tavern 示例与挂载函数。
+
+实际请求以保存的最终 messages 为准；进阶卡片按 `metadata.historyPolicy` 对布局中的历史正文作显示修正，保留原始布局及事件审计。标准版通过内置替换事件的 `data.historyPolicy/sourceEventSeqs` 追溯。布局先装配，历史策略随后筛选。
+
 ## 标准版：来源清理
 
 `registerStandardHistoryPolicy` 自动清理已经消费的插件 `user/message`。可靠依据是精确 `source.kind`
@@ -166,7 +176,7 @@ Host 上下文需注入 `agentLoop`、`dshPromptAssembler`、`sessionController`
 多进程共享写入不在合同中。
 
 `mountHistoryPolicyPanel(container,{sessionId,request?,fragmentPresets?})` 返回 `{ready,dispose}`。
-桌面端通过 request 注入既有鉴权 transport。两版均可挂载，能力由服务端返回；切换会话、backend 或卸载时 dispose 并重新挂载。本提交提供独立组件，不改主入口或另一实现分支拥有的客户端文件。
+桌面端通过 request 注入既有鉴权 transport。两版均可挂载，能力由服务端返回；切换会话、backend 或卸载时 dispose 并重新挂载。主插件已挂载该组件，独立调用方也可复用。
 
 ## 审计与兼容性
 

@@ -1,9 +1,12 @@
 /** Framework-independent embeddable editor. Transport is injectable for authenticated desktop hosts. */
-export function mountHistoryPolicyPanel(container, { sessionId, root = '/dsh-prompt-assembler/api/v1/history-policy', request = fetch, fragmentPresets = [] }) {
+export function mountHistoryPolicyPanel(container, { sessionId, root = '/dsh-prompt-assembler/api/v1/history-policy', request = fetch, fragmentPresets = [], onDirtyChange = () => {}, onSaved = () => {} }) {
   const doc = container.ownerDocument, abort = new AbortController()
-  let revision = 0, policy, disposed = false, standard = false
+  let revision = 0, policy, disposed = false, standard = false, dirty = false, editGeneration = 0
+  const setDirty = value => { if (value) editGeneration++; dirty = value; onDirtyChange(value) }
   const el = (tag, text, parent = container) => { const node = doc.createElement(tag); if (text) node.textContent = text; parent.append(node); return node }
   const panel = el('section'); panel.className = 'history-policy-panel'
+  panel.addEventListener('input', () => setDirty(true))
+  panel.addEventListener('change', () => setDirty(true))
   const title = el('h2', '模型历史筛选', panel)
   const explanation = el('p', '保留原始日志和展示原文。保存后从下一步请求重新筛选现存有效历史，同一步重试沿用原规则；关闭后恢复原生有效历史。已被原生压缩的内容不会复原。', panel)
   const label = el('label', '', panel), enabled = el('input', '', label); enabled.type = 'checkbox'; enabled.setAttribute('aria-label', '启用历史筛选'); el('span', ' 启用历史筛选', label)
@@ -24,9 +27,9 @@ export function mountHistoryPolicyPanel(container, { sessionId, root = '/dsh-pro
   const fragments = el('textarea', '', advanced); fragments.rows = 9; fragments.setAttribute('aria-label', '片段规则 JSON')
   for (const preset of fragmentPresets) {
     const button = el('button', `添加 ${preset.name}`, advanced)
-    button.onclick = () => { try { const rules = JSON.parse(fragments.value); if (!rules.some(r => r.id === preset.rule.id)) rules.push(structuredClone(preset.rule)); fragments.value = JSON.stringify(rules, null, 2) } catch (error) { status.textContent = error.message } }
+    button.onclick = () => { try { const rules = JSON.parse(fragments.value); if (!rules.some(r => r.id === preset.rule.id)) rules.push(structuredClone(preset.rule)); fragments.value = JSON.stringify(rules, null, 2); setDirty(true) } catch (error) { status.textContent = error.message } }
   }
-  const actions = el('div', '', panel), previewButton = el('button', '匹配预览', actions), saveButton = el('button', '保存规则', actions)
+  const actions = el('div', '', panel), previewButton = el('button', '匹配预览', actions), saveButton = el('button', '保存历史规则', actions)
   previewButton.disabled = true; saveButton.disabled = true; addSource.disabled = true
   const status = el('p', '正在读取…', panel); status.setAttribute('role', 'status')
   const results = el('div', '', panel); results.setAttribute('aria-label', '历史匹配预览')
@@ -51,7 +54,7 @@ export function mountHistoryPolicyPanel(container, { sessionId, root = '/dsh-pro
     const result = await response.json(); if (!response.ok || !result.ok) throw new Error(result.error ?? 'History API failed'); return result
   }
   addSource.onclick = () => {
-    try { policy = draft(); if (!policy.sources.some(r => r.kind === sourceName.value)) policy.sources.push({ kind: sourceName.value, include: true }); renderSources(); sourceName.value = '' } catch (error) { status.textContent = error.message }
+    try { policy = draft(); if (!policy.sources.some(r => r.kind === sourceName.value)) policy.sources.push({ kind: sourceName.value, include: true }); renderSources(); sourceName.value = ''; setDirty(true) } catch (error) { status.textContent = error.message }
   }
   async function action(button, run) {
     button.disabled = true
@@ -77,8 +80,9 @@ export function mountHistoryPolicyPanel(container, { sessionId, root = '/dsh-pro
     }
   })
   saveButton.onclick = () => action(saveButton, async () => {
+    const savingGeneration = editGeneration
     const result = await call('', 'PUT', { policy: draft(), expectedRevision: revision }); if (disposed) return
-    policy = result.policy; revision = result.revision; results.replaceChildren(); status.textContent = `已保存版本 ${revision}。从下一步${standard ? '原生' : '进阶'}请求生效；同一步重试和过去的审计记录不变。`
+    policy = result.policy; revision = result.revision; results.replaceChildren(); if (editGeneration === savingGeneration) setDirty(false); onSaved(); status.textContent = `已保存版本 ${revision}。从下一步${standard ? '原生' : '进阶'}请求生效；同一步重试和过去的审计记录不变。${dirty ? ' 仍有保存期间的新修改待保存。' : ''}`
   })
   const ready = call().then(result => {
     if (disposed) return
@@ -93,5 +97,5 @@ export function mountHistoryPolicyPanel(container, { sessionId, root = '/dsh-pro
     for (const [kind, input] of Object.entries(types)) input.checked = standard || policy.contentTypes[kind]
     fragments.value = JSON.stringify(policy.fragments, null, 2); renderSources(); previewButton.disabled = false; saveButton.disabled = false; addSource.disabled = false; status.textContent = `已读取版本 ${revision}。未知来源、工具事务和 adapter replay 数据保留。`
   }).catch(error => { if (!disposed) status.textContent = error.message })
-  return { ready, dispose() { disposed = true; abort.abort(); panel.remove() } }
+  return { ready, isDirty: () => dirty, dispose() { disposed = true; abort.abort(); panel.remove() } }
 }

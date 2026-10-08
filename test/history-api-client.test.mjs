@@ -30,7 +30,7 @@ for (const mode of ['advanced', 'standard']) test(`${mode}: HTTP and embedded ed
     const buttons = [...document.querySelectorAll('button')]
     await buttons.find(b => b.textContent === '匹配预览').onclick()
     assert.match(document.querySelector('[role=status]').textContent, /预览/)
-    await buttons.find(b => b.textContent === '保存规则').onclick()
+    await buttons.find(b => b.textContent === '保存历史规则').onclick()
     assert.equal(store.get('test').revision, 1)
     assert.equal(document.querySelector('[aria-label="历史匹配预览"]').children.length, 0)
     assert.equal(store.get('test').policy.enabled, true)

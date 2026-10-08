@@ -12,14 +12,15 @@ export function createHistoryPolicyHandler({ service, root = HISTORY_API_ROOT })
     try {
       const url = new URL(req.url, 'http://localhost'), sessionId = url.searchParams.get('sessionId')
       if (!sessionId || sessionId.length > 512) return send(res, 400, { ok: false, error: 'Session id required' })
-      if (url.pathname === root && req.method === 'GET') return send(res, 200, { ok: true, ...service.store.get(sessionId), capabilities: service.capabilities })
+      const selected = typeof service === 'function' ? await service(sessionId) : service
+      if (url.pathname === root && req.method === 'GET') return send(res, 200, { ok: true, ...selected.store.get(sessionId), capabilities: selected.capabilities })
       if (url.pathname === root && req.method === 'PUT') {
         const body = await read(req)
-        return send(res, 200, { ok: true, ...service.save(sessionId, body.policy, body.expectedRevision), capabilities: service.capabilities })
+        return send(res, 200, { ok: true, ...selected.save(sessionId, body.policy, body.expectedRevision), capabilities: selected.capabilities })
       }
       if (url.pathname === `${root}/preview` && req.method === 'POST') {
         const body = await read(req)
-        return send(res, 200, { ok: true, ...await service.preview(sessionId, body.policy) })
+        return send(res, 200, { ok: true, ...await selected.preview(sessionId, body.policy) })
       }
       return send(res, 404, { ok: false, error: 'History route not found' })
     } catch (error) { return send(res, error.status ?? (error instanceof SyntaxError ? 400 : 500), { ok: false, code: error.code, error: error.message }) }
