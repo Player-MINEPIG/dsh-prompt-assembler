@@ -10,3 +10,5 @@ export { projectSystemSnapshots } from './system-snapshots.js'
 export { name, inject, apply, default } from './plugin.js'
 
 export { presetBackend, validateNativePreset } from './native-policy.js'
+
+export { normalizeLayout, describeResourceLayout, withBlockMove } from './resource-layout.js'

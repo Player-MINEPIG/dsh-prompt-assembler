@@ -2,6 +2,7 @@
 
 [中文](BACKENDS.md) · [Installation](INSTALLATION_en.md) · [Source contract](INTEGRATION_en.md)
 
+See [resource layout](RESOURCE_LAYOUT_en.md) for current blocks, slots, stable positioning and legacy compatibility.
 `dsh-prompt-assembler` is the standard Host plugin and shared strategy, registry, parsing and assembly library. Tavern depends on it normally. `dsh-prompt-assembler-core` is a separately packed optional Host extension under this repository's `core-extension/`; it explicitly registers the validated protocol-1 executor. The standard bundle does not register `agent/assemble-request` or modify DSH core. Memory Manager remains optional.
 
 | Capability | Standard `backend:native` | Advanced `backend:core` |
@@ -39,7 +40,7 @@ For example, `Opening{{history}}Middle{{input}}Closing` becomes `system Opening 
 
 The editor resolves ownership from current resources: preset text and its referenced fields have locked positions; unreferenced content is independently movable; mixed modules move only their independent remainder. For example, `worldInfoBefore` owns only the before worldbook group. The after group remains independent unless also referenced. Character/persona ownership is resolved per field; additional PHI text remains independent. Modules without current output are marked empty.
 
-Dragging independent content preserves the placement mode, preset sequence and history/input slots. Independent system content stays before history; dragging it across history is rejected. For a final format reminder, explicitly select user and pre-step, then move it after input and other suffix modules. Referenced parts of a mixed module remain in their slots. Context retains native placement after input and before suffix pre-step messages. The history/input rows act as anchors for independent content; preview shows the expanded order. Older layouts outside native role boundaries are projected with a preview notice.
+The current UI moves complete contiguous blocks in resource layout; source configuration rows have no drag handles. Slot-bound blocks require an explicit position override. See [resource layout](RESOURCE_LAYOUT_en.md) for native history, role, delivery and snapshot-reuse constraints. Legacy list strategies retain their original interpretation without automatic migration.
 
 Slot-first ordering explicitly adapts roles of preset-controlled content: preview identifies each role or delivery adjustment without editing source presets. Roles first rejects assistant contributions that cannot be delivered natively; slots first can adapt slot-controlled assistant entries to system/user. Both reject explicit rule depth, preserve internal native order and tool transactions, and use public `startsRequestSeries` reconciliation to keep effective system content before history while retaining original events. Frozen requests are not rewritten. Preview shows the current assembly plan; unchanged native context snapshots can be reused at an earlier position, so recorded requests establish final placement. Existing Module order retains its strict boundaries.
 

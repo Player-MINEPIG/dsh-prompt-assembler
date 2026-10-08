@@ -61,6 +61,7 @@ export function projectNativeOrder(nodes, preset, diagnostics) {
       // authored system prefixes remain system and user prefixes follow history.
       const role = node.nativeDepthAnchor ? node.nativeDepthAnchor === 'before-history' ? 'system' : 'user'
         : historySlot ? index < historyIndex ? 'system' : 'user' : index > inputIndex ? 'user' : node.role
+      if (role !== node.role && preset.layout?.identity === 'preserve') fail('Preserving identity conflicts with this native slot position; explicitly allow position adaptation or use manual layout.', node)
       if (role !== node.role) {
         node.authoredRole = node.role
         diagnostics.push({ code: 'NATIVE_ROLE_ADJUSTED', id: node.id, name: node.name, from: node.role, to: role })

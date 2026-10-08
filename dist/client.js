@@ -37,7 +37,119 @@ __export(plugin_client_exports, {
   sessionLabel: () => sessionLabel
 });
 module.exports = __toCommonJS(plugin_client_exports);
-var import_react2 = require("react");
+var import_react3 = require("react");
+
+// src/resource-layout.js
+var fail = (message, code = "ASSEMBLY_LAYOUT_UNSUPPORTED") => {
+  throw Object.assign(new Error(message), { code, status: 409 });
+};
+function normalizeLayout(value) {
+  if (value === void 0) return void 0;
+  if (!value || value.version !== 1 || !["manual", "preset-slots"].includes(value.source) || !["preserve", "position"].includes(value.identity) || !["source-order", "error"].includes(value.fallback) || !Array.isArray(value.overrides) || value.overrides.length > 128) throw new TypeError("Invalid resource layout policy");
+  const seen = /* @__PURE__ */ new Set();
+  const overrides = value.overrides.map((o) => {
+    if (!o || ![o.target, o.anchor].every((s) => typeof s === "string" && s.length > 0 && s.length <= 4096) || o.target === o.anchor || seen.has(o.target) || !["before", "after"].includes(o.side) || typeof o.detach !== "boolean") throw new TypeError("Invalid layout override");
+    seen.add(o.target);
+    return { target: o.target, anchor: o.anchor, side: o.side, detach: o.detach };
+  });
+  return { version: 1, source: value.source, identity: value.identity, fallback: value.fallback, overrides };
+}
+function layoutPlacement(preset) {
+  if (!preset.layout) return preset.placement;
+  return preset.backend === "native" ? preset.layout.source === "preset-slots" ? "native-slots" : "native-roles" : preset.layout.source === "preset-slots" ? "st" : "modules";
+}
+function withBlockMove(preset, layout, target, anchor, side = "before", detach = false) {
+  if (!preset.layout || layout.legacy) fail("Explicitly adopt a resource layout policy before moving blocks");
+  const b = layout.blocks.find((b2) => b2.id === target);
+  if (!b || !layout.blocks.some((b2) => b2.id === anchor)) fail("Refresh current resources before moving this block");
+  if (!b.movable && !(detach && b.overridable)) fail("This block follows a slot or a runtime anchor");
+  detach ||= preset.layout.overrides.find((o) => o.target === target)?.detach === true;
+  return { ...preset, layout: normalizeLayout({ ...preset.layout, overrides: [...preset.layout.overrides.filter((o) => o.target !== target), { target, anchor, side, detach }] }) };
+}
+
+// src/resource-layout-client.js
+var import_react = require("react");
+function ResourceLayoutEditor({ preset, preview, locale = 0, busy, onChange, onPreview }) {
+  const [drag, setDrag] = (0, import_react.useState)(null), [error, setError] = (0, import_react.useState)("");
+  const t = (zh, en) => locale === 0 ? zh : en;
+  const layout = preview?.resourceLayout;
+  const update = (patch) => onChange({ ...preset, layout: { ...preset.layout, ...patch } });
+  const move = (target, anchor, side, detach = false) => {
+    try {
+      setError("");
+      onChange(withBlockMove(preset, layout, target, anchor, side, detach));
+    } catch (e) {
+      setError(e.message);
+    }
+  };
+  return (0, import_react.createElement)(
+    "section",
+    { className: "dta-resource-layout", "aria-label": t("\u5F53\u524D\u8D44\u6E90\u5E03\u5C40", "Current resource layout") },
+    (0, import_react.createElement)("h3", null, t("\u88C5\u914D\u7B56\u7565", "Assembly policy")),
+    !preset.layout ? (0, import_react.createElement)(
+      "div",
+      { className: "dta-notice" },
+      t("\u517C\u5BB9\u6A21\u5F0F\uFF1A\u4FDD\u7559\u5DF2\u4FDD\u5B58\u7B56\u7565\u7684\u987A\u5E8F\u3001\u8EAB\u4EFD\u4E0E\u6295\u9012\u884C\u4E3A\u3002\u91C7\u7528\u65B0\u7B56\u7565\u540E\u8BF7\u9884\u89C8\u5E76\u4FDD\u5B58\uFF1B\u4E0D\u4F1A\u81EA\u52A8\u4FEE\u6539\u5DF2\u5E94\u7528\u7B56\u7565\u3002", "Compatibility mode preserves saved ordering, identity and delivery. Adopt, preview and save explicitly; applied strategies are unchanged."),
+      (0, import_react.createElement)("button", { disabled: busy, onClick: () => update({ version: 1, source: ["st", "native-slots", "native-roles"].includes(preset.placement) ? "preset-slots" : "manual", identity: preset.placement === "native-slots" ? "position" : "preserve", fallback: "source-order", overrides: [] }) }, t("\u91C7\u7528\u8D44\u6E90\u5E03\u5C40\u7B56\u7565", "Adopt resource layout policy"))
+    ) : (0, import_react.createElement)(
+      "div",
+      { className: "dta-toolbar" },
+      ...[
+        ["source", t("\u5E03\u5C40\u6765\u6E90", "Layout source"), [["manual", t("\u624B\u52A8", "Manual")], ["preset-slots", t("\u9884\u8BBE\u63D2\u69FD", "Preset slots")]]],
+        ["identity", t("\u8EAB\u4EFD\u5904\u7406", "Identity"), [["preserve", t("\u4FDD\u7559\u6765\u6E90\u8EAB\u4EFD", "Preserve source roles")], ["position", t("\u660E\u786E\u5141\u8BB8\u6309\u4F4D\u7F6E\u9002\u914D", "Allow position adaptation")]]],
+        ["fallback", t("\u7F3A\u5931\u5B9A\u4F4D", "Missing targets"), [["source-order", t("\u6765\u6E90\u987A\u5E8F\u5E76\u8BCA\u65AD", "Source order with diagnostic")], ["error", t("\u62D2\u7EDD\u88C5\u914D", "Reject assembly")]]]
+      ].map(([key, label, options]) => (0, import_react.createElement)("label", { key }, label, (0, import_react.createElement)("select", { value: preset.layout[key], disabled: busy, onChange: (e) => update({ [key]: e.target.value }) }, ...options.map(([value, label2]) => (0, import_react.createElement)("option", { key: value, value }, label2)))))
+    ),
+    (0, import_react.createElement)("h3", null, t("\u5F53\u524D\u8D44\u6E90\u5E03\u5C40", "Current resource layout")),
+    (0, import_react.createElement)("p", null, t("\u6765\u6E90\u63D0\u4F9B\u5185\u5BB9\uFF1B\u5757\u662F\u8FDE\u7EED\u8F93\u51FA\uFF1B\u63D2\u69FD\u53EA\u5360\u4F4D\u7F6E\u3002\u62D6\u52A8\u6574\u5757\u4FDD\u7559\u5176\u5185\u90E8\u987A\u5E8F\u3002\u4FEE\u6539\u540E\u9700\u5237\u65B0\u9884\u89C8\u3002", "Sources supply content; blocks are contiguous output; slots are positions only. Dragging moves the entire block and preserves internal order. Refresh after editing.")),
+    (0, import_react.createElement)("button", { disabled: busy, onClick: onPreview }, t("\u5237\u65B0\u5F53\u524D\u8D44\u6E90", "Refresh current resources")),
+    error && (0, import_react.createElement)("p", { role: "alert" }, error),
+    !layout ? (0, import_react.createElement)("p", null, t("\u9884\u89C8\u4EE5\u89E3\u6790\u5F53\u524D\u8D44\u6E90\u53CA\u9650\u5236\u3002", "Preview to resolve current resources and constraints.")) : (0, import_react.createElement)(
+      "div",
+      null,
+      ...layout.blocks.map((b, i) => (0, import_react.createElement)(
+        "article",
+        { key: b.id, className: "dta-row", "data-resource-block": b.id },
+        (0, import_react.createElement)(
+          "div",
+          { className: "dta-summary" },
+          (0, import_react.createElement)("button", {
+            type: "button",
+            className: "dta-handle",
+            disabled: busy || !preset.layout || !b.movable,
+            "aria-label": `${t("\u79FB\u52A8\u6574\u5757", "Move whole block")}: ${b.name}`,
+            onPointerDown: (e) => {
+              e.preventDefault();
+              e.currentTarget.setPointerCapture(e.pointerId);
+              setDrag(b.id);
+            },
+            onPointerUp: (e) => {
+              if (!e.currentTarget.hasPointerCapture(e.pointerId)) return;
+              e.currentTarget.releasePointerCapture(e.pointerId);
+              const row = document.elementFromPoint(e.clientX, e.clientY)?.closest("[data-resource-block]");
+              if (row && drag !== row.dataset.resourceBlock) move(drag, row.dataset.resourceBlock, e.clientY < row.getBoundingClientRect().top + row.getBoundingClientRect().height / 2 ? "before" : "after");
+              setDrag(null);
+            },
+            onPointerCancel: () => setDrag(null)
+          }, b.movable ? "\u283F" : "\u{1F512}"),
+          (0, import_react.createElement)("strong", null, `${i + 1}. ${b.name}`),
+          (0, import_react.createElement)("small", null, `${b.originalRoles.join("/")} \u2192 ${b.effectiveRoles.join("/")} \xB7 ${b.region} \xB7 ${b.binding}`)
+        ),
+        (0, import_react.createElement)("small", null, `${t("\u7559\u5B58", "Retention")}: ${b.retention.join("/")} \xB7 ${b.reason === "user-override" ? t("\u7528\u6237\u81EA\u5B9A\u4E49\u4F4D\u7F6E", "User position override") : b.slotId ? t("\u6765\u6E90\u63D2\u69FD\u51B3\u5B9A\u4F4D\u7F6E", "Source slot owns position") : t("\u6765\u6E90\u9ED8\u8BA4\u987A\u5E8F", "Source default order")}`),
+        b.slotId && (0, import_react.createElement)("p", null, `${t("\u8DDF\u968F\u63D2\u69FD", "Follows slot")}: ${b.slotId}`),
+        ...b.limitations.map((reason) => (0, import_react.createElement)("p", { key: reason, className: "dta-notice" }, reason === "NATIVE_CONTEXT_REUSES_HISTORY_POSITION" ? t("\u539F\u751F context \u53EF\u80FD\u590D\u7528\u5386\u53F2\u4E2D\u7684\u65E7\u4F4D\u7F6E\uFF1B\u6B64\u5904\u987A\u5E8F\u4EC5\u8868\u793A\u65B0\u5FEB\u7167\u7684\u4F4D\u7F6E\uFF0C\u7CBE\u786E\u4F4D\u7F6E\u4EE5\u5B9E\u9645\u8BF7\u6C42\u4E3A\u51C6\u3002", "Native context can reuse an earlier history position. This order describes new snapshots; actual requests determine exact placement.") : t("\u539F\u751F\u5386\u53F2\u3001\u6DF1\u5EA6\u6216\u7559\u5B58\u5FEB\u7167\u7684\u4F4D\u7F6E\u7531\u8FD0\u884C\u65F6\u7EA6\u675F\u3002", "Native history, depth or retained snapshots constrain this position."))),
+        (0, import_react.createElement)("details", null, (0, import_react.createElement)("summary", null, `${t("\u5185\u5BB9\u4E0E\u6765\u6E90", "Content and provenance")} \xB7 ${b.entries.length} \xB7 ${b.internalOrder}`), ...b.entries.map((entry) => (0, import_react.createElement)("div", { key: entry.id, className: "dta-child" }, (0, import_react.createElement)("small", null, `${entry.source?.module} / ${entry.source?.resourceId ?? ""} / ${entry.source?.field} \xB7 ${entry.originalRole} \u2192 ${entry.effectiveRole} \xB7 ${entry.lifetime}`), (0, import_react.createElement)("pre", null, entry.text), ...(entry.children ?? []).map((child, index) => (0, import_react.createElement)("pre", { key: index }, `${child.source?.module ?? ""} / ${child.source?.field ?? ""}
+${child.text ?? ""}`))))),
+        preset.layout && (b.movable || b.overridable) && (0, import_react.createElement)("label", null, b.overridable ? t("\u660E\u786E\u8986\u76D6\u63D2\u69FD\uFF1A\u79FB\u5230\u2026\u4E4B\u524D", "Override slot: move before\u2026") : t("\u6574\u5757\u79FB\u5230\u2026\u4E4B\u524D", "Move whole block before\u2026"), (0, import_react.createElement)("select", { value: "", disabled: busy, onChange: (e) => {
+          if (e.target.value) move(b.id, e.target.value, "before", b.overridable);
+        } }, (0, import_react.createElement)("option", { value: "" }, t("\u9009\u62E9\u76EE\u6807", "Choose target")), ...layout.blocks.filter((a) => a.id !== b.id).map((a) => (0, import_react.createElement)("option", { key: a.id, value: a.id }, a.name))))
+      )),
+      (0, import_react.createElement)("details", null, (0, import_react.createElement)("summary", null, t("\u63D2\u69FD\uFF08\u4E0D\u53D1\u9001\u6587\u672C\uFF09", "Slots (no emitted text)")), ...layout.slots.map((s) => (0, import_react.createElement)("p", { key: s.id }, `${s.id} \u2192 ${s.targetSourceId} ${s.group ?? ""} \xB7 ${s.duplicate ? t("\u91CD\u590D\uFF0C\u672A\u91CD\u590D\u53D1\u9001", "duplicate, no duplicate output") : s.nodeIds.length ? t("\u5DF2\u7ED1\u5B9A", "bound") : t("\u7A7A\u63D2\u69FD", "empty")}`))),
+      ...(preview.diagnostics ?? []).filter((d) => d.code.startsWith("LAYOUT_")).map((d, i) => (0, import_react.createElement)("pre", { key: i, role: "status" }, JSON.stringify(d)))
+    ),
+    preset.layout?.overrides.length > 0 && (0, import_react.createElement)("details", null, (0, import_react.createElement)("summary", null, t("\u4FDD\u5B58\u7684\u5B9A\u4F4D\u8986\u76D6", "Saved position overrides")), ...preset.layout.overrides.map((o, i) => (0, import_react.createElement)("div", { key: o.target }, (0, import_react.createElement)("code", null, `${layout?.blocks.find((b) => b.id === o.target)?.name ?? t("\u5F85\u89E3\u6790\u5757", "Unresolved block")} \u2192 ${o.side} ${layout?.blocks.find((b) => b.id === o.anchor)?.name ?? t("\u5F85\u89E3\u6790\u76EE\u6807", "Unresolved target")}`), (0, import_react.createElement)("button", { disabled: busy, onClick: () => update({ overrides: preset.layout.overrides.filter((_, at) => at !== i) }) }, t("\u6062\u590D\u6765\u6E90\u4F4D\u7F6E", "Restore source position")))))
+  );
+}
 
 // src/native-context.js
 var DSH_CONTEXT_NAMES = Object.freeze(["sandbox:policy", "approval:policy", "subagent:delegation"]);
@@ -58,7 +170,7 @@ function contextControlRows(rules, available = CONTEXT_CONTROLS.map((c) => c.kin
 }
 
 // src/client.js
-var import_react = require("react");
+var import_react2 = require("react");
 
 // src/model.js
 var FORMAT = "dsh-tavern-request-assembly";
@@ -69,6 +181,7 @@ function normalizePreset(value) {
   if (typeof value.name !== "string" || !value.name.trim() || value.name.length > 200) throw new TypeError("Preset name is required (max 200 characters)");
   if (!Array.isArray(value.rules) || value.rules.length > 128) throw new TypeError("Expected at most 128 assembly rules");
   if (value.backend !== void 0 && !["native", "core"].includes(value.backend)) throw new TypeError("Invalid assembly backend");
+  const layout = normalizeLayout(value.layout);
   const ids = /* @__PURE__ */ new Set(), kinds = /* @__PURE__ */ new Set();
   const rules = value.rules.map((rule) => {
     if (!rule || !/^[a-zA-Z0-9_-]{1,80}$/.test(rule.id) || ids.has(rule.id)) throw new TypeError("Rule ids must be unique");
@@ -84,12 +197,12 @@ function normalizePreset(value) {
     if (rule.inputMode !== void 0 && !["source", "text"].includes(rule.inputMode)) throw new TypeError("Invalid rule inputMode");
     return { ...rule.delivery ? { delivery: rule.delivery } : {}, ...rule.inputMode === "text" ? { inputMode: "text" } : {}, id: rule.id, kind: rule.kind, enabled: rule.enabled !== false, role, lifetime, depth: rule.depth ?? null, text: rule.text ?? "", name: typeof rule.name === "string" ? rule.name.slice(0, 200) : "" };
   });
-  return { ...value.backend ? { backend: value.backend } : {}, format: FORMAT, version: 1, name: value.name.trim(), placement: ["st", "native-roles", "native-slots"].includes(value.placement) ? value.placement : "modules", rules };
+  return { ...value.backend ? { backend: value.backend } : {}, format: FORMAT, version: 1, name: value.name.trim(), placement: layoutPlacement({ ...value, layout, placement: ["st", "native-roles", "native-slots"].includes(value.placement) ? value.placement : "modules" }), ...layout ? { layout } : {}, rules };
 }
 var BUILTINS = Object.freeze([{ id: "builtin-native", ...normalizePreset({ format: FORMAT, version: 1, name: "DSH \u539F\u751F / DSH native", backend: "native", rules: DEFAULT_RULES }) }]);
 
 // src/native-policy.js
-var fail = (message, detail) => {
+var fail2 = (message, detail) => {
   throw Object.assign(new Error(message), { status: 409, code: "ASSEMBLY_NATIVE_UNSUPPORTED", detail });
 };
 var adaptiveNativePlacement = (preset) => preset?.backend === "native" && ["native-roles", "native-slots"].includes(preset.placement);
@@ -98,17 +211,17 @@ function presetBackend(preset) {
 }
 function validateNativePreset(value) {
   const preset = normalizePreset(value);
-  if (presetBackend(preset) !== "native") fail("This strategy requires the optional core assembly extension.", { backend: "core" });
+  if (presetBackend(preset) !== "native") fail2("This strategy requires the optional core assembly extension.", { backend: "core" });
   for (const kind of ["history", "input"]) {
     const rule = preset.rules.find((r) => r.kind === kind);
-    if (!rule?.enabled) fail(`Native assembly must preserve ${kind}.`, { ruleId: rule?.id, kind });
+    if (!rule?.enabled) fail2(`Native assembly must preserve ${kind}.`, { ruleId: rule?.id, kind });
   }
   for (const rule of preset.rules.filter((r) => isContextControl(r.kind))) {
-    if (rule.role !== "preserve" || rule.lifetime !== "request" || rule.depth !== null || rule.inputMode === "text") fail("Native context controls only support enable/disable.", { ruleId: rule.id });
+    if (rule.role !== "preserve" || rule.lifetime !== "request" || rule.depth !== null || rule.inputMode === "text") fail2("Native context controls only support enable/disable.", { ruleId: rule.id });
   }
   if (adaptiveNativePlacement(preset)) {
     for (const rule of preset.rules.filter((r) => r.enabled)) {
-      if (rule.lifetime === "snapshot" || rule.depth !== null || rule.role === "assistant") fail("Native ordering does not support snapshots, depth or assistant contributions.", { ruleId: rule.id });
+      if (rule.lifetime === "snapshot" || rule.depth !== null || rule.role === "assistant") fail2("Native ordering does not support snapshots, depth or assistant contributions.", { ruleId: rule.id });
     }
     return preset;
   }
@@ -116,27 +229,27 @@ function validateNativePreset(value) {
   for (const rule of preset.rules.filter((r) => r.enabled)) {
     if (isContextControl(rule.kind)) continue;
     if (rule.kind === "history") {
-      if (phase !== "system") fail("Native history cannot be moved after current input.");
+      if (phase !== "system") fail2("Native history cannot be moved after current input.");
       phase = "before-input";
       continue;
     }
     if (rule.kind === "input") {
-      if (phase !== "before-input") fail("Current input must follow native history.");
+      if (phase !== "before-input") fail2("Current input must follow native history.");
       phase = "after-input";
       continue;
     }
-    if (rule.lifetime === "snapshot" || rule.depth !== null) fail("Retained request snapshots and insertion depth require core assembly.", { ruleId: rule.id });
-    if (rule.role === "assistant") fail("Assistant-role contributions require core assembly.", { ruleId: rule.id });
+    if (rule.lifetime === "snapshot" || rule.depth !== null) fail2("Retained request snapshots and insertion depth require core assembly.", { ruleId: rule.id });
+    if (rule.role === "assistant") fail2("Assistant-role contributions require core assembly.", { ruleId: rule.id });
     if (rule.role === "user") {
-      if (phase === "system") fail("Native user contributions must follow native history.", { ruleId: rule.id });
-      if (phase === "before-input" && rule.delivery !== "pre-step") fail("User context snapshots follow current input; use pre-step before input.", { ruleId: rule.id });
+      if (phase === "system") fail2("Native user contributions must follow native history.", { ruleId: rule.id });
+      if (phase === "before-input" && rule.delivery !== "pre-step") fail2("User context snapshots follow current input; use pre-step before input.", { ruleId: rule.id });
       if (phase === "after-input") {
         if (rule.delivery === "pre-step") afterInputMessages = true;
-        else if (afterInputMessages) fail("Native context snapshots precede post-input pre-step messages; reorder these contributions.", { ruleId: rule.id });
+        else if (afterInputMessages) fail2("Native context snapshots precede post-input pre-step messages; reorder these contributions.", { ruleId: rule.id });
       }
-    } else if (phase !== "system") fail("Native system contributions must precede native history.", { ruleId: rule.id });
+    } else if (phase !== "system") fail2("Native system contributions must precede native history.", { ruleId: rule.id });
   }
-  if (preset.placement !== "modules") fail("ST slot/depth placement requires core assembly; choose a native strategy.");
+  if (preset.placement !== "modules") fail2("ST slot/depth placement requires core assembly; choose a native strategy.");
   return preset;
 }
 
@@ -151,13 +264,14 @@ var labels = {
   contextPreview: ["DSH \u539F\u751F\u8FD0\u884C\u73AF\u5883\u63D0\u793A", "DSH runtime environment prompts"],
   contextIncluded: ["\u672C\u6B21\u4FDD\u7559", "Included"],
   contextExcluded: ["\u672C\u6B21\u5173\u95ED", "Disabled"],
+  sourceIdentity: ["\u6309\u6765\u6E90\u6761\u76EE\u8EAB\u4EFD", "Per source entry"],
   backend: ["\u63A5\u5165\u65B9\u5F0F", "Backend"],
   backendNative: ["\u6807\u51C6\u7248 \xB7 \u5B98\u65B9\u63A5\u53E3", "Standard \xB7 public interfaces"],
   backendCore: ["\u8FDB\u9636\u7248 \xB7 \u6838\u5FC3\u6269\u5C55", "Advanced \xB7 core extension"],
   "native-roles": ["\u9884\u8BBE\u8EAB\u4EFD\u4F18\u5148", "Preset roles first"],
   "native-slots": ["\u9884\u8BBE\u63D2\u69FD\u4F18\u5148", "Preset slots first"],
   nativeRolesHint: ["\u6309\u9884\u8BBE\u6761\u76EE\u7684 system/user \u8EAB\u4EFD\u5206\u7EC4\uFF1Bsystem \u653E\u5728\u5386\u53F2\u524D\uFF0Cuser \u6309\u6295\u9012\u65B9\u5F0F\u653E\u5728\u5386\u53F2\u4E4B\u540E\u3002\u9884\u8BBE\u4E0E\u4E16\u754C\u4E66\u7684\u6761\u76EE\u89D2\u8272\u4E0D\u53D7\u6574\u5757\u89D2\u8272\u8986\u76D6\uFF1B\u540C\u4E00\u6295\u9012\u533A\u57DF\u5185\u4F18\u5148\u9075\u5FAA\u9884\u8BBE\u63D2\u69FD\uFF0C\u5176\u6B21\u6761\u76EE\u987A\u5E8F\uFF0C\u518D\u6B21\u6A21\u5757\u987A\u5E8F\u3002\u539F\u751F\u5386\u53F2\u4E0E\u8F93\u5165\u4FDD\u7559\u3002", "Group preset entries by authored system/user role. System content precedes history; user content follows history through the selected delivery. Module overrides do not replace preset or worldbook entry roles. Within a delivery region, preset slots precede entry order, then module order. Native history/input remain."],
-  nativeSlotsHint: ["\u9884\u8BBE\u6B63\u6587\u53CA\u5F15\u7528\u5185\u5BB9\u6309\u9884\u8BBE\u63D2\u69FD\u6392\u5217\uFF1B\u8FD9\u4E9B\u5185\u5BB9\u53CA\u4E16\u754C\u4E66\u6DF1\u5EA6 0/1 \u4F1A\u9002\u914D system/user\u3002\u6DF1\u5EA6 0 \u5728\u539F\u751F\u5386\u53F2\u540E\uFF0C1 \u5728\u5386\u53F2\u524D\uFF1B\u66F4\u5927\u6DF1\u5EA6\u4FDD\u7559\u5E76\u8FD1\u4F3C\u5904\u7406\u3002\u72EC\u7ACB\u5185\u5BB9\u4FDD\u7559\u81EA\u8EAB\u89D2\u8272\u548C\u6295\u9012\u65B9\u5F0F\u3002system \u53EA\u80FD\u5728\u5386\u53F2\u524D\uFF1B\u672B\u5C3E\u63D0\u9192\u8BF7\u660E\u786E\u8BBE\u4E3A user\u3001pre-step\u3002\u62D6\u52A8\u6DF7\u5408\u6A21\u5757\u53EA\u79FB\u52A8\u72EC\u7ACB\u90E8\u5206\uFF0C\u9884\u8BBE\u5185\u90E8\u987A\u5E8F\u4E0D\u53D8\u3002", "Preset text and references follow preset slots; these and worldbook depths 0/1 adapt system/user roles. Depth 0 follows native history; 1 precedes it. Larger depths are retained and approximated. Independent content keeps its role and delivery. System stays before history; for a final reminder explicitly choose user and pre-step. Moving a mixed module moves only its independent part, preserving preset order."],
+  nativeSlotsHint: ["\u9884\u8BBE\u6B63\u6587\u53CA\u5F15\u7528\u5185\u5BB9\u6309\u9884\u8BBE\u63D2\u69FD\u6392\u5217\uFF1B\u8FD9\u4E9B\u5185\u5BB9\u53CA\u4E16\u754C\u4E66\u6DF1\u5EA6 0/1 \u4F1A\u9002\u914D system/user\u3002\u6DF1\u5EA6 0 \u5728\u539F\u751F\u5386\u53F2\u540E\uFF0C1 \u5728\u5386\u53F2\u524D\uFF1B\u66F4\u5927\u6DF1\u5EA6\u4FDD\u7559\u5E76\u8FD1\u4F3C\u5904\u7406\u3002\u72EC\u7ACB\u5185\u5BB9\u4FDD\u7559\u81EA\u8EAB\u89D2\u8272\u548C\u6295\u9012\u65B9\u5F0F\u3002system \u53EA\u80FD\u5728\u5386\u53F2\u524D\uFF1B\u672B\u5C3E\u63D0\u9192\u8BF7\u660E\u786E\u8BBE\u4E3A user\u3001pre-step\u3002\u8BF7\u5728\u5F53\u524D\u8D44\u6E90\u5E03\u5C40\u4E2D\u79FB\u52A8\u5B8C\u6574\u8FDE\u7EED\u5757\u3002", "Preset text and references follow preset slots; these and worldbook depths 0/1 adapt system/user roles. Depth 0 follows native history; 1 precedes it. Larger depths are retained and approximated. Independent content keeps its role and delivery. System stays before history; for a final reminder explicitly choose user and pre-step. Move complete contiguous blocks in the current resource layout."],
   placementPending: ["\u6B63\u5728\u68C0\u67E5\u9884\u8BBE\u5F15\u7528\u2026", "Checking preset references\u2026"],
   placementFailed: ["\u65E0\u6CD5\u68C0\u67E5\u5F15\u7528\uFF0C\u8BF7\u91CD\u8BD5\u9884\u89C8\uFF1A", "Could not check references; retry preview: "],
   controlPreset: ["\u63D2\u69FD\u6216\u6DF1\u5EA6\u8FB9\u754C\u63A7\u5236 \xB7 \u4F4D\u7F6E\u9501\u5B9A", "Slot or depth boundary controlled \xB7 position locked"],
@@ -356,12 +470,12 @@ var assemblyCss = `
 @media(max-width:700px){.dtv-assembly-screen{border-radius:12px}.dta-head,.dta-body{padding:15px}.dta-head{padding-right:64px}.dta-grid,.dta-properties{grid-template-columns:1fr}.dta-summary{gap:8px;padding:12px 10px}.dta-name{font-size:15px}.dta-summary-meta{display:none}.dta-properties>*+*{border-left:0;border-top:1px solid var(--dsw-alias-state-business-primary,#4d6bfe);padding:12px 0 0}}
 `;
 function AssemblyPanel(props) {
-  return (0, import_react.createElement)(AssemblyPanelContent, { ...props, key: props.selectionTarget?.id ?? props.sessionId ?? "no-session" });
+  return (0, import_react2.createElement)(AssemblyPanelContent, { ...props, key: props.selectionTarget?.id ?? props.sessionId ?? "no-session" });
 }
 function AssemblyPanelContent({ selectionTarget, sessionId, sessionLabel: sessionLabel2, onCreateSession, createSessionControls, interfaceControls, standalone = false, close, registerBeforeLeave, chromeMode, locale: selectedLocale = "zh-CN", fetcher = globalThis.fetch, apiRoot = "/dsh-prompt-assembler/api/v1/assembly-presets", traceRoot, refreshEvent = "dsh-prompt-assembler:refresh" }) {
   const locale = selectedLocale === "zh-CN" ? 0 : 1, t = (key) => labels[key]?.[locale] ?? key;
-  const [confirmation, setConfirmation] = (0, import_react.useState)(null);
-  const confirmationResolve = (0, import_react.useRef)(null);
+  const [confirmation, setConfirmation] = (0, import_react2.useState)(null);
+  const confirmationResolve = (0, import_react2.useRef)(null);
   const confirm = (message) => new Promise((resolve) => {
     confirmationResolve.current?.(false);
     confirmationResolve.current = resolve;
@@ -373,15 +487,15 @@ function AssemblyPanelContent({ selectionTarget, sessionId, sessionLabel: sessio
     setConfirmation(null);
     resolve?.(answer);
   };
-  (0, import_react.useEffect)(() => () => confirmationResolve.current?.(false), []);
-  (0, import_react.useEffect)(() => {
+  (0, import_react2.useEffect)(() => () => confirmationResolve.current?.(false), []);
+  (0, import_react2.useEffect)(() => {
     if (confirmation) dialog.current?.querySelector(".dta-confirm button")?.focus();
   }, [confirmation]);
-  const [sources, setSources] = (0, import_react.useState)([]), [addParser, setAddParser] = (0, import_react.useState)("custom"), [addKind, setAddKind] = (0, import_react.useState)(""), [defaultId, setDefaultId] = (0, import_react.useState)(BUILTINS[0].id);
-  const [items, setItems] = (0, import_react.useState)([]), [draft, setDraft] = (0, import_react.useState)(null), [selection, setSelection] = (0, import_react.useState)(null), [capable, setCapable] = (0, import_react.useState)(false), [capabilities, setCapabilities] = (0, import_react.useState)(null);
-  const [status, setStatus] = (0, import_react.useState)(""), [error, setError] = (0, import_react.useState)(false), [busy, setBusy] = (0, import_react.useState)(false), [tab, setTab] = (0, import_react.useState)("rules"), [preview, setPreview] = (0, import_react.useState)(null), [dirty, setDirty] = (0, import_react.useState)(false), [expanded, setExpanded] = (0, import_react.useState)({});
-  const file = (0, import_react.useRef)(), stage = (0, import_react.useRef)(), dialog = (0, import_react.useRef)(), generation = (0, import_react.useRef)(0), mounted = (0, import_react.useRef)(true);
-  (0, import_react.useLayoutEffect)(() => {
+  const [sources, setSources] = (0, import_react2.useState)([]), [addParser, setAddParser] = (0, import_react2.useState)("custom"), [addKind, setAddKind] = (0, import_react2.useState)(""), [defaultId, setDefaultId] = (0, import_react2.useState)(BUILTINS[0].id);
+  const [items, setItems] = (0, import_react2.useState)([]), [draft, setDraft] = (0, import_react2.useState)(null), [selection, setSelection] = (0, import_react2.useState)(null), [capable, setCapable] = (0, import_react2.useState)(false), [capabilities, setCapabilities] = (0, import_react2.useState)(null);
+  const [status, setStatus] = (0, import_react2.useState)(""), [error, setError] = (0, import_react2.useState)(false), [busy, setBusy] = (0, import_react2.useState)(false), [tab, setTab] = (0, import_react2.useState)("rules"), [preview, setPreview] = (0, import_react2.useState)(null), [dirty, setDirty] = (0, import_react2.useState)(false), [expanded, setExpanded] = (0, import_react2.useState)({});
+  const file = (0, import_react2.useRef)(), stage = (0, import_react2.useRef)(), dialog = (0, import_react2.useRef)(), generation = (0, import_react2.useRef)(0), mounted = (0, import_react2.useRef)(true);
+  (0, import_react2.useLayoutEffect)(() => {
     if (standalone) return;
     const panel = dialog.current;
     let frame = panel?.parentElement;
@@ -411,8 +525,8 @@ function AssemblyPanelContent({ selectionTarget, sessionId, sessionLabel: sessio
       changes.disconnect();
     };
   }, []);
-  const [slotAnalysis, setSlotAnalysis] = (0, import_react.useState)(null);
-  const [reload, setReload] = (0, import_react.useState)(0), [dragFrom, setDragFrom] = (0, import_react.useState)(null), [dropIndex, setDropIndex] = (0, import_react.useState)(null);
+  const [slotAnalysis, setSlotAnalysis] = (0, import_react2.useState)(null);
+  const [reload, setReload] = (0, import_react2.useState)(0);
   const api = async (...args) => {
     const result = selectionTarget && args[0] === "/preview" ? await selectionTarget.previewAssembly(args[2].preset) : selectionTarget && args[0] === "/selection" ? await selectionTarget.applyAssembly(args[2].id) : await request(fetcher, apiRoot, ...args);
     if (selectionTarget && String(args[0]).startsWith("?")) result.selection = await selectionTarget.getSelection();
@@ -433,7 +547,7 @@ function AssemblyPanelContent({ selectionTarget, sessionId, sessionLabel: sessio
       if (mounted.current) setBusy(false);
     }
   };
-  (0, import_react.useEffect)(() => {
+  (0, import_react2.useEffect)(() => {
     mounted.current = true;
     const gen = ++generation.current;
     run(async () => {
@@ -457,7 +571,7 @@ function AssemblyPanelContent({ selectionTarget, sessionId, sessionLabel: sessio
       generation.current++;
     };
   }, [sessionId, selectionTarget, reload]);
-  (0, import_react.useEffect)(() => {
+  (0, import_react2.useEffect)(() => {
     const refresh = () => run(async () => {
       const gen = generation.current;
       const data = await api(`?sessionId=${encodeURIComponent(sessionId ?? "")}`);
@@ -471,7 +585,7 @@ function AssemblyPanelContent({ selectionTarget, sessionId, sessionLabel: sessio
     window.addEventListener(refreshEvent, refresh);
     return () => window.removeEventListener(refreshEvent, refresh);
   }, [sessionId, selectionTarget, chromeMode, refreshEvent]);
-  (0, import_react.useEffect)(() => {
+  (0, import_react2.useEffect)(() => {
     let active = true;
     api(`?sessionId=${encodeURIComponent(sessionId ?? "")}`).then((data) => {
       if (active) setSelection(data.selection);
@@ -482,7 +596,7 @@ function AssemblyPanelContent({ selectionTarget, sessionId, sessionLabel: sessio
     };
   }, [chromeMode, sessionId, selectionTarget]);
   const discard = () => !busy && (!dirty || confirm(t("discard")));
-  (0, import_react.useEffect)(() => registerBeforeLeave?.(discard), [dirty, busy, registerBeforeLeave]);
+  (0, import_react2.useEffect)(() => registerBeforeLeave?.(discard), [dirty, busy, registerBeforeLeave]);
   const edit = (patch) => {
     if (busy) return;
     setDraft((d) => ({ ...d, ...patch }));
@@ -516,8 +630,8 @@ function AssemblyPanelContent({ selectionTarget, sessionId, sessionLabel: sessio
     a.click();
     setTimeout(() => URL.revokeObjectURL(a.href), 0);
   }
-  const button = (label, onClick, disabled = false, cls, pressed) => (0, import_react.createElement)("button", { type: "button", onClick, disabled: busy || disabled, className: cls, "aria-pressed": pressed }, t(label));
-  const select = (value, values, onChange, disabled = false) => (0, import_react.createElement)("select", { value, disabled: busy || disabled, onChange: (e) => onChange(e.target.value) }, ...values.map((v) => (0, import_react.createElement)("option", { key: v, value: v }, t(v))));
+  const button = (label, onClick, disabled = false, cls, pressed) => (0, import_react2.createElement)("button", { type: "button", onClick, disabled: busy || disabled, className: cls, "aria-pressed": pressed }, t(label));
+  const select = (value, values, onChange, disabled = false) => (0, import_react2.createElement)("select", { value, disabled: busy || disabled, onChange: (e) => onChange(e.target.value) }, ...values.map((v) => (0, import_react2.createElement)("option", { key: v, value: v }, t(v))));
   const nodeName = (node) => {
     if (labels[node.name]) return t(node.name);
     const standard = { "Main Prompt": "main", "Post-History Instructions": "jailbreak", "Character Description": "charDescription", "Character Personality": "charPersonality", "Persona Description": "personaDescription", "Chat History": "history", "World Info (before)": "worldbook", "World Info (after)": "worldbook" };
@@ -576,14 +690,14 @@ function AssemblyPanelContent({ selectionTarget, sessionId, sessionLabel: sessio
   const safeClose = async () => {
     if (registerBeforeLeave || await discard()) close();
   };
-  (0, import_react.useEffect)(() => {
+  (0, import_react2.useEffect)(() => {
     const previous = document.activeElement;
     dialog.current?.querySelector("button")?.focus();
     return () => {
       previous?.focus?.();
     };
   }, []);
-  (0, import_react.useEffect)(() => {
+  (0, import_react2.useEffect)(() => {
     const warn = (e) => {
       if (dirty) {
         e.preventDefault();
@@ -593,7 +707,7 @@ function AssemblyPanelContent({ selectionTarget, sessionId, sessionLabel: sessio
     window.addEventListener("beforeunload", warn);
     return () => window.removeEventListener("beforeunload", warn);
   }, [dirty]);
-  (0, import_react.useEffect)(() => {
+  (0, import_react2.useEffect)(() => {
     if (registerBeforeLeave) return;
     const handler = (e) => {
       if (e.key === "Escape") {
@@ -607,8 +721,8 @@ function AssemblyPanelContent({ selectionTarget, sessionId, sessionLabel: sessio
   const nativeDraft = draft?.backend === "native";
   const adaptiveNative = nativeDraft && ["native-roles", "native-slots"].includes(draft.placement);
   const slotMode = nativeDraft && draft.placement === "native-slots";
-  (0, import_react.useEffect)(() => {
-    if (!slotMode) {
+  (0, import_react2.useEffect)(() => {
+    if (!slotMode || draft?.layout) {
       setSlotAnalysis(null);
       return;
     }
@@ -636,143 +750,87 @@ function AssemblyPanelContent({ selectionTarget, sessionId, sessionLabel: sessio
   }
   const draftAvailable = capabilities ? nativeDraft ? capabilities.native && !nativeError : capabilities.core : capable;
   const displayRows = tab === "rules" ? draft ? controlRows(draft.rules) : [] : preview?.nodes ?? [];
-  function dragHandle(row, index, movable = true) {
-    const reset = () => {
-      setDragFrom(null);
-      setDropIndex(null);
-    };
-    const boundary = (event) => {
-      const target = document.elementFromPoint(event.clientX, event.clientY)?.closest("[data-assembly-index]");
-      if (!target) return null;
-      const rect = target.getBoundingClientRect(), at = Number(target.dataset.assemblyIndex);
-      return event.clientY < rect.top + rect.height / 2 ? at : at + 1;
-    };
-    return (0, import_react.createElement)("button", {
-      type: "button",
-      className: "dta-handle",
-      disabled: busy || !movable,
-      "aria-label": `${t("placement")}: ${row.name || t(row.kind)}`,
-      "aria-pressed": dragFrom === index,
-      onPointerDown: (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        e.currentTarget.setPointerCapture(e.pointerId);
-        setDragFrom(index);
-        setDropIndex(index + 1);
-      },
-      onPointerMove: (e) => {
-        if (e.currentTarget.hasPointerCapture(e.pointerId)) {
-          const next = boundary(e);
-          if (next !== null) setDropIndex(next);
-        }
-      },
-      onPointerUp: (e) => {
-        e.preventDefault();
-        if (!e.currentTarget.hasPointerCapture(e.pointerId)) return;
-        e.currentTarget.releasePointerCapture(e.pointerId);
-        const at = boundary(e) ?? dropIndex ?? index + 1;
-        reset();
-        let rules;
-        try {
-          rules = slotMode ? moveSlotRule(draft, analysis?.preview, index, at) : reorderAtBoundary(draft.rules, index, at);
-        } catch (error2) {
-          setError(true);
-          setStatus(error2.message);
-          return;
-        }
-        try {
-          if (nativeDraft) validateNativePreset({ ...draft, rules });
-          edit({ rules });
-        } catch (error2) {
-          setError(true);
-          setStatus(error2.message);
-        }
-      },
-      onPointerCancel: reset
-    }, movable ? "\u283F" : "\u{1F512}");
-  }
-  const placeholder = (index) => dragFrom !== null && dropIndex === index ? (0, import_react.createElement)("div", { key: `drop-${index}`, className: "dta-drop-placeholder" }, t("dropHere"), displayRows[dragFrom]?.name || t(displayRows[dragFrom]?.kind)) : null;
   const ruleStability = (rule) => sourceDescriptor(rule.kind)?.stability ?? "conversation";
-  const summaryMetadata = (stability, lifetime, role) => (0, import_react.createElement)(
+  const summaryMetadata = (stability, lifetime, role) => (0, import_react2.createElement)(
     "dl",
     { className: "dta-summary-meta" },
-    ...[["stability", stability], ["lifetime", lifetime], ["role", role]].map(([label, value]) => (0, import_react.createElement)("div", { key: label }, (0, import_react.createElement)("dt", null, t(label)), (0, import_react.createElement)("dd", null, t(label === "stability" && value === "snapshot" ? "retained" : value))))
+    ...[["stability", stability], ["lifetime", lifetime], ["role", role]].map(([label, value]) => (0, import_react2.createElement)("div", { key: label }, (0, import_react2.createElement)("dt", null, t(label)), (0, import_react2.createElement)("dd", null, t(label === "stability" && value === "snapshot" ? "retained" : value))))
   );
   function ruleRow(rule, index) {
     rule = editableRule(rule);
-    if (isContextControl(rule.kind)) return (0, import_react.createElement)(
+    if (isContextControl(rule.kind)) return (0, import_react2.createElement)(
       "article",
       { key: rule.id, className: "dta-row", "data-context-control": rule.kind, style: { "--assembly-color": sourceColor("DSH") } },
-      (0, import_react.createElement)(
+      (0, import_react2.createElement)(
         "div",
         { className: "dta-summary" },
-        (0, import_react.createElement)("span", { "aria-hidden": true }, "\u{1F512}"),
-        (0, import_react.createElement)("input", { type: "checkbox", checked: rule.enabled, disabled: busy, "aria-label": sourceName(rule.kind), onChange: (e) => editRule(rule.id, { enabled: e.target.checked }) }),
-        (0, import_react.createElement)("span", { className: "dta-name" }, sourceName(rule.kind), (0, import_react.createElement)("small", { className: "dta-origin" }, t("contextControlled")))
+        (0, import_react2.createElement)("span", { "aria-hidden": true }, "\u{1F512}"),
+        (0, import_react2.createElement)("input", { type: "checkbox", checked: rule.enabled, disabled: busy, "aria-label": sourceName(rule.kind), onChange: (e) => editRule(rule.id, { enabled: e.target.checked }) }),
+        (0, import_react2.createElement)("span", { className: "dta-name" }, sourceName(rule.kind), (0, import_react2.createElement)("small", { className: "dta-origin" }, t("contextControlled")))
       ),
-      (0, import_react.createElement)("div", { className: "dta-detail" }, (0, import_react.createElement)("small", null, t(rule.kind === "dsh.runtime-context" ? "contextMasterHint" : "contextControlHint")))
+      (0, import_react2.createElement)("div", { className: "dta-detail" }, (0, import_react2.createElement)("small", null, t(rule.kind === "dsh.runtime-context" ? "contextMasterHint" : "contextControlHint")))
     );
-    const roleLabel = adaptiveNative && rule.kind === "worldbook" && !slotMode ? "nativeWorldRole" : slotMode && controlFor(rule) === "preset" ? "nativeSlotRole" : adaptiveNative && rule.kind === "preset" ? "nativePresetRole" : null;
+    const roleLabel = draft.layout?.identity === "preserve" && rule.inputMode !== "text" && !["custom", "dsh.text", "native-system", "history", "input"].includes(rule.kind) ? "sourceIdentity" : adaptiveNative && rule.kind === "worldbook" && !slotMode ? "nativeWorldRole" : slotMode && controlFor(rule) === "preset" ? "nativeSlotRole" : adaptiveNative && rule.kind === "preset" ? "nativePresetRole" : null;
     const textInput = rule.inputMode === "text" || ["custom", "dsh.text"].includes(rule.kind);
-    return (0, import_react.createElement)(
+    return (0, import_react2.createElement)(
       "article",
-      { key: rule.id, className: "dta-row", "data-assembly-index": index, "data-dragging": dragFrom === index, style: { "--assembly-color": sourceColor(sourcePlugin(rule.kind)) } },
-      (0, import_react.createElement)(
+      { key: rule.id, className: "dta-row", "data-assembly-index": index, style: { "--assembly-color": sourceColor(sourcePlugin(rule.kind)) } },
+      (0, import_react2.createElement)(
         "div",
         { className: "dta-summary" },
-        dragHandle(rule, index, !nativeDraft || !["history", "input"].includes(rule.kind) && (!slotMode || ["independent", "mixed"].includes(controlFor(rule)))),
-        (0, import_react.createElement)("input", { type: "checkbox", checked: rule.enabled, disabled: busy || nativeDraft && ["history", "input"].includes(rule.kind), "aria-label": sourceName(rule.kind), onChange: (e) => editRule(rule.id, { enabled: e.target.checked }) }),
-        (0, import_react.createElement)("span", { className: "dta-name", role: "button", tabIndex: 0, "aria-expanded": !!expanded[rule.id], onClick: () => toggle(rule.id), onKeyDown: (e) => {
+        (0, import_react2.createElement)("span", { title: locale === 0 ? "\u6765\u6E90\u914D\u7F6E\uFF1B\u5728\u5F53\u524D\u8D44\u6E90\u5E03\u5C40\u4E2D\u79FB\u52A8\u8FDE\u7EED\u5757" : "Source configuration; move contiguous blocks in the current layout" }, "\u25C8"),
+        (0, import_react2.createElement)("input", { type: "checkbox", checked: rule.enabled, disabled: busy || nativeDraft && ["history", "input"].includes(rule.kind), "aria-label": sourceName(rule.kind), onChange: (e) => editRule(rule.id, { enabled: e.target.checked }) }),
+        (0, import_react2.createElement)("span", { className: "dta-name", role: "button", tabIndex: 0, "aria-expanded": !!expanded[rule.id], onClick: () => toggle(rule.id), onKeyDown: (e) => {
           if (["Enter", " "].includes(e.key)) {
             e.preventDefault();
             toggle(rule.id);
           }
-        } }, rule.name || sourceName(rule.kind), (0, import_react.createElement)("small", { className: "dta-origin" }, originName(sourcePlugin(rule.kind))), slotMode && (0, import_react.createElement)("small", { "data-placement-control": controlFor(rule) ?? "pending" }, t(controlLabel(controlFor(rule)) ?? "placementPending"))),
+        } }, rule.name || sourceName(rule.kind), (0, import_react2.createElement)("small", { className: "dta-origin" }, originName(sourcePlugin(rule.kind))), slotMode && !draft.layout && (0, import_react2.createElement)("small", { "data-placement-control": controlFor(rule) ?? "pending" }, t(controlLabel(controlFor(rule)) ?? "placementPending"))),
         summaryMetadata(ruleStability(rule), ["native-system", "history", "input"].includes(rule.kind) ? "nativeRetention" : nativeDraft && rule.role === "user" ? rule.delivery ?? "context" : rule.lifetime, roleLabel ?? rule.role)
       ),
-      expanded[rule.id] && (0, import_react.createElement)(
+      expanded[rule.id] && (0, import_react2.createElement)(
         "div",
         { className: "dta-detail" },
-        (0, import_react.createElement)("div", { className: "dta-properties" }, (0, import_react.createElement)("div", null, t("source"), (0, import_react.createElement)("small", null, originName(sourcePlugin(rule.kind))), (0, import_react.createElement)("small", null, sourceInfo(rule.kind))), (0, import_react.createElement)("div", null, t("stability"), (0, import_react.createElement)("small", null, t(ruleStability(rule)))), (0, import_react.createElement)("label", null, t("lifetime"), ["native-system", "history", "input"].includes(rule.kind) ? (0, import_react.createElement)("small", null, t("nativeRetention")) : nativeDraft && rule.role === "user" ? (0, import_react.createElement)("small", null, t(rule.delivery ?? "context")) : select(rule.lifetime, nativeDraft ? ["request"] : sourceDescriptor(rule.kind)?.lifetimes ?? ["request", "snapshot"], (v) => editRule(rule.id, { lifetime: v }), sourceDescriptor(rule.kind)?.lifetimes.length === 1))),
-        nativeDraft && (rule.role === "user" || adaptiveNative && ["preset", "worldbook"].includes(rule.kind)) && (0, import_react.createElement)("label", null, t("delivery"), select(rule.delivery ?? "context", ["context", "pre-step"], (delivery) => editRule(rule.id, { delivery }))),
-        (0, import_react.createElement)("div", { className: "dta-grid" }, (0, import_react.createElement)("label", null, t("role"), roleLabel ? (0, import_react.createElement)("small", null, t(roleLabel)) : select(rule.role, (sourceDescriptor(rule.kind)?.roles ?? ["preserve", "system", "user", "assistant"]).filter((role) => !nativeDraft || role !== "assistant"), (v) => editRule(rule.id, { role: v }), sourceDescriptor(rule.kind)?.roles.length === 1)), sourceDescriptor(rule.kind)?.depth !== false && (0, import_react.createElement)("label", null, t("depth"), (0, import_react.createElement)("input", { type: "number", min: 0, max: 1e4, value: rule.depth ?? "", disabled: busy || nativeDraft, onChange: (e) => editRule(rule.id, { depth: e.target.value === "" ? null : Number(e.target.value) }) }))),
-        textInput ? (0, import_react.createElement)(
+        (0, import_react2.createElement)("div", { className: "dta-properties" }, (0, import_react2.createElement)("div", null, t("source"), (0, import_react2.createElement)("small", null, originName(sourcePlugin(rule.kind))), (0, import_react2.createElement)("small", null, sourceInfo(rule.kind))), (0, import_react2.createElement)("div", null, t("stability"), (0, import_react2.createElement)("small", null, t(ruleStability(rule)))), (0, import_react2.createElement)("label", null, t("lifetime"), ["native-system", "history", "input"].includes(rule.kind) ? (0, import_react2.createElement)("small", null, t("nativeRetention")) : nativeDraft && rule.role === "user" ? (0, import_react2.createElement)("small", null, t(rule.delivery ?? "context")) : select(rule.lifetime, nativeDraft ? ["request"] : sourceDescriptor(rule.kind)?.lifetimes ?? ["request", "snapshot"], (v) => editRule(rule.id, { lifetime: v }), sourceDescriptor(rule.kind)?.lifetimes.length === 1))),
+        nativeDraft && (rule.role === "user" || adaptiveNative && ["preset", "worldbook"].includes(rule.kind)) && (0, import_react2.createElement)("label", null, t("delivery"), select(rule.delivery ?? "context", ["context", "pre-step"], (delivery) => editRule(rule.id, { delivery }))),
+        (0, import_react2.createElement)("div", { className: "dta-grid" }, (0, import_react2.createElement)("label", null, t("role"), roleLabel ? (0, import_react2.createElement)("small", null, t(roleLabel)) : select(rule.role, (sourceDescriptor(rule.kind)?.roles ?? ["preserve", "system", "user", "assistant"]).filter((role) => !nativeDraft || role !== "assistant"), (v) => editRule(rule.id, { role: v }), sourceDescriptor(rule.kind)?.roles.length === 1)), sourceDescriptor(rule.kind)?.depth !== false && (0, import_react2.createElement)("label", null, t("depth"), (0, import_react2.createElement)("input", { type: "number", min: 0, max: 1e4, value: rule.depth ?? "", disabled: busy || nativeDraft, onChange: (e) => editRule(rule.id, { depth: e.target.value === "" ? null : Number(e.target.value) }) }))),
+        textInput ? (0, import_react2.createElement)(
           "div",
           { className: "dta-fields" },
-          (0, import_react.createElement)("label", null, t("parser"), (0, import_react.createElement)("select", { value: rule.kind, onChange: (e) => {
+          (0, import_react2.createElement)("label", null, t("parser"), (0, import_react2.createElement)("select", { value: rule.kind, onChange: (e) => {
             const source = sourceDescriptor(e.target.value);
             editRule(rule.id, { kind: source.id, inputMode: "text", role: source.roles.includes(rule.role) ? rule.role : source.roles[0], lifetime: source.lifetimes.includes(rule.lifetime) ? rule.lifetime : source.lifetimes[0], depth: source.depth === false ? null : rule.depth });
-          } }, ...parsers.map((s) => (0, import_react.createElement)("option", { key: s.id, value: s.id }, `${originName(s.pluginId)} \xB7 ${sourceName(s.id)}`)))),
-          ["tavern.text", "dsh.text"].includes(rule.kind) && (0, import_react.createElement)("p", null, t(rule.kind === "tavern.text" ? "tavernParserHelp" : "dshParserHelp")),
-          (0, import_react.createElement)("label", null, t("name"), (0, import_react.createElement)("input", { value: rule.name ?? "", onChange: (e) => editRule(rule.id, { name: e.target.value }) })),
-          (0, import_react.createElement)("label", null, t("text"), (0, import_react.createElement)("textarea", { value: rule.text, onChange: (e) => editRule(rule.id, { text: e.target.value }) })),
+          } }, ...parsers.map((s) => (0, import_react2.createElement)("option", { key: s.id, value: s.id }, `${originName(s.pluginId)} \xB7 ${sourceName(s.id)}`)))),
+          ["tavern.text", "dsh.text"].includes(rule.kind) && (0, import_react2.createElement)("p", null, t(rule.kind === "tavern.text" ? "tavernParserHelp" : "dshParserHelp")),
+          (0, import_react2.createElement)("label", null, t("name"), (0, import_react2.createElement)("input", { value: rule.name ?? "", onChange: (e) => editRule(rule.id, { name: e.target.value }) })),
+          (0, import_react2.createElement)("label", null, t("text"), (0, import_react2.createElement)("textarea", { value: rule.text, onChange: (e) => editRule(rule.id, { text: e.target.value }) })),
           button("remove", () => edit({ rules: draft.rules.filter((r) => r.id !== rule.id) }))
-        ) : (0, import_react.createElement)("div", { className: "dta-fields" }, moduleGuide(rule.kind), rule.kind === "phi" ? (0, import_react.createElement)("label", null, t("additional-phi"), (0, import_react.createElement)("textarea", { value: rule.text, onChange: (e) => editRule(rule.id, { text: e.target.value }) })) : !["native-system", "history", "input", "preset", "character", "persona", "worldbook"].includes(rule.kind) && button("remove", () => edit({ rules: draft.rules.filter((r) => r.id !== rule.id) }))),
-        !sourceDescriptor(rule.kind) && (0, import_react.createElement)("small", { role: "status" }, t("missingSource")),
-        (0, import_react.createElement)("small", null, t(nativeDraft ? "nativeRetentionHint" : "audit"))
+        ) : (0, import_react2.createElement)("div", { className: "dta-fields" }, moduleGuide(rule.kind), rule.kind === "phi" ? (0, import_react2.createElement)("label", null, t("additional-phi"), (0, import_react2.createElement)("textarea", { value: rule.text, onChange: (e) => editRule(rule.id, { text: e.target.value }) })) : !["native-system", "history", "input", "preset", "character", "persona", "worldbook"].includes(rule.kind) && button("remove", () => edit({ rules: draft.rules.filter((r) => r.id !== rule.id) }))),
+        !sourceDescriptor(rule.kind) && (0, import_react2.createElement)("small", { role: "status" }, t("missingSource")),
+        (0, import_react2.createElement)("small", null, t(nativeDraft ? "nativeRetentionHint" : "audit"))
       )
     );
   }
   function moduleGuide(kind) {
     const guide = sourceDescriptor(kind)?.contentGuide;
-    return (0, import_react.createElement)("div", { className: "dta-module-guide" }, ...[["contains", "contains", "unknownContains"], ["origin", "contentOrigin", "unknownOrigin"], ["editable", "editable", "unknownEditable"], ["editAt", "editAt", "unknownEditAt"]].map(([key, label, fallback]) => (0, import_react.createElement)("p", { key }, (0, import_react.createElement)("strong", null, t(label) + "\uFF1A"), guide?.[key]?.[locale] ?? t(fallback))), (0, import_react.createElement)("small", null, t("modulePreviewHelp")));
+    return (0, import_react2.createElement)("div", { className: "dta-module-guide" }, ...[["contains", "contains", "unknownContains"], ["origin", "contentOrigin", "unknownOrigin"], ["editable", "editable", "unknownEditable"], ["editAt", "editAt", "unknownEditAt"]].map(([key, label, fallback]) => (0, import_react2.createElement)("p", { key }, (0, import_react2.createElement)("strong", null, t(label) + "\uFF1A"), guide?.[key]?.[locale] ?? t(fallback))), (0, import_react2.createElement)("small", null, t("modulePreviewHelp")));
   }
   function nodeRow(node, index) {
     const retention = node.nativeDelivery ?? (node.lifetime === "native" ? "nativeRetention" : node.lifetime);
-    return (0, import_react.createElement)(
+    return (0, import_react2.createElement)(
       "article",
       { key: node.id, className: "dta-row", style: { "--assembly-color": sourceColor(node.source.plugin) } },
-      (0, import_react.createElement)("div", { className: "dta-summary" }, (0, import_react.createElement)("span", { className: "dta-name", role: "button", tabIndex: 0, onClick: () => toggle(node.id), onKeyDown: (e) => {
+      (0, import_react2.createElement)("div", { className: "dta-summary" }, (0, import_react2.createElement)("span", { className: "dta-name", role: "button", tabIndex: 0, onClick: () => toggle(node.id), onKeyDown: (e) => {
         if (e.key === "Enter") toggle(node.id);
-      }, "aria-expanded": !!expanded[node.id], title: nodeName(node) }, nodeName(node), node.sourceStatus === "name-unrecorded" && (0, import_react.createElement)("small", null, t("sourceNameUnrecorded")), node.sourceStatus === "historical-system" && (0, import_react.createElement)("small", null, t("historicalSystemHint")), node.sourceStatus === "current-name" && (0, import_react.createElement)("small", null, t("sourceNameCurrent")), node.sourceStatus === "section-only" && (0, import_react.createElement)("small", null, t("sourceFieldsUnrecorded")), (0, import_react.createElement)("small", { className: "dta-origin" }, `${originName(node.source.plugin)} \xB7 ${t("previewDepth")}: ${node.depth == null ? t("listPosition") : node.depth}`)), summaryMetadata(node.stability, retention, node.role)),
-      expanded[node.id] && (0, import_react.createElement)("div", { className: "dta-detail" }, (0, import_react.createElement)("div", { className: "dta-properties" }, (0, import_react.createElement)("div", null, t("source"), (0, import_react.createElement)("small", null, `${node.source.plugin} / ${node.source.resourceId ?? ""} / ${node.source.field}`), (0, import_react.createElement)("small", null, sourceInfo(node.module))), (0, import_react.createElement)("div", null, t("stability"), (0, import_react.createElement)("small", null, t(node.stability))), (0, import_react.createElement)("div", null, t("lifetime"), (0, import_react.createElement)("small", null, t(retention)), (0, import_react.createElement)("small", null, t(preview?.backend === "native" ? "nativeRetentionHint" : "recorded")))), (0, import_react.createElement)("div", { className: "dta-preview-depth" }, `${t("previewDepth")}: ${node.depth == null ? t("listPosition") : node.depth}`), node.locked && (0, import_react.createElement)("small", null, `${t("locked")}: ${node.lockReason}`), ...(node.children ?? []).map((child) => (0, import_react.createElement)("div", { key: child.id, className: "dta-child", style: { borderLeftColor: sourceColor(child.source?.plugin) } }, `\u{1F512} ${nodeName(child)}`, (0, import_react.createElement)("small", null, child.lockReason), (0, import_react.createElement)("small", null, [originName(child.source?.plugin), child.source?.resourceId, child.source?.field, child.source?.sourceKind].filter(Boolean).join(" / ")), (0, import_react.createElement)("pre", null, child.text))), (0, import_react.createElement)("pre", null, node.text))
+      }, "aria-expanded": !!expanded[node.id], title: nodeName(node) }, nodeName(node), node.sourceStatus === "name-unrecorded" && (0, import_react2.createElement)("small", null, t("sourceNameUnrecorded")), node.sourceStatus === "historical-system" && (0, import_react2.createElement)("small", null, t("historicalSystemHint")), node.sourceStatus === "current-name" && (0, import_react2.createElement)("small", null, t("sourceNameCurrent")), node.sourceStatus === "section-only" && (0, import_react2.createElement)("small", null, t("sourceFieldsUnrecorded")), (0, import_react2.createElement)("small", { className: "dta-origin" }, `${originName(node.source.plugin)} \xB7 ${t("previewDepth")}: ${node.depth == null ? t("listPosition") : node.depth}`)), summaryMetadata(node.stability, retention, node.role)),
+      expanded[node.id] && (0, import_react2.createElement)("div", { className: "dta-detail" }, (0, import_react2.createElement)("div", { className: "dta-properties" }, (0, import_react2.createElement)("div", null, t("source"), (0, import_react2.createElement)("small", null, `${node.source.plugin} / ${node.source.resourceId ?? ""} / ${node.source.field}`), (0, import_react2.createElement)("small", null, sourceInfo(node.module))), (0, import_react2.createElement)("div", null, t("stability"), (0, import_react2.createElement)("small", null, t(node.stability))), (0, import_react2.createElement)("div", null, t("lifetime"), (0, import_react2.createElement)("small", null, t(retention)), (0, import_react2.createElement)("small", null, t(preview?.backend === "native" ? "nativeRetentionHint" : "recorded")))), (0, import_react2.createElement)("div", { className: "dta-preview-depth" }, `${t("previewDepth")}: ${node.depth == null ? t("listPosition") : node.depth}`), node.locked && (0, import_react2.createElement)("small", null, `${t("locked")}: ${node.lockReason}`), ...(node.children ?? []).map((child) => (0, import_react2.createElement)("div", { key: child.id, className: "dta-child", style: { borderLeftColor: sourceColor(child.source?.plugin) } }, `\u{1F512} ${nodeName(child)}`, (0, import_react2.createElement)("small", null, child.lockReason), (0, import_react2.createElement)("small", null, [originName(child.source?.plugin), child.source?.resourceId, child.source?.field, child.source?.sourceKind].filter(Boolean).join(" / ")), (0, import_react2.createElement)("pre", null, child.text))), (0, import_react2.createElement)("pre", null, node.text))
     );
   }
-  return (0, import_react.createElement)("div", { ref: stage, className: `dta-stage${standalone ? " dta-standalone" : ""}` }, (0, import_react.createElement)(
+  return (0, import_react2.createElement)("div", { ref: stage, className: `dta-stage${standalone ? " dta-standalone" : ""}` }, (0, import_react2.createElement)(
     "section",
     { ref: dialog, className: "dtv-assembly-screen", role: "dialog", "aria-modal": standalone, "aria-label": t("title") },
-    (0, import_react.createElement)("style", null, assemblyCss),
-    confirmation && (0, import_react.createElement)("div", { className: "dta-confirm-shade" }, (0, import_react.createElement)("div", { className: "dta-confirm", role: "alertdialog", "aria-modal": true, "aria-label": confirmation, onKeyDown: (e) => {
+    (0, import_react2.createElement)("style", null, assemblyCss),
+    confirmation && (0, import_react2.createElement)("div", { className: "dta-confirm-shade" }, (0, import_react2.createElement)("div", { className: "dta-confirm", role: "alertdialog", "aria-modal": true, "aria-label": confirmation, onKeyDown: (e) => {
       if (e.key === "Escape") {
         e.stopPropagation();
         answerConfirmation(false);
@@ -782,13 +840,13 @@ function AssemblyPanelContent({ selectionTarget, sessionId, sessionLabel: sessio
         const at = buttons.indexOf(document.activeElement);
         buttons[(at + (e.shiftKey ? -1 : 1) + buttons.length) % buttons.length]?.focus();
       }
-    } }, (0, import_react.createElement)("p", null, confirmation), (0, import_react.createElement)("div", { className: "dta-toolbar" }, (0, import_react.createElement)("button", { type: "button", onClick: () => answerConfirmation(false) }, t("cancel")), (0, import_react.createElement)("button", { type: "button", className: "primary", onClick: () => answerConfirmation(true) }, t("confirm"))))),
-    (0, import_react.createElement)("header", { className: "dta-head" }, (0, import_react.createElement)("div", null, (0, import_react.createElement)("h2", null, t("title")), (0, import_react.createElement)("p", null, t("intro")), sessionLabel2 !== void 0 && (0, import_react.createElement)("p", { "data-assembly-session": sessionId ?? "" }, `${t("session")}: ${sessionLabel2 || t("newSession")}`)), (0, import_react.createElement)("button", { onClick: safeClose, "aria-label": t("close") }, "\xD7")),
-    (0, import_react.createElement)("div", { className: "dta-body" }, (0, import_react.createElement)(
+    } }, (0, import_react2.createElement)("p", null, confirmation), (0, import_react2.createElement)("div", { className: "dta-toolbar" }, (0, import_react2.createElement)("button", { type: "button", onClick: () => answerConfirmation(false) }, t("cancel")), (0, import_react2.createElement)("button", { type: "button", className: "primary", onClick: () => answerConfirmation(true) }, t("confirm"))))),
+    (0, import_react2.createElement)("header", { className: "dta-head" }, (0, import_react2.createElement)("div", null, (0, import_react2.createElement)("h2", null, t("title")), (0, import_react2.createElement)("p", null, t("intro")), sessionLabel2 !== void 0 && (0, import_react2.createElement)("p", { "data-assembly-session": sessionId ?? "" }, `${t("session")}: ${sessionLabel2 || t("newSession")}`)), (0, import_react2.createElement)("button", { onClick: safeClose, "aria-label": t("close") }, "\xD7")),
+    (0, import_react2.createElement)("div", { className: "dta-body" }, (0, import_react2.createElement)(
       "fieldset",
       { className: "dta-content", disabled: busy, style: { border: 0, padding: 0, minWidth: 0 } },
-      (0, import_react.createElement)("h3", { className: "dta-section-title" }, t("librarySection")),
-      (0, import_react.createElement)("div", { className: "dta-toolbar" }, (0, import_react.createElement)("input", { type: "file", accept: ".json,application/json", hidden: true, ref: file, onChange: (e) => {
+      (0, import_react2.createElement)("h3", { className: "dta-section-title" }, t("librarySection")),
+      (0, import_react2.createElement)("div", { className: "dta-toolbar" }, (0, import_react2.createElement)("input", { type: "file", accept: ".json,application/json", hidden: true, ref: file, onChange: (e) => {
         const f = e.target.files?.[0];
         e.target.value = "";
         if (f) run(async () => {
@@ -807,60 +865,60 @@ function AssemblyPanelContent({ selectionTarget, sessionId, sessionLabel: sessio
           setPreview(null);
         }
       })),
-      status && (0, import_react.createElement)("div", { role: error ? "alert" : "status", className: "dta-notice", "data-error": error }, status),
-      !draft ? (0, import_react.createElement)("div", null, !error && (0, import_react.createElement)("p", null, t("loading")), error && button("retry", () => setReload((n) => n + 1))) : (0, import_react.createElement)(
+      status && (0, import_react2.createElement)("div", { role: error ? "alert" : "status", className: "dta-notice", "data-error": error }, status),
+      !draft ? (0, import_react2.createElement)("div", null, !error && (0, import_react2.createElement)("p", null, t("loading")), error && button("retry", () => setReload((n) => n + 1))) : (0, import_react2.createElement)(
         "div",
         null,
-        (0, import_react.createElement)("div", { className: "dta-grid" }, (0, import_react.createElement)("label", null, t("select"), (0, import_react.createElement)("select", { value: draft.id ?? "", disabled: busy, onChange: async (e) => {
+        (0, import_react2.createElement)("div", { className: "dta-grid" }, (0, import_react2.createElement)("label", null, t("select"), (0, import_react2.createElement)("select", { value: draft.id ?? "", disabled: busy, onChange: async (e) => {
           const id = e.target.value;
           if (await discard()) {
             setDraft(items.find((p) => p.id === id));
             setDirty(false);
             setPreview(null);
           }
-        } }, !draft.id && (0, import_react.createElement)("option", { value: "" }, draft.name), ...items.map((p) => (0, import_react.createElement)("option", { key: p.id, value: p.id }, p.name)))), (0, import_react.createElement)("label", null, t("name"), (0, import_react.createElement)("input", { value: draft.name, disabled: draft.builtin, onChange: (e) => edit({ name: e.target.value }) }))),
-        (0, import_react.createElement)("div", { className: "dta-toolbar" }, button("save", () => run(() => save())), button("copy", () => run(() => save(true))), button("remove", () => run(async () => {
+        } }, !draft.id && (0, import_react2.createElement)("option", { value: "" }, draft.name), ...items.map((p) => (0, import_react2.createElement)("option", { key: p.id, value: p.id }, p.name)))), (0, import_react2.createElement)("label", null, t("name"), (0, import_react2.createElement)("input", { value: draft.name, disabled: draft.builtin, onChange: (e) => edit({ name: e.target.value }) }))),
+        (0, import_react2.createElement)("div", { className: "dta-toolbar" }, button("save", () => run(() => save())), button("copy", () => run(() => save(true))), button("remove", () => run(async () => {
           if (!await confirm(t("confirmDelete"))) return;
           await api(`/${draft.id}`, "DELETE");
           setItems((i) => i.filter((p) => p.id !== draft.id));
           setDraft(items[0]);
           setDirty(false);
           setPreview(null);
-        }), !draft.id || draft.builtin), dirty && (0, import_react.createElement)("span", null, t("dirty"))),
-        (0, import_react.createElement)("h3", { className: "dta-section-title" }, t("rulesSection")),
-        (0, import_react.createElement)("label", { className: "dta-toolbar" }, t("backend"), (0, import_react.createElement)("select", { "aria-label": t("backend"), value: draft.backend ?? "core", onChange: (e) => edit({ backend: e.target.value }) }, (0, import_react.createElement)("option", { value: "native" }, t("backendNative")), (0, import_react.createElement)("option", { value: "core" }, t("backendCore")))),
-        (0, import_react.createElement)("div", { className: "dta-notice" }, t(adaptiveNative ? draft.placement === "native-slots" ? "nativeSlotsHint" : "nativeRolesHint" : nativeDraft ? "nativeHint" : "coreHint")),
-        nativeError && (0, import_react.createElement)("div", { className: "dta-notice", role: "alert" }, nativeError),
-        (0, import_react.createElement)("div", { className: "dta-tabs" }, (0, import_react.createElement)("button", { "aria-pressed": tab === "rules", onClick: () => setTab("rules") }, t("rules")), button("preview", () => run(async () => {
-          setDragFrom(null);
-          setDropIndex(null);
+        }), !draft.id || draft.builtin), dirty && (0, import_react2.createElement)("span", null, t("dirty"))),
+        (0, import_react2.createElement)("h3", { className: "dta-section-title" }, t("rulesSection")),
+        (0, import_react2.createElement)("label", { className: "dta-toolbar" }, t("backend"), (0, import_react2.createElement)("select", { "aria-label": t("backend"), value: draft.backend ?? "core", onChange: (e) => edit({ backend: e.target.value }) }, (0, import_react2.createElement)("option", { value: "native" }, t("backendNative")), (0, import_react2.createElement)("option", { value: "core" }, t("backendCore")))),
+        (0, import_react2.createElement)("div", { className: "dta-notice" }, draft.layout ? locale === 0 ? "\u6765\u6E90\u914D\u7F6E\u4E0E\u5F53\u524D\u8D44\u6E90\u5E03\u5C40\u5206\u5F00\u7F16\u8F91\u3002\u8EAB\u4EFD\u3001\u63D2\u69FD\u3001\u5386\u53F2\u53CA\u6295\u9012\u9650\u5236\u5728\u5F53\u524D\u8D44\u6E90\u5E03\u5C40\u4E2D\u8BF4\u660E\u3002" : "Edit source configuration separately from current resource layout. Roles, slots, history and delivery constraints are explained in the current layout." : t(adaptiveNative ? draft.placement === "native-slots" ? "nativeSlotsHint" : "nativeRolesHint" : nativeDraft ? "nativeHint" : "coreHint")),
+        nativeError && (0, import_react2.createElement)("div", { className: "dta-notice", role: "alert" }, nativeError),
+        (0, import_react2.createElement)("div", { className: "dta-tabs" }, (0, import_react2.createElement)("button", { "aria-pressed": tab === "layout", onClick: () => setTab("layout") }, locale === 0 ? "\u7B56\u7565\u4E0E\u5F53\u524D\u8D44\u6E90\u5E03\u5C40" : "Policy and current resource layout"), (0, import_react2.createElement)("button", { "aria-pressed": tab === "rules", onClick: () => setTab("rules") }, t("rules")), button("preview", () => run(async () => {
           const data = await api("/preview", "POST", { sessionId, preset: editablePreset(draft) });
           setPreview(data.preview);
           if (slotMode) setSlotAnalysis({ draft, preview: data.preview });
           setTab("expanded");
         }), Boolean(selectionTarget && (typeof selectionTarget.previewAssembly !== "function" || selectionTarget.editable === false)), void 0, tab === "expanded" && !preview?.actual), button("actual", () => run(actualRequest), !sessionId, void 0, tab === "expanded" && !!preview?.actual)),
-        (0, import_react.createElement)("div", { className: "dta-legend" }, ...[...new Set(sources.map((s) => s.pluginId))].map((plugin) => (0, import_react.createElement)("span", { key: plugin, style: { "--assembly-color": sourceColor(plugin) } }, originName(plugin)))),
-        tab === "rules" ? (0, import_react.createElement)(
+        (0, import_react2.createElement)("div", { className: "dta-legend" }, ...[...new Set(sources.map((s) => s.pluginId))].map((plugin) => (0, import_react2.createElement)("span", { key: plugin, style: { "--assembly-color": sourceColor(plugin) } }, originName(plugin)))),
+        tab === "layout" ? (0, import_react2.createElement)(ResourceLayoutEditor, { preset: draft, preview: preview?.actual ? null : preview, locale, busy, onChange: (next) => edit({ layout: next.layout, placement: layoutPlacement(next) }), onPreview: () => run(async () => {
+          const data = await api("/preview", "POST", { sessionId, preset: editablePreset(draft) });
+          setPreview(data.preview);
+        }) }) : tab === "rules" ? (0, import_react2.createElement)(
           "div",
           null,
-          slotMode && analysis?.error && (0, import_react.createElement)("div", { role: "alert" }, t("placementFailed") + analysis.error),
-          (0, import_react.createElement)("label", { className: "dta-toolbar" }, t("placement"), select(draft.placement, nativeDraft ? ["modules", "native-roles", "native-slots"] : ["modules", "st"], (placement) => edit({ placement }))),
-          draft.placement === "st" && (0, import_react.createElement)("small", null, t("stHelp")),
-          ...displayRows.flatMap((row, i) => [placeholder(i), ruleRow(row, i)]),
-          placeholder(draft.rules.length),
-          modules.length > 0 && (0, import_react.createElement)("div", { className: "dta-toolbar" }, (0, import_react.createElement)("label", { htmlFor: "dta-add-source" }, t("addSource")), (0, import_react.createElement)("select", { id: "dta-add-source", value: modules.some((s) => s.id === addKind) ? addKind : modules[0].id, onChange: (e) => setAddKind(e.target.value) }, ...modules.map((s) => (0, import_react.createElement)("option", { key: s.id, value: s.id }, `${originName(s.pluginId)} \xB7 ${sourceName(s.id)}`))), button("add", () => addRule(modules.some((s) => s.id === addKind) ? addKind : modules[0].id))),
-          parsers.length > 0 && (0, import_react.createElement)("div", { className: "dta-toolbar" }, (0, import_react.createElement)("label", { htmlFor: "dta-add-parser" }, t("parser")), (0, import_react.createElement)("select", { id: "dta-add-parser", value: addParser, onChange: (e) => setAddParser(e.target.value) }, ...parsers.map((s) => (0, import_react.createElement)("option", { key: s.id, value: s.id }, `${originName(s.pluginId)} \xB7 ${sourceName(s.id)}`))), button("addText", () => addRule(addParser, "text"))),
-          (0, import_react.createElement)("small", null, t("sourceHelp"))
-        ) : (0, import_react.createElement)("div", null, (0, import_react.createElement)("div", { className: "dta-notice" }, t(preview?.actual ? "actualNotice" : preview?.scope === "opening-draft" ? "draftPreviewScope" : preview?.backend === "native" ? "nativePreviewScope" : "previewScope")), !preview ? (0, import_react.createElement)("p", null, t("empty")) : (0, import_react.createElement)("div", null, ...preview.diagnostics.filter((d) => ["ASSEMBLY_EMPTY", "ASSEMBLY_SYSTEM_ONLY"].includes(d.code) && !(preview.scope === "opening-draft" && d.code === "ASSEMBLY_SYSTEM_ONLY")).map((d) => (0, import_react.createElement)("div", { key: d.code, className: "dta-notice", role: "alert" }, t(d.code === "ASSEMBLY_EMPTY" ? "emptyRequest" : "systemOnly"))), preview.diagnostics.some((d) => d.code === "NATIVE_PLACEMENT_ADJUSTED") && (0, import_react.createElement)("div", { className: "dta-notice" }, t("nativeOrderChanged")), ...preview.diagnostics.filter((d) => ["NATIVE_ROLE_ADJUSTED", "NATIVE_DELIVERY_ADJUSTED", "NATIVE_SLOTS_ABSENT", "NATIVE_DEPTH_APPROXIMATED", "NATIVE_DEPTH_BOUNDARY", "WORLD_BOOK_SLOT_MISSING"].includes(d.code)).map((d, i) => (0, import_react.createElement)("div", { key: `native-adjustment:${i}`, className: "dta-notice" }, d.code === "NATIVE_SLOTS_ABSENT" ? t("nativeSlotsAbsent") : d.code === "WORLD_BOOK_SLOT_MISSING" ? `${d.name} \xB7 ${t("worldSlotMissing")}: ${d.anchor}` : d.code === "NATIVE_DEPTH_BOUNDARY" ? `${d.name} \xB7 ${t("nativeDepthBoundary")}: ${d.depth} \u2192 ${t(d.placement)}` : d.code === "NATIVE_DEPTH_APPROXIMATED" ? `${d.name} \xB7 ${t("nativeDepthApproximated")} (${d.depth})` : `${d.name} \xB7 ${t(d.code === "NATIVE_ROLE_ADJUSTED" ? "nativeRoleChanged" : "nativeDeliveryChanged")}: ${d.from} \u2192 ${d.to}`)), ...preview.nodes.map(nodeRow), preview.runtimeContextControls?.length > 0 && (0, import_react.createElement)("div", { className: "dta-notice" }, (0, import_react.createElement)("strong", null, t("contextPreview")), ...preview.runtimeContextControls.map((c) => (0, import_react.createElement)("div", { key: c.name }, `${c.name} \xB7 ${t(c.enabled ? "contextIncluded" : "contextExcluded")}`))), (0, import_react.createElement)("details", null, (0, import_react.createElement)("summary", null, `${t(preview.backend === "native" && !preview.actual ? "logicalMessages" : "result")} (${preview.messages.length})`), ...preview.messages.map((m, i) => (0, import_react.createElement)("div", { key: `${m.id}:${i}`, className: "dta-child" }, `${i + 1} \xB7 ${m.role}`, (0, import_react.createElement)("pre", null, (m.content ?? []).map((b) => b.type === "text" ? b.text : `[${b.type}]`).join("\n"))))), preview.diagnostics.length > 0 && (0, import_react.createElement)("details", null, (0, import_react.createElement)("summary", null, t("diagnostics")), (0, import_react.createElement)("pre", null, JSON.stringify(preview.diagnostics, null, 2))))),
-        (0, import_react.createElement)("small", { style: { marginTop: 20 } }, t("tools")),
-        (0, import_react.createElement)("h3", { className: "dta-section-title" }, t("applicationSection")),
-        (0, import_react.createElement)("div", { className: "dta-notice" }, `${t("applied")}: ${selection?.name ?? t("legacy")}`, selection?.id?.startsWith("builtin-") && !items.some((p) => p.id === selection.id) && (0, import_react.createElement)("small", null, t("withdrawnPreset")), !capable && (0, import_react.createElement)("small", null, t("unavailable"))),
-        onCreateSession && (0, import_react.createElement)("div", null, createSessionControls, (0, import_react.createElement)("div", { className: "dta-toolbar" }, button("createSession", () => run(async () => {
+          slotMode && analysis?.error && (0, import_react2.createElement)("div", { role: "alert" }, t("placementFailed") + analysis.error),
+          !draft.layout && (0, import_react2.createElement)("label", { className: "dta-toolbar" }, t("placement"), select(draft.placement, nativeDraft ? ["modules", "native-roles", "native-slots"] : ["modules", "st"], (placement) => edit({ placement }))),
+          draft.placement === "st" && (0, import_react2.createElement)("small", null, t("stHelp")),
+          ...displayRows.map(ruleRow),
+          modules.length > 0 && (0, import_react2.createElement)("div", { className: "dta-toolbar" }, (0, import_react2.createElement)("label", { htmlFor: "dta-add-source" }, t("addSource")), (0, import_react2.createElement)("select", { id: "dta-add-source", value: modules.some((s) => s.id === addKind) ? addKind : modules[0].id, onChange: (e) => setAddKind(e.target.value) }, ...modules.map((s) => (0, import_react2.createElement)("option", { key: s.id, value: s.id }, `${originName(s.pluginId)} \xB7 ${sourceName(s.id)}`))), button("add", () => addRule(modules.some((s) => s.id === addKind) ? addKind : modules[0].id))),
+          parsers.length > 0 && (0, import_react2.createElement)("div", { className: "dta-toolbar" }, (0, import_react2.createElement)("label", { htmlFor: "dta-add-parser" }, t("parser")), (0, import_react2.createElement)("select", { id: "dta-add-parser", value: addParser, onChange: (e) => setAddParser(e.target.value) }, ...parsers.map((s) => (0, import_react2.createElement)("option", { key: s.id, value: s.id }, `${originName(s.pluginId)} \xB7 ${sourceName(s.id)}`))), button("addText", () => addRule(addParser, "text"))),
+          (0, import_react2.createElement)("small", null, t("sourceHelp"))
+        ) : (0, import_react2.createElement)("div", null, (0, import_react2.createElement)("div", { className: "dta-notice" }, t(preview?.actual ? "actualNotice" : preview?.scope === "opening-draft" ? "draftPreviewScope" : preview?.backend === "native" ? "nativePreviewScope" : "previewScope")), !preview ? (0, import_react2.createElement)("p", null, t("empty")) : (0, import_react2.createElement)("div", null, ...preview.diagnostics.filter((d) => ["ASSEMBLY_EMPTY", "ASSEMBLY_SYSTEM_ONLY"].includes(d.code) && !(preview.scope === "opening-draft" && d.code === "ASSEMBLY_SYSTEM_ONLY")).map((d) => (0, import_react2.createElement)("div", { key: d.code, className: "dta-notice", role: "alert" }, t(d.code === "ASSEMBLY_EMPTY" ? "emptyRequest" : "systemOnly"))), preview.diagnostics.some((d) => d.code === "NATIVE_PLACEMENT_ADJUSTED") && (0, import_react2.createElement)("div", { className: "dta-notice" }, t("nativeOrderChanged")), ...preview.diagnostics.filter((d) => ["NATIVE_ROLE_ADJUSTED", "NATIVE_DELIVERY_ADJUSTED", "NATIVE_SLOTS_ABSENT", "NATIVE_DEPTH_APPROXIMATED", "NATIVE_DEPTH_BOUNDARY", "WORLD_BOOK_SLOT_MISSING"].includes(d.code)).map((d, i) => (0, import_react2.createElement)("div", { key: `native-adjustment:${i}`, className: "dta-notice" }, d.code === "NATIVE_SLOTS_ABSENT" ? t("nativeSlotsAbsent") : d.code === "WORLD_BOOK_SLOT_MISSING" ? `${d.name} \xB7 ${t("worldSlotMissing")}: ${d.anchor}` : d.code === "NATIVE_DEPTH_BOUNDARY" ? `${d.name} \xB7 ${t("nativeDepthBoundary")}: ${d.depth} \u2192 ${t(d.placement)}` : d.code === "NATIVE_DEPTH_APPROXIMATED" ? `${d.name} \xB7 ${t("nativeDepthApproximated")} (${d.depth})` : `${d.name} \xB7 ${t(d.code === "NATIVE_ROLE_ADJUSTED" ? "nativeRoleChanged" : "nativeDeliveryChanged")}: ${d.from} \u2192 ${d.to}`)), ...preview.nodes.map(nodeRow), preview.runtimeContextControls?.length > 0 && (0, import_react2.createElement)("div", { className: "dta-notice" }, (0, import_react2.createElement)("strong", null, t("contextPreview")), ...preview.runtimeContextControls.map((c) => (0, import_react2.createElement)("div", { key: c.name }, `${c.name} \xB7 ${t(c.enabled ? "contextIncluded" : "contextExcluded")}`))), (0, import_react2.createElement)("details", null, (0, import_react2.createElement)("summary", null, `${t(preview.backend === "native" && !preview.actual ? "logicalMessages" : "result")} (${preview.messages.length})`), ...preview.messages.map((m, i) => (0, import_react2.createElement)("div", { key: `${m.id}:${i}`, className: "dta-child" }, `${i + 1} \xB7 ${m.role}`, (0, import_react2.createElement)("pre", null, (m.content ?? []).map((b) => b.type === "text" ? b.text : `[${b.type}]`).join("\n"))))), preview.diagnostics.length > 0 && (0, import_react2.createElement)("details", null, (0, import_react2.createElement)("summary", null, t("diagnostics")), (0, import_react2.createElement)("pre", null, JSON.stringify(preview.diagnostics, null, 2))))),
+        (0, import_react2.createElement)("small", { style: { marginTop: 20 } }, t("tools")),
+        (0, import_react2.createElement)("h3", { className: "dta-section-title" }, t("applicationSection")),
+        (0, import_react2.createElement)("div", { className: "dta-notice" }, `${t("applied")}: ${selection?.name ?? t("legacy")}`, selection?.id?.startsWith("builtin-") && !items.some((p) => p.id === selection.id) && (0, import_react2.createElement)("small", null, t("withdrawnPreset")), !capable && (0, import_react2.createElement)("small", null, t("unavailable"))),
+        onCreateSession && (0, import_react2.createElement)("div", null, createSessionControls, (0, import_react2.createElement)("div", { className: "dta-toolbar" }, button("createSession", () => run(async () => {
           const preset = dirty || !draft.id ? await save() : draft;
           if (!mounted.current) return;
           await onCreateSession(preset.id);
         }), !draftAvailable, "primary"))),
-        (0, import_react.createElement)("div", { className: "dta-toolbar" }, button("apply", () => run(async () => {
+        (0, import_react2.createElement)("div", { className: "dta-toolbar" }, button("apply", () => run(async () => {
           const preset = dirty || !draft.id ? await save() : draft;
           const data = await api("/selection", "PUT", { sessionId, id: preset.id });
           setSelection(data.selection);
@@ -883,31 +941,12 @@ function AssemblyPanelContent({ selectionTarget, sessionId, sessionLabel: sessio
           setSelection(data.selection);
           window.dispatchEvent(new window.Event(refreshEvent));
         }), !sessionId && !selectionTarget || !selection || selectionTarget?.editable === false)),
-        draft.builtin && (0, import_react.createElement)("small", null, t("defaultHint")),
-        !sessionId && (0, import_react.createElement)("small", null, selectionTarget ? t("deferredSelection") : t("noSession"))
+        draft.builtin && (0, import_react2.createElement)("small", null, t("defaultHint")),
+        !sessionId && (0, import_react2.createElement)("small", null, selectionTarget ? t("deferredSelection") : t("noSession"))
       ),
-      interfaceControls && (0, import_react.createElement)("section", { className: "dta-interface-settings", "aria-label": t("interfaceSettings") }, (0, import_react.createElement)("h3", { className: "dta-section-title" }, t("interfaceSettings")), interfaceControls)
+      interfaceControls && (0, import_react2.createElement)("section", { className: "dta-interface-settings", "aria-label": t("interfaceSettings") }, (0, import_react2.createElement)("h3", { className: "dta-section-title" }, t("interfaceSettings")), interfaceControls)
     ))
   ));
-}
-function reorderAtBoundary(items, from, boundary) {
-  const next = [...items];
-  const [item] = next.splice(from, 1);
-  next.splice(boundary > from ? boundary - 1 : boundary, 0, item);
-  return next;
-}
-function moveSlotRule(preset, preview, from, boundary) {
-  const rule = preset.rules[from];
-  const control = preview?.placementControls?.find((c) => c.ruleId === rule.id)?.control;
-  if (!["independent", "mixed"].includes(control)) throw new Error("\u6B64\u6A21\u5757\u7684\u4F4D\u7F6E\u7531\u9884\u8BBE\u63A7\u5236\u6216\u5C1A\u672A\u89E3\u6790\u3002 / Module position is preset-controlled or unresolved.");
-  const rules = reorderAtBoundary(preset.rules, from, boundary);
-  const at = rules.indexOf(rule), history = rules.findIndex((r) => r.kind === "history"), input = rules.findIndex((r) => r.kind === "input");
-  const nodes = preview.nodes.filter((n) => n.ruleId === rule.id && n.source?.module !== "preset" && n.placementSource !== "preset" && !n.nativeDepthAnchor);
-  const roles = new Set(nodes.map((n) => n.source?.module === "native-system" ? "system" : n.role));
-  if (roles.has("system") && at > history) throw new Error("\u72EC\u7ACB system \u5185\u5BB9\u53EA\u80FD\u653E\u5728\u539F\u751F\u5386\u53F2\u524D\uFF1B\u672B\u5C3E\u63D0\u9192\u8BF7\u660E\u786E\u9009\u62E9 user \u548C pre-step\u3002 / Independent system content must precede history; choose user and pre-step for a final reminder.");
-  if (roles.has("user") && at < history) throw new Error("\u72EC\u7ACB user \u5185\u5BB9\u53EA\u80FD\u653E\u5728\u539F\u751F\u5386\u53F2\u540E\u3002 / Independent user content must follow history.");
-  if (roles.has("user") && rule.delivery !== "pre-step" && at < input) throw new Error("context \u53EA\u80FD\u4F4D\u4E8E\u672C\u6B65\u8F93\u5165\u540E\uFF1B\u8F93\u5165\u524D\u8BF7\u9009\u62E9 pre-step\u3002 / Context follows input; select pre-step to place before input.");
-  return rules;
 }
 
 // src/client-fetch.js
@@ -1037,17 +1076,17 @@ async function createSessionWithPreset({ sessions, uiWorkspace, fetcher = assemb
   return sessionId;
 }
 function AssemblyLauncher({ assembler, wide = true, sessionId }) {
-  return (0, import_react2.createElement)("button", { type: "button", className: "dta-launcher", style: { font: "inherit", color: "inherit", border: "1px solid currentColor", borderRadius: 8, background: "transparent", padding: "7px 10px", cursor: "pointer" }, title: "\u63D0\u793A\u8BCD\u88C5\u914D / Prompt assembly", "aria-label": "\u63D0\u793A\u8BCD\u88C5\u914D", onClick: () => void assembler.open(sessionId) }, wide ? "\u63D0\u793A\u8BCD\u88C5\u914D" : "\u2318");
+  return (0, import_react3.createElement)("button", { type: "button", className: "dta-launcher", style: { font: "inherit", color: "inherit", border: "1px solid currentColor", borderRadius: 8, background: "transparent", padding: "7px 10px", cursor: "pointer" }, title: "\u63D0\u793A\u8BCD\u88C5\u914D / Prompt assembly", "aria-label": "\u63D0\u793A\u8BCD\u88C5\u914D", onClick: () => void assembler.open(sessionId) }, wide ? "\u63D0\u793A\u8BCD\u88C5\u914D" : "\u2318");
 }
 function AssemblyOverlay({ assembler, sessions, workspaces, uiWorkspace, fetcher = assemblerFetch }) {
-  const state = (0, import_react2.useSyncExternalStore)(assembler.subscribe, assembler.getSnapshot, assembler.getSnapshot);
-  const workspaceState = (0, import_react2.useSyncExternalStore)(workspaces.list.subscribe.bind(workspaces.list), workspaces.list.getSnapshot.bind(workspaces.list), workspaces.list.getSnapshot.bind(workspaces.list));
-  const [locale, setLocale] = (0, import_react2.useState)(globalThis.navigator?.language?.startsWith("zh") ? "zh-CN" : "en");
-  const [chosenWorkspace, setWorkspace] = (0, import_react2.useState)("");
-  (0, import_react2.useEffect)(() => {
+  const state = (0, import_react3.useSyncExternalStore)(assembler.subscribe, assembler.getSnapshot, assembler.getSnapshot);
+  const workspaceState = (0, import_react3.useSyncExternalStore)(workspaces.list.subscribe.bind(workspaces.list), workspaces.list.getSnapshot.bind(workspaces.list), workspaces.list.getSnapshot.bind(workspaces.list));
+  const [locale, setLocale] = (0, import_react3.useState)(globalThis.navigator?.language?.startsWith("zh") ? "zh-CN" : "en");
+  const [chosenWorkspace, setWorkspace] = (0, import_react3.useState)("");
+  (0, import_react3.useEffect)(() => {
     if (!state.open) setWorkspace("");
   }, [state.open]);
-  (0, import_react2.useEffect)(() => {
+  (0, import_react3.useEffect)(() => {
     if (!state.open) return;
     const handler = (event) => {
       if (event.key === "Escape") {
@@ -1061,23 +1100,23 @@ function AssemblyOverlay({ assembler, sessions, workspaces, uiWorkspace, fetcher
   if (!state.open) return null;
   const items = workspaceState.phase === "ready" ? workspaceState.items : [];
   const workspaceId = items.length === 1 ? items[0].workspaceId : items.some((w) => w.workspaceId === chosenWorkspace) ? chosenWorkspace : "";
-  const controls = (0, import_react2.createElement)(
+  const controls = (0, import_react3.createElement)(
     "div",
     { className: "dta-toolbar dta-session-controls" },
-    (0, import_react2.createElement)(
+    (0, import_react3.createElement)(
       "label",
       null,
       locale === "zh-CN" ? "\u65B0\u4F1A\u8BDD\u5DE5\u4F5C\u533A" : "New session workspace",
-      (0, import_react2.createElement)(
+      (0, import_react3.createElement)(
         "select",
         { value: workspaceId, onChange: (e) => setWorkspace(e.target.value), disabled: items.length === 0, "aria-label": locale === "zh-CN" ? "\u65B0\u4F1A\u8BDD\u5DE5\u4F5C\u533A" : "New session workspace" },
-        (0, import_react2.createElement)("option", { value: "" }, locale === "zh-CN" ? "\u8BF7\u9009\u62E9\u5DE5\u4F5C\u533A\u2026" : "Choose a workspace\u2026"),
-        ...items.map((w) => (0, import_react2.createElement)("option", { key: w.workspaceId, value: w.workspaceId }, w.title))
+        (0, import_react3.createElement)("option", { value: "" }, locale === "zh-CN" ? "\u8BF7\u9009\u62E9\u5DE5\u4F5C\u533A\u2026" : "Choose a workspace\u2026"),
+        ...items.map((w) => (0, import_react3.createElement)("option", { key: w.workspaceId, value: w.workspaceId }, w.title))
       )
     )
   );
-  const interfaceControls = (0, import_react2.createElement)("div", { className: "dta-toolbar dta-session-controls" }, (0, import_react2.createElement)("label", null, "Language / \u8BED\u8A00", (0, import_react2.createElement)("select", { value: locale, onChange: (e) => setLocale(e.target.value), "aria-label": "Language / \u8BED\u8A00" }, (0, import_react2.createElement)("option", { value: "zh-CN" }, "\u4E2D\u6587"), (0, import_react2.createElement)("option", { value: "en" }, "English"))));
-  return (0, import_react2.createElement)(AssemblyPanel, {
+  const interfaceControls = (0, import_react3.createElement)("div", { className: "dta-toolbar dta-session-controls" }, (0, import_react3.createElement)("label", null, "Language / \u8BED\u8A00", (0, import_react3.createElement)("select", { value: locale, onChange: (e) => setLocale(e.target.value), "aria-label": "Language / \u8BED\u8A00" }, (0, import_react3.createElement)("option", { value: "zh-CN" }, "\u4E2D\u6587"), (0, import_react3.createElement)("option", { value: "en" }, "English"))));
+  return (0, import_react3.createElement)(AssemblyPanel, {
     sessionId: state.session?.id,
     sessionLabel: sessionLabel(state.session, locale),
     locale,

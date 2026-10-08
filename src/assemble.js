@@ -1,3 +1,4 @@
+import { applyLayoutOverrides, describeResourceLayout } from './resource-layout.js'
 import { createHash, randomUUID } from 'node:crypto'
 import { adaptiveNativePlacement } from './native-policy.js'
 import { projectNativeOrder } from './native-order.js'
@@ -51,12 +52,13 @@ function assembleResolved({ preset: suppliedPreset, previous = null, snapshots =
   const adaptive = adaptiveNativePlacement(preset)
   if (!adaptive && ['native-roles', 'native-slots'].includes(preset.placement)) throw new TypeError('Native placement requires the native backend')
   const rules = preset.rules.filter(r => r.enabled), entries = resolution.resolved
-  const listed = new Set(preset.rules.map(rule => rule.id)), listPlacement = preset.placement === 'modules'
+  const listed = new Set(preset.rules.map(rule => rule.id)), listPlacement = preset.placement === 'modules' || preset.layout?.source === 'manual'
   const byRule = new Map(entries.map(e => [e.rule.id, e])), bySource = new Map(entries.map(e => [e.descriptor.id, e]))
   // Authored text uses a source parser without replacing that source's own
   // content module as the target of other sources' declared references.
   for (const entry of entries.filter(e => e.rule.inputMode !== 'text')) bySource.set(entry.descriptor.id, entry)
   const enabled = kind => rules.some(r => r.kind === kind)
+  const slots = []
   const diagnostics = structuredClone(assets.diagnostics ?? []).filter(d => !((preset.placement === 'st' || adaptive) && d.code === 'WORLD_BOOK_POSITION_APPROXIMATED' && d.originalPosition === 'at_depth'))
   diagnostics.push(...resolution.diagnostics, ...entries.flatMap(e => e.diagnostics ?? []))
   if (adaptive) for (let i = diagnostics.length - 1; i >= 0; i--) {
@@ -93,7 +95,7 @@ function assembleResolved({ preset: suppliedPreset, previous = null, snapshots =
     // A source shown in the list owns its position in list mode. References
     // cannot relocate it or bypass its disabled list rule. Unlisted dependency
     // sources still belong to the source's authored reference position.
-    if (listPlacement && listed.has(entry.rule.id) && !block.useOwnerRule) return entry.blocks.filter(b => b.referenceOnly && block.blockIds?.includes(b.id)).map(block => ({ entry, block }))
+    if (listPlacement && listed.has(entry.rule.id) && (preset.layout?.source === 'manual' || !block.useOwnerRule)) return entry.blocks.filter(b => b.referenceOnly && block.blockIds?.includes(b.id)).map(block => ({ entry, block }))
     if (block.honorEnabled !== false && listed.has(entry.rule.id) && !enabled(block.sourceId)) return []
     return entry.blocks.filter(b => (!block.blockIds || block.blockIds.includes(b.id)) && (!block.group || b.group === block.group) && (block.blockIds || !b.referenceOnly)).map(b => ({ entry, block: b }))
   }
@@ -140,9 +142,12 @@ function assembleResolved({ preset: suppliedPreset, previous = null, snapshots =
     const next = new Set([...path, identity])
     emitted.add(identity)
     if (block.type === 'reference') {
-      for (const target of targets(block)) {
+      const referenced = targets(block)
+      slots.push({ id: identity, source: origin(entry, block), targetSourceId: block.sourceId, group: block.group ?? null, emitsText: false, nodeIds: referenced.map(t => key(t.entry, t.block)), duplicate: referenced.length > 0 && referenced.every(t => emitted.has(key(t.entry, t.block))) })
+      if (slots.at(-1).duplicate) diagnostics.push({ code: 'LAYOUT_DUPLICATE_SLOT', slotId: identity })
+      for (const target of referenced) {
         const targetRule = block.useOwnerRule ? effectiveRule : target.entry.rule
-        emit(target.entry, target.block, targetRule, { owner: identity, placementRule: reference?.placementRule ?? effectiveRule.id, locked: block.lock !== false, reason: `reference:${block.owner ?? block.id}`, sourceId: reference?.sourceId ?? entry.descriptor.id, authoredRole: reference?.authoredRole ?? (entry.descriptor.id === 'preset' ? block.role ?? 'system' : undefined) }, next)
+        emit(target.entry, target.block, targetRule, { slotId: reference?.slotId ?? identity, owner: identity, placementRule: reference?.placementRule ?? effectiveRule.id, locked: block.lock !== false, reason: `reference:${block.owner ?? block.id}`, sourceId: reference?.sourceId ?? entry.descriptor.id, authoredRole: reference?.authoredRole ?? (entry.descriptor.id === 'preset' ? block.role ?? 'system' : undefined) }, next)
       }
       return
     }
@@ -164,7 +169,7 @@ function assembleResolved({ preset: suppliedPreset, previous = null, snapshots =
       rendered = entry.renderText({ text: expanded, context: request, variables, block, diagnostics, identity })
       if (typeof rendered !== 'string') throw new TypeError('renderText must synchronously return text')
       if (!rendered) return
-      role = preset.placement === 'native-roles' && entry.descriptor.id === 'worldbook' ? block.role ?? 'system'
+      role = preset.layout?.identity === 'preserve' ? block.role ?? (targetRule.inputMode === 'text' && targetRule.role !== 'preserve' ? targetRule.role : 'system') : preset.placement === 'native-roles' && entry.descriptor.id === 'worldbook' ? block.role ?? 'system'
         : adaptive && (entry.descriptor.id === 'preset' || reference?.authoredRole)
         ? reference?.authoredRole ?? block.role ?? 'system'
         : targetRule.role === 'preserve' ? block.role ?? 'system' : targetRule.role
@@ -182,7 +187,7 @@ function assembleResolved({ preset: suppliedPreset, previous = null, snapshots =
       if (!(preset.placement === 'native-slots' && entry.descriptor.id === 'worldbook' && [0, 1].includes(nativeRequestedDepth))) diagnostics.push({ code: 'NATIVE_DEPTH_APPROXIMATED', id: identity, name: block.name || block.id, depth })
       depth = null
     }
-    const node = { id: identity, ruleId: targetRule.id, module: targetRule.kind, name: block.name || block.id, role, text: rendered, messages, source: origin(entry, block),
+    const node = { originalRole: block.type === 'native' ? 'preserve' : block.role ?? (targetRule.inputMode === 'text' && targetRule.role !== 'preserve' ? targetRule.role : 'system'), messageRoles: messages.map(m => m.role), layoutGroup: block.group ?? null, slotId: reference?.slotId ?? null, id: identity, ruleId: targetRule.id, module: targetRule.kind, name: block.name || block.id, role, text: rendered, messages, source: origin(entry, block),
       ...(adaptive ? { placementSource: reference?.sourceId ?? null, nativeRequestedDepth } : {}),
       stability: block.stability ?? entry.descriptor.stability,
       lifetime, recorded: true, locked: reference?.locked ?? false, lockReason: reference?.locked ? reference.reason : null, children, hash: contentHash, depth, order: block.order ?? 100, changed: previous?.nodes?.find(n => n.id === identity)?.hash !== contentHash }
@@ -229,6 +234,7 @@ function assembleResolved({ preset: suppliedPreset, previous = null, snapshots =
     }
     if (!inserted) nodes.push(node)
   }
+  applyLayoutOverrides(nodes, preset, diagnostics)
   // Native markers are nested in the preset output, not dropped from the request.
   let messages = [], expanded = []
   const snapshotRules = rules.filter(r => r.lifetime === 'snapshot' && byRule.has(r.id))
@@ -305,6 +311,9 @@ function assembleResolved({ preset: suppliedPreset, previous = null, snapshots =
   const result = { messages, nodes: expanded.map(({ messages: omitted, ...node }) => node), snapshots: nextSnapshots,
     diagnostics, ...(placementControls ? { placementControls } : {}), sources: entries.map(e => e.descriptor), extraBytes, preset: { id: suppliedPreset.id ?? null, name: preset.name, revision: hash(preset) },
     preview, toolsSeparate: true, evaluatedAt: 'request-assembly', compatibility: preset.placement === 'st' ? 'ST ordering, roles, supported macros and depths; not full ST runtime parity' : null }
+  // Final message roles include native placement adaptation.
+  for (const node of result.nodes) node.messageRoles = node.role === 'preserve' ? node.messageRoles : [node.role]
+  result.resourceLayout = describeResourceLayout(result.nodes, preset, slots)
   afterAssembly?.(result, request)
   return result
 }

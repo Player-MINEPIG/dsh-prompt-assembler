@@ -2,6 +2,7 @@
 
 [中文](API.md) · [Developer guide](DEVELOPER_GUIDE_en.md)
 
+See [resource layout](RESOURCE_LAYOUT_en.md) for current blocks, slots, stable positioning and legacy compatibility.
 The prefix is `/dsh-prompt-assembler/api/v1/assembly-presets`; paths below are relative to it. Success uses `{ok:true,...}`, failure `{ok:false,error,code?}`. URL-encode IDs. Mutation JSON body limit is 2 MiB. Library createAssemblyApi has no authentication; the bundled secureAssemblerApi checks loopback TCP peer, Host, same Origin or desktop token and JSON media type. These fences do not authenticate malicious local processes. The enclosing DSH transport owns its authentication.
 
 | Method | Path | Input / result |

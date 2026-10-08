@@ -4,7 +4,13 @@ export type Lifetime = 'request' | 'snapshot'
 export type Stability = 'asset' | 'conversation' | 'evaluation' | 'assembly' | 'snapshot'
 export interface Rule { id: string; kind: string; enabled: boolean; role: Role; lifetime: Lifetime; depth: number | null; text: string; name: string; inputMode?: 'source' | 'text'; delivery?: 'context' | 'pre-step' }
 export type RuleInput = Pick<Rule, 'id' | 'kind'> & Partial<Omit<Rule, 'id' | 'kind'>>
-export interface Preset { backend?: 'native' | 'core'; format: 'dsh-tavern-request-assembly'; version: 1; name: string; placement: 'st' | 'modules' | 'native-roles' | 'native-slots'; rules: Rule[]; id?: string }
+export interface LayoutOverride { target: string; anchor: string; side: 'before' | 'after'; detach: boolean }
+export interface ResourceLayoutPolicy { version: 1; source: 'manual' | 'preset-slots'; identity: 'preserve' | 'position'; fallback: 'source-order' | 'error'; overrides: LayoutOverride[] }
+export interface ResourceLayout { version: 1; legacy: boolean; policy: ResourceLayoutPolicy | null; slots: Array<Record<string, any>>; blocks: Array<Record<string, any>> }
+export function normalizeLayout(value: unknown): ResourceLayoutPolicy | undefined
+export function describeResourceLayout(nodes: Array<Record<string, any>>, preset: Preset, slots?: Array<Record<string, any>>): ResourceLayout
+export function withBlockMove(preset: Preset, layout: ResourceLayout, target: string, anchor: string, side?: 'before' | 'after', detach?: boolean): Preset
+export interface Preset { layout?: ResourceLayoutPolicy; backend?: 'native' | 'core'; format: 'dsh-tavern-request-assembly'; version: 1; name: string; placement: 'st' | 'modules' | 'native-roles' | 'native-slots'; rules: Rule[]; id?: string }
 export type PresetInput = Omit<Preset, 'rules' | 'placement'> & { placement?: Preset['placement']; rules: RuleInput[] }
 export interface NativeMessage { id: string; role: string; content: Array<{ type: string; [key: string]: unknown }>; source?: { kind?: string; [key: string]: unknown }; [key: string]: unknown }
 /** Detached and deeply frozen at runtime. Resolvers must be read-only in both modes. */
@@ -68,7 +74,7 @@ export interface AssemblyOptions {
   sessionId?: string; turn?: number; step?: number; signal?: AbortSignal;
 }
 export interface PlacementControl { ruleId: string; control: 'preset' | 'mixed' | 'independent' | 'native' | 'empty'; owned: number; independent: number }
-export interface AssemblyResult { placementControls?: PlacementControl[]; messages: NativeMessage[]; nodes: Array<Record<string, unknown>>; sources: Descriptor[]; snapshots: unknown[]; diagnostics: Json[]; [key: string]: unknown }
+export interface AssemblyResult { resourceLayout?: ResourceLayout; placementControls?: PlacementControl[]; messages: NativeMessage[]; nodes: Array<Record<string, unknown>>; sources: Descriptor[]; snapshots: unknown[]; diagnostics: Json[]; [key: string]: unknown }
 export function assembleRequest(options: AssemblyOptions): AssemblyResult
 export function assembleRequestAsync(options: AssemblyOptions): Promise<AssemblyResult>
 export function textOf(message: NativeMessage): string

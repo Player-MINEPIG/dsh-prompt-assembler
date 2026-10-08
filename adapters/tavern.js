@@ -35,7 +35,7 @@ const worldbookAnchors = [
   { ids: ['dialogueExamples'], before: 'before_example_messages', after: 'after_example_messages' },
   { ids: ['authorNote', 'authorsNote'], before: 'before_author_note', after: 'after_author_note' },
 ]
-const adaptiveWorldbook = preset => preset.backend === 'native' && ['native-slots', 'native-roles'].includes(preset.placement)
+const adaptiveWorldbook = preset => preset.layout?.source === 'preset-slots' || preset.backend === 'native' && ['native-slots', 'native-roles'].includes(preset.placement)
 function worldbookGroup(entry, context, diagnostics) {
   if (entry.requestedPosition === 'at_depth') return 'depth'
   const anchor = worldbookAnchors.find(a => [a.before, a.after].includes(entry.requestedPosition))

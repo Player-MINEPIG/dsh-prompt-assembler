@@ -1,3 +1,4 @@
+import { normalizeLayout, layoutPlacement } from './resource-layout.js'
 export const FORMAT = 'dsh-tavern-request-assembly'
 export const MODULES = Object.freeze(['native-system', 'history', 'input', 'dsh.text'])
 export const DEFAULT_RULES = Object.freeze(['native-system', 'history', 'input'].map(kind => ({ id: kind, kind, enabled: true })))
@@ -6,6 +7,7 @@ export function normalizePreset(value) {
   if (typeof value.name !== 'string' || !value.name.trim() || value.name.length > 200) throw new TypeError('Preset name is required (max 200 characters)')
   if (!Array.isArray(value.rules) || value.rules.length > 128) throw new TypeError('Expected at most 128 assembly rules')
   if (value.backend !== undefined && !['native', 'core'].includes(value.backend)) throw new TypeError('Invalid assembly backend')
+  const layout = normalizeLayout(value.layout)
   const ids = new Set(), kinds = new Set()
   const rules = value.rules.map(rule => {
     if (!rule || !/^[a-zA-Z0-9_-]{1,80}$/.test(rule.id) || ids.has(rule.id)) throw new TypeError('Rule ids must be unique')
@@ -20,7 +22,7 @@ export function normalizePreset(value) {
     if (rule.inputMode !== undefined && !['source', 'text'].includes(rule.inputMode)) throw new TypeError('Invalid rule inputMode')
     return { ...(rule.delivery ? { delivery: rule.delivery } : {}), ...(rule.inputMode === 'text' ? { inputMode: 'text' } : {}), id: rule.id, kind: rule.kind, enabled: rule.enabled !== false, role, lifetime, depth: rule.depth ?? null, text: rule.text ?? '', name: typeof rule.name === 'string' ? rule.name.slice(0, 200) : '' }
   })
-  return { ...(value.backend ? { backend: value.backend } : {}), format: FORMAT, version: 1, name: value.name.trim(), placement: ['st', 'native-roles', 'native-slots'].includes(value.placement) ? value.placement : 'modules', rules }
+  return { ...(value.backend ? { backend: value.backend } : {}), format: FORMAT, version: 1, name: value.name.trim(), placement: layoutPlacement({ ...value, layout, placement: ['st', 'native-roles', 'native-slots'].includes(value.placement) ? value.placement : 'modules' }), ...(layout ? { layout } : {}), rules }
 }
 export const BUILTINS = Object.freeze([{ id: 'builtin-native', ...normalizePreset({ format: FORMAT, version: 1, name: 'DSH 原生 / DSH native', backend: 'native', rules: DEFAULT_RULES }) }])
 export function moveRule(rules, id, targetId) {

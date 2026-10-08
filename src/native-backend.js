@@ -15,7 +15,7 @@ export function renderOfficialSections(assembly) {
 }
 
 export async function assembleNative(runtime, { preset, agent, sessionId = agent?.id ?? '', assembly, inputs = [], preview = false, signal }) {
-  validateNativePreset(preset)
+  preset = validateNativePreset(preset)
   const runtimeContextControls = contextControlPreview(assembly, preset)
   assembly = filterNativeContexts(assembly, preset)
   const snapshot = (preview ? null : runtime.resources.assembledFor?.(agent)) ?? runtime.resources.compile({ agent, sessionId, resolveOnly: true })

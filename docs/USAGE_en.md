@@ -2,6 +2,7 @@
 
 [中文](USAGE.md) · [Installation](INSTALLATION_en.md) · [Source integration](INTEGRATION_en.md)
 
+See [resource layout](RESOURCE_LAYOUT_en.md) for current blocks, slots, stable positioning and legacy compatibility.
 ## Backend selection
 
 Choose Standard for public DSH interfaces, or Advanced for the optional addon and prepared core. Legacy strategies remain advanced. Standard history/input cannot be disabled or moved out of order; no arbitrary depth or assistant contributions. User context and pre-step both persist in history. Standard mode offers five Tavern presets: ST style, cache-friendly ordering, final PHI, preset roles first and preset slots first. See [backend rules](BACKENDS_en.md).
@@ -36,7 +37,7 @@ The module menu lists only sources with current independent content. Expanded mo
 
 A source with dispersed content can expose a text parser without appearing as a module. Add custom text selects that parser. DSH text expands only DSH-supplied `{{variable}}` values and rejects missing variables. Installing Tavern adds one unified parser: restricted read-only EJS, content references, then ST macros. Third-party parsers own their syntax and do not implicitly execute other sources’ code.
 
-Advanced strategies can drag whole modules and configure supported depth, roles and retention. Rebuild each request evaluates fresh content without accumulating copies. Retained snapshots save changed bodies and history anchors. Disabled or removed sources stop injecting old snapshots, while recorded bodies remain readable. Complete tool calls and results cannot be split.
+Move whole contiguous blocks in the current resource layout. Source configuration retains supported depth, role and retention settings. Rebuild each request evaluates fresh content without accumulating copies. Retained snapshots save changed bodies and history anchors. Disabled or removed sources stop injecting old snapshots, while recorded bodies remain readable. Complete tool calls and results cannot be split.
 
 ## Preview and actual requests
 

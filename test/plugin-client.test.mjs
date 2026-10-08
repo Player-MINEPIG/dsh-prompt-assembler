@@ -291,7 +291,7 @@ test('slot drag keeps mode and preset-owned rows fixed while moving independent 
   assert.throws(()=>moveSlotRule(draft,preview,1,0),/preset-controlled/)
   assert.throws(()=>moveSlotRule(draft,preview,at,0),/user/)
 })
-test('slot UI resolves ownership and locks only controlled or empty rows', async()=>{
+test('source configuration resolves ownership without presenting sources as draggable blocks', async()=>{
   const {NATIVE_BUILTINS}=await import('../adapters/tavern.js')
   const ui=dom(),draft=structuredClone(NATIVE_BUILTINS.find(p=>p.placement==='native-slots'))
   const controls={preset:'preset',persona:'preset',character:'mixed',worldbook:'independent',phi:'empty',history:'native',input:'native','native-system':'independent'}
@@ -301,7 +301,7 @@ test('slot UI resolves ownership and locks only controlled or empty rows', async
     const rows=[...ui.document.querySelectorAll('[data-assembly-index]')]
     for(const [i,rule]of draft.rules.entries()){
       assert.equal(rows[i].querySelector('[data-placement-control]').getAttribute('data-placement-control'),controls[rule.kind])
-      assert.equal(rows[i].querySelector('.dta-handle').disabled,!['independent','mixed'].includes(controls[rule.kind]))
+      assert.equal(rows[i].querySelector('.dta-handle'), null)
     }
   }finally{await ui.close()}
 })
