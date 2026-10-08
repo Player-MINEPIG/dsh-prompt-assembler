@@ -50,7 +50,9 @@ export async function assembleNative(runtime, { preset, agent, sessionId = agent
         variables[variable] = node.text
         contexts.push({ name, text: `{{${variable}}}` }); node.nativeContextName = name
       } else {
-        const message = { id: randomUUID(), role: 'user', content: [{ type: 'text', text: node.text }], source: { kind: 'user' } }
+        // Producer identity controls native Chat presentation; it does not change
+        // the user role, accepted-message delivery or durable request order.
+        const message = { id: randomUUID(), role: 'user', content: [{ type: 'text', text: node.text }], source: { kind: 'dsh-prompt-assembler', form: 'instructions', delivery: 'pre-step', ruleId: node.ruleId, blockId: node.id } }
         const inputIndex = preset.rules.findIndex(r => r.kind === 'input')
         node.nativeMessageId = message.id
         ;(node.nativePlacement ? node.nativePlacement === 'before-input' ? beforeInput : afterInput : preset.rules.findIndex(r => r.id === node.ruleId) < inputIndex ? beforeInput : afterInput).push(message)

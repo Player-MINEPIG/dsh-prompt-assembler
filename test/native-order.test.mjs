@@ -77,3 +77,15 @@ test('depth worldbook entries follow native priority without splitting tool hist
   assert.deepEqual(result.logical.messages.filter(m=>history.some(h=>h.id===m.id)),history)
   assert.deepEqual(result.afterInput.map(textOf),['B','LORE'])
 })
+
+test('pre-step source marks assembler injections without changing role, text or delivery regions', async () => {
+  const result = await plan([prompt('wrapper','user','START{{history}}BEFORE{{input}}AFTER')], {placement:'native-slots'})
+  assert.deepEqual(result.beforeInput.map(m=>[m.role,textOf(m)]), [['user','BEFORE']])
+  assert.deepEqual(result.afterInput.map(m=>[m.role,textOf(m)]), [['user','AFTER']])
+  for (const message of [...result.beforeInput,...result.afterInput]) {
+    assert.equal(message.source.kind,'dsh-prompt-assembler')
+    assert.equal(message.source.form,'instructions')
+    assert.equal(message.source.delivery,'pre-step')
+    assert.equal(message.source.ruleId,'preset')
+  }
+})

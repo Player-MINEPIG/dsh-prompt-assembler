@@ -157,6 +157,9 @@ for (const inHistory of [false, true]) test(`native preset ordering uses public 
     await turn('ONE')
     assert.match(textOf(requests[0][0]), /OFFICIAL\n\nOPEN$/)
     assert.deepEqual(requests[0].slice(1).map(textOf), ['MIDDLE', 'ONE', 'CLOSE'])
+    assert.deepEqual(requests[0].slice(1).map(m => m.role), ['user', 'user', 'user'])
+    assert.deepEqual(requests[0].slice(1).map(m => m.source.kind), ['dsh-prompt-assembler', 'user', 'dsh-prompt-assembler'])
+    assert.equal(requests[0].at(-1).source.form, 'instructions')
     const firstIds = requests[0].slice(1).map(m => m.id)
     prompts = [{ ...prompts[0], content: 'NEW OPEN{{history}}MIDDLE{{input}}CLOSE' }]
     await turn('TWO')
