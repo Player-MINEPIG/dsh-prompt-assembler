@@ -1,3 +1,4 @@
+import { filterNativeContexts, contextControlPreview } from './native-context.js'
 import { assembleRequestAsync } from './assemble.js'
 import { createDshRegistry as createDefaultRegistry } from '../adapters/dsh.js'
 import { normalizePreset } from './model.js'
@@ -57,7 +58,7 @@ export class RequestAssembler {
     const preset = this.selected(context.agent.id)
     if (!preset) { this.nativePlans.delete(context.agent); return assembly }
     this.requireAvailable(preset)
-    if (presetBackend(preset) !== 'native') { this.nativePlans.delete(context.agent); return assembly }
+    if (presetBackend(preset) !== 'native') { this.nativePlans.delete(context.agent); return filterNativeContexts(assembly, preset) }
     const plan = await assembleNative(this, { preset, agent: context.agent, assembly, inputs: this.claimed.get(context.agent) ?? [], signal: context.signal })
     this.nativePlans.set(context.agent, plan)
     return plan.assembly
@@ -86,14 +87,14 @@ export class RequestAssembler {
     // Preview current core assembly independently, without committing any event.
     let nativeMessages = (agent?.session?.deriveMessages?.() ?? []).filter(m => m.role !== 'system')
     const diagnostics = [...(snapshot.diagnostics ?? [])]
-    let officialSections = [], nativeVariables = {}
+    let officialSections = [], nativeVariables = {}, officialContexts = []
     const systemPrompt = this.ctx.get('systemPrompt')
     if (systemPrompt?.assemble) {
       const current = await systemPrompt.assemble({ agent, scope: agent, tavernAssemblyPreview: true, dshAssemblerRaw: true })
       // Trusted callers may supply pre-session model/workspace variables. This
       // input is deliberately absent from the HTTP session-preview endpoint.
       if (previewVariables) current.variables = { ...current.variables, ...previewVariables }
-      officialSections = current.sections; nativeVariables = current.variables ?? {}
+      officialSections = current.sections; officialContexts = current.contexts ?? []; nativeVariables = current.variables ?? {}
       const text = current.sections.map(section => section.interpolate === false ? section.text : section.text.replace(/\{\{([^{}]*)\}\}/g, (_, key) => {
         if (!/^[a-z][a-z0-9_]*$/.test(key) || typeof current.variables?.[key] !== 'string') throw Object.assign(new Error(`Native preview variable "${key}" is unavailable in the current session configuration`), { code: 'NATIVE_PREVIEW_VARIABLE_UNAVAILABLE', status: 409 })
         return current.variables[key]
@@ -101,12 +102,12 @@ export class RequestAssembler {
       if (text) nativeMessages.unshift({ id: 'preview-native-system', role: 'system', content: [{ type: 'text', text }], source: { kind: 'system-prompt' } })
     } else diagnostics.push({ code: 'NATIVE_SYSTEM_PREVIEW_UNAVAILABLE' })
     if (presetBackend(preset) === 'native') {
-      const current = { sections: officialSections, variables: nativeVariables, contexts: [], tools: [] }
+      const current = { sections: officialSections, variables: nativeVariables, contexts: officialContexts, tools: [] }
       const plan = await assembleNative(this, { preset, agent, sessionId, assembly: current, preview: true, signal })
       return { ...plan.logical, backend: 'native', capability: this.available(), supported: true, scope: 'current-resources-and-durable-history', pendingInputsIncluded: false, transport: { system: 'official-sections', user: 'durable-context-or-pre-step', priorContributionsRemainInHistory: true } }
     }
     const logical = await assembleRequestAsync({ registry: this.registry, afterAssembly: this.afterAssembly, sessionId: sessionId ?? agent?.id ?? '', signal, preset, assets: { ...snapshot.assemblyInput, diagnostics, officialSections, nativeVariables }, nativeMessages, preview: true, maxBytes: this.resources.maxProfileBytes })
     const assembly = projectSystemSnapshots(logical, nativeMessages, undefined, { preview: true })
-    return { ...assembly, capability: this.available(), backend: 'core', supported: this.requestAssemblyAvailable(sessionId), scope: 'current-resources-and-durable-history', pendingInputsIncluded: false }
+    return { ...assembly, runtimeContextControls: contextControlPreview({ contexts: officialContexts }, preset), capability: this.available(), backend: 'core', supported: this.requestAssemblyAvailable(sessionId), scope: 'current-resources-and-durable-history', pendingInputsIncluded: false }
   }
 }

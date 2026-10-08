@@ -1,3 +1,4 @@
+import { filterNativeContexts, contextControlPreview } from './native-context.js'
 import { randomUUID } from 'node:crypto'
 import { assembleRequestAsync, textOf } from './assemble.js'
 
@@ -15,6 +16,8 @@ export function renderOfficialSections(assembly) {
 
 export async function assembleNative(runtime, { preset, agent, sessionId = agent?.id ?? '', assembly, inputs = [], preview = false, signal }) {
   validateNativePreset(preset)
+  const runtimeContextControls = contextControlPreview(assembly, preset)
+  assembly = filterNativeContexts(assembly, preset)
   const snapshot = (preview ? null : runtime.resources.assembledFor?.(agent)) ?? runtime.resources.compile({ agent, sessionId, resolveOnly: true })
   if (!snapshot?.assemblyInput) throw new Error('Resource snapshot missing at native assembly')
   const nativeMessages = (agent?.session?.deriveMessages?.() ?? []).filter(m => m.role !== 'system')
@@ -28,6 +31,7 @@ export async function assembleNative(runtime, { preset, agent, sessionId = agent
     signal, preset, assets: { ...snapshot.assemblyInput, ...(adaptiveNativePlacement(preset) ? { includeGreetingReference: false } : {}), diagnostics: snapshot.diagnostics,
       officialSections: assembly.sections, nativeVariables: assembly.variables ?? {} },
     nativeMessages, inputIds: inputs.map(m => m.id), preview, maxBytes: runtime.resources.maxProfileBytes })
+  logical.runtimeContextControls = runtimeContextControls
   const nativeIds = new Set(nativeMessages.map(m => m.id))
   const contributed = logical.nodes.filter(n => n.source?.module !== 'history' && n.source?.module !== 'input' && n.source?.module !== 'native-system')
   const sections = [], contexts = [], beforeInput = [], afterInput = [], variables = { ...assembly.variables }

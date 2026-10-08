@@ -305,3 +305,32 @@ test('slot UI resolves ownership and locks only controlled or empty rows', async
     }
   }finally{await ui.close()}
 })
+
+test('context controls appear for legacy strategies and persist master/child switches without changing normal rules', async () => {
+  const { Simulate } = await import('react-dom/test-utils')
+  const { createDshRegistry } = await import('../adapters/dsh.js')
+  const { BUILTINS } = await import('../src/model.js')
+  const ui=dom(), saved=[]
+  const original={...structuredClone(BUILTINS[0]),id:'legacy',builtin:false}
+  try {
+    const fetcher=async(url,options)=>{
+      if(options.method==='PUT') { const p=JSON.parse(options.body); saved.push(p); return json({preset:{...p,id:'legacy'}}) }
+      return json({...library,presets:[original],defaultPresetId:'legacy',sources:createDshRegistry().list(),capabilities:{native:true,core:false}})
+    }
+    await act(async()=>ui.root.render(h(AssemblyPanel,{standalone:true,locale:'en',sessionId:'s',fetcher})))
+    const controls=[...ui.document.querySelectorAll('[data-context-control]')]
+    assert.equal(controls.length,3)
+    const master=ui.document.querySelector('[data-context-control="dsh.runtime-context"] input')
+    const approval=ui.document.querySelector('[data-context-control="dsh.approval-policy"] input')
+    assert.equal(master.checked,true);assert.equal(approval.checked,true)
+    await act(()=>Simulate.change(master,{target:{checked:false}}))
+    assert.equal(approval.checked,true,'master does not erase child preferences')
+    await act(()=>Simulate.change(approval,{target:{checked:false}}))
+    await act(async()=>button(ui.document,'Save rules').click())
+    assert.equal(saved.length,1)
+    assert.deepEqual(saved[0].rules.slice(0,original.rules.length),original.rules)
+    assert.equal(saved[0].rules.find(r=>r.kind==='dsh.runtime-context').enabled,false)
+    assert.equal(saved[0].rules.find(r=>r.kind==='dsh.approval-policy').enabled,false)
+    assert.equal(saved[0].rules.find(r=>r.kind==='dsh.sandbox-policy').enabled,true)
+  } finally {await ui.close()}
+})

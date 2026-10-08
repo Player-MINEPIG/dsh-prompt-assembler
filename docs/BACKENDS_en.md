@@ -50,3 +50,12 @@ Before/after character entries follow `worldInfoBefore`/`worldInfoAfter`; exampl
 ST allows chat depths 0, 1, 2… counted from the end of chat. Standard 0/1 here is a boundary approximation, not ST message-level insertion. In advanced ST mode, positive depth counts backward from native non-system messages, including current input, tools and previously retained injections; zero means the end of the assembled request. Insertion must preserve tool transactions. This is not identical to ST’s chat-message depth inside Chat History, especially with tools/injections or modules following the chat slot.
 
 Standard pre-step messages carry the dedicated `source.kind: dsh-prompt-assembler`, retaining their user role, content and insertion order. Stock rc.2 Chat classifies them as injected context and excludes them from its main chat list; actual requests and durable history retain them. This producer marker does not change pre-step into native runtime-context snapshot delivery. It applies to future messages; older messages recorded with a human user source are not rewritten.
+
+
+## Native runtime environment prompt controls
+
+Rules expose `dsh.runtime-context` (master), `dsh.sandbox-policy`, and `dsh.approval-policy` in both backends. Strategies that omit these controls retain the previous behavior. The editor displays them enabled; editing and saving/applying creates explicit settings.
+
+The master filters only the supported DSH context names `sandbox:policy`, `approval:policy`, and `subagent:delegation`. Child switches filter the first two independently, retaining their settings when the master is off. Unknown sections, third-party contexts, and assembler worldbook, preset or memory context contributions remain. Ownership is never inferred from the user role. Native history and current input remain unchanged.
+
+These controls affect prompt text only. DSH still owns placement, role and snapshot reuse; sandbox execution limits and approval policy are unchanged. These are fixed controls, not draggable text modules. DSH retains its context framing whenever any context remains; there is no standalone framing-only switch. Changes apply to future assembly, without rewriting historical snapshots; DSH expresses updates through a new snapshot or withdrawal notice. Preview lists currently present native sections and their included/disabled status. Actual-request views retain the recorded history.

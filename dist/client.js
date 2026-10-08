@@ -39,6 +39,24 @@ __export(plugin_client_exports, {
 module.exports = __toCommonJS(plugin_client_exports);
 var import_react2 = require("react");
 
+// src/native-context.js
+var DSH_CONTEXT_NAMES = Object.freeze(["sandbox:policy", "approval:policy", "subagent:delegation"]);
+var CONTEXT_CONTROLS = Object.freeze([
+  { kind: "dsh.runtime-context", name: "DSH \u539F\u751F\u8FD0\u884C\u73AF\u5883\u63D0\u793A", sections: DSH_CONTEXT_NAMES },
+  { kind: "dsh.sandbox-policy", name: "\u6C99\u7BB1\u7B56\u7565\u63D0\u793A", sections: ["sandbox:policy"] },
+  { kind: "dsh.approval-policy", name: "\u5BA1\u6279\u7B56\u7565\u63D0\u793A", sections: ["approval:policy"] }
+]);
+var isContextControl = (kind) => CONTEXT_CONTROLS.some((c) => c.kind === kind);
+function contextControlRows(rules, available = CONTEXT_CONTROLS.map((c) => c.kind)) {
+  const ids = new Set(rules.map((r) => r.id));
+  return [...rules, ...CONTEXT_CONTROLS.filter((c) => available.includes(c.kind) && !rules.some((r) => r.kind === c.kind)).map((c) => {
+    let id = c.kind.replaceAll(".", "-");
+    while (ids.has(id)) id += "-control";
+    ids.add(id);
+    return { id, kind: c.kind, enabled: true, role: "preserve", lifetime: "request", depth: null, text: "", name: "" };
+  })];
+}
+
 // src/client.js
 var import_react = require("react");
 
@@ -85,6 +103,9 @@ function validateNativePreset(value) {
     const rule = preset.rules.find((r) => r.kind === kind);
     if (!rule?.enabled) fail(`Native assembly must preserve ${kind}.`, { ruleId: rule?.id, kind });
   }
+  for (const rule of preset.rules.filter((r) => isContextControl(r.kind))) {
+    if (rule.role !== "preserve" || rule.lifetime !== "request" || rule.depth !== null || rule.inputMode === "text") fail("Native context controls only support enable/disable.", { ruleId: rule.id });
+  }
   if (adaptiveNativePlacement(preset)) {
     for (const rule of preset.rules.filter((r) => r.enabled)) {
       if (rule.lifetime === "snapshot" || rule.depth !== null || rule.role === "assistant") fail("Native ordering does not support snapshots, depth or assistant contributions.", { ruleId: rule.id });
@@ -93,6 +114,7 @@ function validateNativePreset(value) {
   }
   let phase = "system", afterInputMessages = false;
   for (const rule of preset.rules.filter((r) => r.enabled)) {
+    if (isContextControl(rule.kind)) continue;
     if (rule.kind === "history") {
       if (phase !== "system") fail("Native history cannot be moved after current input.");
       phase = "before-input";
@@ -120,6 +142,15 @@ function validateNativePreset(value) {
 
 // src/client.js
 var labels = {
+  "dsh.runtime-context": ["DSH \u539F\u751F\u8FD0\u884C\u73AF\u5883\u63D0\u793A\uFF08\u603B\u5F00\u5173\uFF09", "DSH runtime environment prompts (master)"],
+  "dsh.sandbox-policy": ["\u6C99\u7BB1\u7B56\u7565\u63D0\u793A \xB7 sandbox:policy", "Sandbox prompt \xB7 sandbox:policy"],
+  "dsh.approval-policy": ["\u5BA1\u6279\u7B56\u7565\u63D0\u793A \xB7 approval:policy", "Approval prompt \xB7 approval:policy"],
+  contextControlHint: ["\u53EA\u63A7\u5236 DSH \u539F\u751F\u63D0\u793A\u6587\u5B57\uFF0C\u4E0D\u6539\u53D8\u5DE5\u5177\u6743\u9650\u3001\u5BA1\u6279\u673A\u5236\u3001\u539F\u751F\u5BF9\u8BDD\u6216\u5176\u4ED6\u6A21\u5757\u7684 context \u5185\u5BB9\u3002\u4F4D\u7F6E\u548C\u5C01\u88C5\u7531 DSH \u7BA1\u7406\u3002\u5173\u95ED\u4E0D\u5220\u9664\u5386\u53F2\u4E2D\u5DF2\u6709\u5FEB\u7167\uFF1B\u540E\u7EED\u8BF7\u6C42\u6309\u539F\u751F\u5FEB\u7167\u89C4\u5219\u66F4\u65B0\u3002", "Controls DSH prompt text only, retaining tool permissions, approval enforcement, conversation history and other modules\u2019 context. DSH owns placement and framing. Existing historical snapshots remain; later requests use native snapshot updates."],
+  contextMasterHint: ["\u603B\u5F00\u5173\u53EA\u7BA1\u7406 sandbox:policy\u3001approval:policy\u3001subagent:delegation\u3002\u603B\u5F00\u5173\u5173\u95ED\u65F6\uFF0C\u5B50\u9879\u8BBE\u7F6E\u4FDD\u7559\u4F46\u6682\u4E0D\u53D1\u9001\u3002\u5176\u4ED6\u6765\u6E90\u4FDD\u7559\uFF0C\u6709\u5269\u4F59 context \u65F6\u5C01\u88C5\u6587\u5B57\u4ECD\u4F1A\u51FA\u73B0\u3002", "The master covers only sandbox:policy, approval:policy and subagent:delegation. When off, child settings are retained but not sent. Other sources remain; framing remains whenever any context survives."],
+  contextControlled: ["\u539F\u751F\u4E0A\u4E0B\u6587 \xB7 \u4EC5\u63A7\u5236\u53D1\u9001\u5F00\u5173", "Native context \xB7 transmission toggle only"],
+  contextPreview: ["DSH \u539F\u751F\u8FD0\u884C\u73AF\u5883\u63D0\u793A", "DSH runtime environment prompts"],
+  contextIncluded: ["\u672C\u6B21\u4FDD\u7559", "Included"],
+  contextExcluded: ["\u672C\u6B21\u5173\u95ED", "Disabled"],
   backend: ["\u63A5\u5165\u65B9\u5F0F", "Backend"],
   backendNative: ["\u6807\u51C6\u7248 \xB7 \u5B98\u65B9\u63A5\u53E3", "Standard \xB7 public interfaces"],
   backendCore: ["\u8FDB\u9636\u7248 \xB7 \u6838\u5FC3\u6269\u5C55", "Advanced \xB7 core extension"],
@@ -464,7 +495,8 @@ function AssemblyPanelContent({ selectionTarget, sessionId, sessionLabel: sessio
     return parser && (rule.inputMode === "text" || rule.kind === "custom") ? { ...rule, kind: parser.id, inputMode: "text", role: parser.roles.includes(rule.role) ? rule.role : parser.roles[0], lifetime: parser.lifetimes.includes(rule.lifetime) ? rule.lifetime : parser.lifetimes[0], depth: parser.depth === false ? null : rule.depth } : rule;
   };
   const editablePreset = (preset) => ({ ...preset, rules: preset.rules.map(editableRule) });
-  const editRule = (id, patch) => edit({ rules: draft.rules.map((r) => r.id === id ? { ...editableRule(r), ...patch } : r) });
+  const controlRows = (rules) => contextControlRows(rules, sources.map((s) => s.id));
+  const editRule = (id, patch) => edit({ rules: controlRows(draft.rules).map((r) => r.id === id ? { ...editableRule(r), ...patch } : r) });
   const toggle = (id) => setExpanded((old) => ({ ...old, [id]: !old[id] }));
   async function save(asCopy = false) {
     const creates = asCopy || draft.builtin || !draft.id;
@@ -498,7 +530,7 @@ function AssemblyPanelContent({ selectionTarget, sessionId, sessionLabel: sessio
   const sourceDescriptor = (kind) => sources.find((s) => s.id === kind);
   const sourcePlugin = (kind) => sourceDescriptor(kind)?.pluginId ?? null;
   const sourceName = (kind) => labels[kind] ? t(kind) : sourceDescriptor(kind)?.name ?? kind;
-  const modules = sources.filter((s) => s.supportsModule !== false && s.moduleAvailable !== false && (s.multiple || !draft?.rules.some((r) => r.kind === s.id && r.inputMode !== "text")));
+  const modules = sources.filter((s) => !isContextControl(s.id) && s.supportsModule !== false && s.moduleAvailable !== false && (s.multiple || !draft?.rules.some((r) => r.kind === s.id && r.inputMode !== "text")));
   const parsers = sources.filter((s) => s.acceptsText && !sources.some((target) => target.id === s.textParserAliasFor && target.acceptsText));
   const addRule = (kind, inputMode) => {
     const source = sourceDescriptor(kind);
@@ -603,7 +635,7 @@ function AssemblyPanelContent({ selectionTarget, sessionId, sessionLabel: sessio
     }
   }
   const draftAvailable = capabilities ? nativeDraft ? capabilities.native && !nativeError : capabilities.core : capable;
-  const displayRows = tab === "rules" ? draft?.rules ?? [] : preview?.nodes ?? [];
+  const displayRows = tab === "rules" ? draft ? controlRows(draft.rules) : [] : preview?.nodes ?? [];
   function dragHandle(row, index, movable = true) {
     const reset = () => {
       setDragFrom(null);
@@ -668,6 +700,18 @@ function AssemblyPanelContent({ selectionTarget, sessionId, sessionLabel: sessio
   );
   function ruleRow(rule, index) {
     rule = editableRule(rule);
+    if (isContextControl(rule.kind)) return (0, import_react.createElement)(
+      "article",
+      { key: rule.id, className: "dta-row", "data-context-control": rule.kind, style: { "--assembly-color": sourceColor("DSH") } },
+      (0, import_react.createElement)(
+        "div",
+        { className: "dta-summary" },
+        (0, import_react.createElement)("span", { "aria-hidden": true }, "\u{1F512}"),
+        (0, import_react.createElement)("input", { type: "checkbox", checked: rule.enabled, disabled: busy, "aria-label": sourceName(rule.kind), onChange: (e) => editRule(rule.id, { enabled: e.target.checked }) }),
+        (0, import_react.createElement)("span", { className: "dta-name" }, sourceName(rule.kind), (0, import_react.createElement)("small", { className: "dta-origin" }, t("contextControlled")))
+      ),
+      (0, import_react.createElement)("div", { className: "dta-detail" }, (0, import_react.createElement)("small", null, t(rule.kind === "dsh.runtime-context" ? "contextMasterHint" : "contextControlHint")))
+    );
     const roleLabel = adaptiveNative && rule.kind === "worldbook" && !slotMode ? "nativeWorldRole" : slotMode && controlFor(rule) === "preset" ? "nativeSlotRole" : adaptiveNative && rule.kind === "preset" ? "nativePresetRole" : null;
     const textInput = rule.inputMode === "text" || ["custom", "dsh.text"].includes(rule.kind);
     return (0, import_react.createElement)(
@@ -802,12 +846,12 @@ function AssemblyPanelContent({ selectionTarget, sessionId, sessionLabel: sessio
           slotMode && analysis?.error && (0, import_react.createElement)("div", { role: "alert" }, t("placementFailed") + analysis.error),
           (0, import_react.createElement)("label", { className: "dta-toolbar" }, t("placement"), select(draft.placement, nativeDraft ? ["modules", "native-roles", "native-slots"] : ["modules", "st"], (placement) => edit({ placement }))),
           draft.placement === "st" && (0, import_react.createElement)("small", null, t("stHelp")),
-          ...draft.rules.flatMap((row, i) => [placeholder(i), ruleRow(row, i)]),
+          ...displayRows.flatMap((row, i) => [placeholder(i), ruleRow(row, i)]),
           placeholder(draft.rules.length),
           modules.length > 0 && (0, import_react.createElement)("div", { className: "dta-toolbar" }, (0, import_react.createElement)("label", { htmlFor: "dta-add-source" }, t("addSource")), (0, import_react.createElement)("select", { id: "dta-add-source", value: modules.some((s) => s.id === addKind) ? addKind : modules[0].id, onChange: (e) => setAddKind(e.target.value) }, ...modules.map((s) => (0, import_react.createElement)("option", { key: s.id, value: s.id }, `${originName(s.pluginId)} \xB7 ${sourceName(s.id)}`))), button("add", () => addRule(modules.some((s) => s.id === addKind) ? addKind : modules[0].id))),
           parsers.length > 0 && (0, import_react.createElement)("div", { className: "dta-toolbar" }, (0, import_react.createElement)("label", { htmlFor: "dta-add-parser" }, t("parser")), (0, import_react.createElement)("select", { id: "dta-add-parser", value: addParser, onChange: (e) => setAddParser(e.target.value) }, ...parsers.map((s) => (0, import_react.createElement)("option", { key: s.id, value: s.id }, `${originName(s.pluginId)} \xB7 ${sourceName(s.id)}`))), button("addText", () => addRule(addParser, "text"))),
           (0, import_react.createElement)("small", null, t("sourceHelp"))
-        ) : (0, import_react.createElement)("div", null, (0, import_react.createElement)("div", { className: "dta-notice" }, t(preview?.actual ? "actualNotice" : preview?.scope === "opening-draft" ? "draftPreviewScope" : preview?.backend === "native" ? "nativePreviewScope" : "previewScope")), !preview ? (0, import_react.createElement)("p", null, t("empty")) : (0, import_react.createElement)("div", null, ...preview.diagnostics.filter((d) => ["ASSEMBLY_EMPTY", "ASSEMBLY_SYSTEM_ONLY"].includes(d.code) && !(preview.scope === "opening-draft" && d.code === "ASSEMBLY_SYSTEM_ONLY")).map((d) => (0, import_react.createElement)("div", { key: d.code, className: "dta-notice", role: "alert" }, t(d.code === "ASSEMBLY_EMPTY" ? "emptyRequest" : "systemOnly"))), preview.diagnostics.some((d) => d.code === "NATIVE_PLACEMENT_ADJUSTED") && (0, import_react.createElement)("div", { className: "dta-notice" }, t("nativeOrderChanged")), ...preview.diagnostics.filter((d) => ["NATIVE_ROLE_ADJUSTED", "NATIVE_DELIVERY_ADJUSTED", "NATIVE_SLOTS_ABSENT", "NATIVE_DEPTH_APPROXIMATED", "NATIVE_DEPTH_BOUNDARY", "WORLD_BOOK_SLOT_MISSING"].includes(d.code)).map((d, i) => (0, import_react.createElement)("div", { key: `native-adjustment:${i}`, className: "dta-notice" }, d.code === "NATIVE_SLOTS_ABSENT" ? t("nativeSlotsAbsent") : d.code === "WORLD_BOOK_SLOT_MISSING" ? `${d.name} \xB7 ${t("worldSlotMissing")}: ${d.anchor}` : d.code === "NATIVE_DEPTH_BOUNDARY" ? `${d.name} \xB7 ${t("nativeDepthBoundary")}: ${d.depth} \u2192 ${t(d.placement)}` : d.code === "NATIVE_DEPTH_APPROXIMATED" ? `${d.name} \xB7 ${t("nativeDepthApproximated")} (${d.depth})` : `${d.name} \xB7 ${t(d.code === "NATIVE_ROLE_ADJUSTED" ? "nativeRoleChanged" : "nativeDeliveryChanged")}: ${d.from} \u2192 ${d.to}`)), ...preview.nodes.map(nodeRow), (0, import_react.createElement)("details", null, (0, import_react.createElement)("summary", null, `${t(preview.backend === "native" && !preview.actual ? "logicalMessages" : "result")} (${preview.messages.length})`), ...preview.messages.map((m, i) => (0, import_react.createElement)("div", { key: `${m.id}:${i}`, className: "dta-child" }, `${i + 1} \xB7 ${m.role}`, (0, import_react.createElement)("pre", null, (m.content ?? []).map((b) => b.type === "text" ? b.text : `[${b.type}]`).join("\n"))))), preview.diagnostics.length > 0 && (0, import_react.createElement)("details", null, (0, import_react.createElement)("summary", null, t("diagnostics")), (0, import_react.createElement)("pre", null, JSON.stringify(preview.diagnostics, null, 2))))),
+        ) : (0, import_react.createElement)("div", null, (0, import_react.createElement)("div", { className: "dta-notice" }, t(preview?.actual ? "actualNotice" : preview?.scope === "opening-draft" ? "draftPreviewScope" : preview?.backend === "native" ? "nativePreviewScope" : "previewScope")), !preview ? (0, import_react.createElement)("p", null, t("empty")) : (0, import_react.createElement)("div", null, ...preview.diagnostics.filter((d) => ["ASSEMBLY_EMPTY", "ASSEMBLY_SYSTEM_ONLY"].includes(d.code) && !(preview.scope === "opening-draft" && d.code === "ASSEMBLY_SYSTEM_ONLY")).map((d) => (0, import_react.createElement)("div", { key: d.code, className: "dta-notice", role: "alert" }, t(d.code === "ASSEMBLY_EMPTY" ? "emptyRequest" : "systemOnly"))), preview.diagnostics.some((d) => d.code === "NATIVE_PLACEMENT_ADJUSTED") && (0, import_react.createElement)("div", { className: "dta-notice" }, t("nativeOrderChanged")), ...preview.diagnostics.filter((d) => ["NATIVE_ROLE_ADJUSTED", "NATIVE_DELIVERY_ADJUSTED", "NATIVE_SLOTS_ABSENT", "NATIVE_DEPTH_APPROXIMATED", "NATIVE_DEPTH_BOUNDARY", "WORLD_BOOK_SLOT_MISSING"].includes(d.code)).map((d, i) => (0, import_react.createElement)("div", { key: `native-adjustment:${i}`, className: "dta-notice" }, d.code === "NATIVE_SLOTS_ABSENT" ? t("nativeSlotsAbsent") : d.code === "WORLD_BOOK_SLOT_MISSING" ? `${d.name} \xB7 ${t("worldSlotMissing")}: ${d.anchor}` : d.code === "NATIVE_DEPTH_BOUNDARY" ? `${d.name} \xB7 ${t("nativeDepthBoundary")}: ${d.depth} \u2192 ${t(d.placement)}` : d.code === "NATIVE_DEPTH_APPROXIMATED" ? `${d.name} \xB7 ${t("nativeDepthApproximated")} (${d.depth})` : `${d.name} \xB7 ${t(d.code === "NATIVE_ROLE_ADJUSTED" ? "nativeRoleChanged" : "nativeDeliveryChanged")}: ${d.from} \u2192 ${d.to}`)), ...preview.nodes.map(nodeRow), preview.runtimeContextControls?.length > 0 && (0, import_react.createElement)("div", { className: "dta-notice" }, (0, import_react.createElement)("strong", null, t("contextPreview")), ...preview.runtimeContextControls.map((c) => (0, import_react.createElement)("div", { key: c.name }, `${c.name} \xB7 ${t(c.enabled ? "contextIncluded" : "contextExcluded")}`))), (0, import_react.createElement)("details", null, (0, import_react.createElement)("summary", null, `${t(preview.backend === "native" && !preview.actual ? "logicalMessages" : "result")} (${preview.messages.length})`), ...preview.messages.map((m, i) => (0, import_react.createElement)("div", { key: `${m.id}:${i}`, className: "dta-child" }, `${i + 1} \xB7 ${m.role}`, (0, import_react.createElement)("pre", null, (m.content ?? []).map((b) => b.type === "text" ? b.text : `[${b.type}]`).join("\n"))))), preview.diagnostics.length > 0 && (0, import_react.createElement)("details", null, (0, import_react.createElement)("summary", null, t("diagnostics")), (0, import_react.createElement)("pre", null, JSON.stringify(preview.diagnostics, null, 2))))),
         (0, import_react.createElement)("small", { style: { marginTop: 20 } }, t("tools")),
         (0, import_react.createElement)("h3", { className: "dta-section-title" }, t("applicationSection")),
         (0, import_react.createElement)("div", { className: "dta-notice" }, `${t("applied")}: ${selection?.name ?? t("legacy")}`, selection?.id?.startsWith("builtin-") && !items.some((p) => p.id === selection.id) && (0, import_react.createElement)("small", null, t("withdrawnPreset")), !capable && (0, import_react.createElement)("small", null, t("unavailable"))),

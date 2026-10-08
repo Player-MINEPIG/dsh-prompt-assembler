@@ -1,3 +1,4 @@
+import { CONTEXT_CONTROLS } from '../src/native-context.js'
 import { contentGuides } from './content-guides.js'
 import { RequestSourceRegistry } from '../src/registry.js'
 const textOf = m => (m.content ?? []).filter(b => b.type === 'text').map(b => b.text).join('\n')
@@ -33,6 +34,7 @@ export function registerDshSources(registry, { sectionPlugin } = {}) {
   const stops = []
   try {
     for (const [id, name] of [['native-system', '官方基础指令'], ['history', '原生历史'], ['input', '本步输入']]) stops.push(registry.register(native(id, name, sectionPlugin)))
+    for (const control of CONTEXT_CONTROLS) stops.push(registry.register({ id: control.kind, pluginId: 'DSH', name: control.name, stability: 'assembly', roles: ['preserve'], lifetimes: ['request'], depth: false, generationRequiresPlugin: false, resolve: () => ({ blocks: [] }) }))
     stops.push(registry.register({ id: 'dsh.text', pluginId: 'DSH', name: 'DSH 自定义文本', supportsModule: false, multiple: true, roles: ['user', 'system', 'assistant'], renderText: ({ text }) => text, resolve: parseDshText, parseText: parseDshText }))
   } catch (error) { stops.reverse().forEach(stop => stop()); throw error }
   return () => stops.reverse().forEach(stop => stop())

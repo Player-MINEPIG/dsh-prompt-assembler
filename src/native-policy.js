@@ -1,3 +1,4 @@
+import { isContextControl } from './native-context.js'
 import { normalizePreset } from './model.js'
 const fail = (message, detail) => { throw Object.assign(new Error(message), { status: 409, code: 'ASSEMBLY_NATIVE_UNSUPPORTED', detail }) }
 export const adaptiveNativePlacement = preset => preset?.backend === 'native' && ['native-roles', 'native-slots'].includes(preset.placement)
@@ -11,6 +12,9 @@ export function validateNativePreset(value) {
     const rule = preset.rules.find(r => r.kind === kind)
     if (!rule?.enabled) fail(`Native assembly must preserve ${kind}.`, { ruleId: rule?.id, kind })
   }
+  for (const rule of preset.rules.filter(r => isContextControl(r.kind))) {
+    if (rule.role !== 'preserve' || rule.lifetime !== 'request' || rule.depth !== null || rule.inputMode === 'text') fail('Native context controls only support enable/disable.', { ruleId: rule.id })
+  }
   if (adaptiveNativePlacement(preset)) {
     for (const rule of preset.rules.filter(r => r.enabled)) {
       if (rule.lifetime === 'snapshot' || rule.depth !== null || rule.role === 'assistant') fail('Native ordering does not support snapshots, depth or assistant contributions.', { ruleId: rule.id })
@@ -19,6 +23,7 @@ export function validateNativePreset(value) {
   }
   let phase = 'system', afterInputMessages = false
   for (const rule of preset.rules.filter(r => r.enabled)) {
+    if (isContextControl(rule.kind)) continue
     if (rule.kind === 'history') { if (phase !== 'system') fail('Native history cannot be moved after current input.'); phase = 'before-input'; continue }
     if (rule.kind === 'input') { if (phase !== 'before-input') fail('Current input must follow native history.'); phase = 'after-input'; continue }
     if (rule.lifetime === 'snapshot' || rule.depth !== null) fail('Retained request snapshots and insertion depth require core assembly.', { ruleId: rule.id })
