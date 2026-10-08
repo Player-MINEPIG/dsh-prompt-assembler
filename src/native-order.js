@@ -1,5 +1,6 @@
 const fail = (message, node) => { throw Object.assign(new Error(message), { status: 409, code: 'ASSEMBLY_NATIVE_UNSUPPORTED', detail: node && { ruleId: node.ruleId, field: node.source?.field, name: node.name } }) }
 const kind = node => node.source?.module
+const presetOwned = node => kind(node) === 'preset' || node.placementSource === 'preset'
 
 /** Project source order onto public native delivery regions, retaining empty anchors. */
 export function projectNativeOrder(nodes, preset, diagnostics) {
@@ -10,6 +11,24 @@ export function projectNativeOrder(nodes, preset, diagnostics) {
   const slots = requestedSlots && (historySlot || inputSlot)
   if (requestedSlots && !slots) diagnostics.push({ code: 'NATIVE_SLOTS_ABSENT' })
   const authored = [...nodes]
+  if (slots) {
+    // The preset is one immutable spine. Independent modules attach to its
+    // native anchors, not to the fallback position of a consumed module row.
+    const independent = nodes.filter(n => !presetOwned(n) && n !== history && n !== input)
+    const spine = nodes.filter(n => !independent.includes(n))
+    const firstPreset = spine.find(presetOwned)
+    const anchors = preset.rules.flatMap(r => {
+      const node = r.kind === 'preset' ? firstPreset : r.kind === 'history' ? history : r.kind === 'input' ? input : null
+      return node ? [{ rule: r, node }] : []
+    })
+    for (const node of independent) {
+      const index = preset.rules.findIndex(r => r.id === node.ruleId)
+      const anchor = anchors.find(a => preset.rules.indexOf(a.rule) > index)
+      const at = anchor ? spine.indexOf(anchor.node) : spine.length
+      spine.splice(at, 0, node)
+    }
+    nodes.splice(0, nodes.length, ...spine)
+  }
   if (slots && nodes.indexOf(history) > nodes.indexOf(input)) {
     if (historySlot && inputSlot) fail('预设将本步输入放在原生历史之前，标准版无法保留此顺序。 / Preset input precedes history; native ordering cannot preserve this sequence.')
     // An absent slot uses a legal native fallback; never relocate an explicit slot.
@@ -24,7 +43,7 @@ export function projectNativeOrder(nodes, preset, diagnostics) {
     if (kind(node) === 'native-system') { groups[0].push(node); continue }
     if (!['system', 'user'].includes(node.role)) fail(`Native ordering cannot preserve ${node.role}: ${node.name}`, node)
     const index = nodes.indexOf(node), rule = preset.rules.find(r => r.id === node.ruleId)
-    if (slots) {
+    if (slots && presetOwned(node)) {
       // A history slot fixes the system/user boundary. With only an input slot,
       // authored system prefixes remain system and user prefixes follow history.
       const role = historySlot ? index < historyIndex ? 'system' : 'user' : index > inputIndex ? 'user' : node.role
@@ -38,8 +57,8 @@ export function projectNativeOrder(nodes, preset, diagnostics) {
     if (node.role === 'system') { node.nativePlacement = 'system'; groups[0].push(node); continue }
     // Slot placement needs ordered accepted messages, including the area before
     // input. Context snapshots may be reused at an old position by native DSH.
-    node.nativeDelivery = slots ? 'pre-step' : rule?.delivery ?? 'context'
-    if (slots && rule?.delivery === 'context') diagnostics.push({ code: 'NATIVE_DELIVERY_ADJUSTED', id: node.id, name: node.name, from: 'context', to: 'pre-step' })
+    node.nativeDelivery = slots && presetOwned(node) ? 'pre-step' : rule?.delivery ?? 'context'
+    if (slots && presetOwned(node) && rule?.delivery === 'context') diagnostics.push({ code: 'NATIVE_DELIVERY_ADJUSTED', id: node.id, name: node.name, from: 'context', to: 'pre-step' })
     node.nativePlacement = node.nativeDelivery === 'pre-step' && index < inputIndex ? 'before-input' : 'after-input'
     groups[node.nativePlacement === 'before-input' ? 2 : node.nativeDelivery === 'context' ? 4 : 5].push(node)
   }

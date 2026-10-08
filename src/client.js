@@ -7,7 +7,14 @@ const labels = {
   'native-roles': ['预设身份优先', 'Preset roles first'],
   'native-slots': ['预设插槽优先', 'Preset slots first'],
   nativeRolesHint: ['按预设条目的 system/user 身份分组；system 放在历史前，user 按投递方式放在历史之后。预设角色不受整块角色覆盖。原生历史与输入保留。', 'Group preset entries by authored system/user role. System content precedes history; user content follows history through the selected delivery. Module role overrides do not replace preset roles. Native history/input remain.'],
-  nativeSlotsHint: ['检测预设的历史/输入插槽与宏。历史前使用 system，历史后使用 user；仅有输入插槽时保留前部角色。user 使用 pre-step，每步追加到历史。角色调整会在预览标出；没有插槽时退回身份优先。', 'Detect preset history/input slots and macros. Content before history uses system; content after history uses user. An input-only slot preserves prefix roles. User content uses pre-step and is appended each step. Preview marks role changes; absent slots fall back to roles first.'],
+  nativeSlotsHint: ['预设正文及引用内容按预设插槽排列；只有这些内容会适配 system/user。独立内容保留自身角色和投递方式。system 只能在历史前；末尾提醒请明确设为 user、pre-step。拖动混合模块只移动独立部分，预设内部顺序不变。', 'Preset text and references follow preset slots; only these adapt system/user roles. Independent content keeps its role and delivery. System stays before history; for a final reminder explicitly choose user and pre-step. Moving a mixed module moves only its independent part, preserving preset order.'],
+  placementPending: ['正在检查预设引用…', 'Checking preset references…'],
+  placementFailed: ['无法检查引用，请重试预览：', 'Could not check references; retry preview: '],
+  controlPreset: ['由预设控制 · 位置锁定', 'Preset controlled · position locked'],
+  controlMixed: ['部分由预设控制 · 仅移动独立部分', 'Partly preset controlled · move independent content only'],
+  controlIndependent: ['独立内容 · 按角色边界移动', 'Independent content · move within role boundaries'],
+  controlNative: ['原生边界 · 由预设插槽决定', 'Native boundary · follows preset slots'],
+  controlEmpty: ['当前无独立内容', 'No independent content currently'],
   nativeDepthApproximated: ['未采用历史深度，已按当前模式排列', 'History depth not applied; placed by the selected mode'],
   nativeRoleChanged: ['角色调整', 'Role adjusted'],
   nativeDeliveryChanged: ['投递调整为 pre-step', 'Delivery changed to pre-step'],
@@ -116,6 +123,7 @@ function AssemblyPanelContent({ selectionTarget, sessionId, sessionLabel, onCrea
     changes.observe(frame, { attributes: true, attributeFilter: ['style', 'data-sidebar-collapsed', 'data-rightbar-collapsed'] })
     return () => { resize.disconnect(); changes.disconnect() }
   }, [])
+  const [slotAnalysis, setSlotAnalysis] = useState(null)
   const [reload, setReload] = useState(0), [dragFrom, setDragFrom] = useState(null), [dropIndex, setDropIndex] = useState(null)
   const api = async (...args) => { const result = selectionTarget && args[0] === '/preview' ? await selectionTarget.previewAssembly(args[2].preset) : selectionTarget && args[0] === '/selection' ? await selectionTarget.applyAssembly(args[2].id) : await request(fetcher, apiRoot, ...args); if (selectionTarget && String(args[0]).startsWith('?')) result.selection = await selectionTarget.getSelection(); if (!mounted.current) throw new DOMException('Panel closed', 'AbortError'); return result }
   const run = async fn => { setBusy(true); setError(false); try { await fn() } catch (e) { if (mounted.current) { setError(true); setStatus(e.message) } } finally { if (mounted.current) setBusy(false) } }
@@ -198,6 +206,20 @@ function AssemblyPanelContent({ selectionTarget, sessionId, sessionLabel, onCrea
   useEffect(() => { if (registerBeforeLeave) return; const handler = e => { if (e.key === 'Escape') { e.stopImmediatePropagation(); safeClose() } }; window.addEventListener('keydown', handler); return () => window.removeEventListener('keydown', handler) }, [dirty, busy, registerBeforeLeave])
   const nativeDraft = draft?.backend === 'native'
   const adaptiveNative = nativeDraft && ['native-roles', 'native-slots'].includes(draft.placement)
+  const slotMode = nativeDraft && draft.placement === 'native-slots'
+  useEffect(() => {
+    if (!slotMode) { setSlotAnalysis(null); return }
+    let active = true
+    setSlotAnalysis(null)
+    api('/preview', 'POST', { sessionId, preset: editablePreset(draft) }).then(data => {
+      if (active) setSlotAnalysis({ draft, preview: data.preview })
+    }).catch(error => { if (active) setSlotAnalysis({ draft, error: error.message }) })
+    return () => { active = false }
+  }, [draft, sessionId, selectionTarget, sources, reload])
+  const analysis = slotAnalysis?.draft === draft ? slotAnalysis : null
+  const controlFor = rule => analysis?.preview?.placementControls?.find(c => c.ruleId === rule.id)?.control
+  const controlLabel = control => ({ preset: 'controlPreset', mixed: 'controlMixed', independent: 'controlIndependent', native: 'controlNative', empty: 'controlEmpty' })[control]
+
   let nativeError = null
   if (nativeDraft) { try { validateNativePreset(draft) } catch (error) { nativeError = error.message } }
   const draftAvailable = capabilities ? (nativeDraft ? capabilities.native && !nativeError : capabilities.core) : capable
@@ -214,7 +236,8 @@ function AssemblyPanelContent({ selectionTarget, sessionId, sessionLabel, onCrea
       onPointerDown: e => { e.preventDefault(); e.stopPropagation(); e.currentTarget.setPointerCapture(e.pointerId); setDragFrom(index); setDropIndex(index + 1) },
       onPointerMove: e => { if (e.currentTarget.hasPointerCapture(e.pointerId)) { const next = boundary(e); if (next !== null) setDropIndex(next) } },
       onPointerUp: e => { e.preventDefault(); if (!e.currentTarget.hasPointerCapture(e.pointerId)) return; e.currentTarget.releasePointerCapture(e.pointerId); const at = boundary(e) ?? dropIndex ?? index + 1; reset();
-        const rules = reorderAtBoundary(draft.rules, index, at)
+        let rules
+        try { rules = slotMode ? moveSlotRule(draft, analysis?.preview, index, at) : reorderAtBoundary(draft.rules, index, at) } catch (error) { setError(true); setStatus(error.message); return }
         try { if (nativeDraft) validateNativePreset({ ...draft, rules }); edit({ rules }) } catch (error) { setError(true); setStatus(error.message) }
       }, onPointerCancel: reset }, movable ? '⠿' : '🔒')
   }
@@ -227,13 +250,13 @@ function AssemblyPanelContent({ selectionTarget, sessionId, sessionLabel, onCrea
     rule = editableRule(rule)
     const textInput = rule.inputMode === 'text' || ['custom', 'dsh.text'].includes(rule.kind)
     return h('article', { key: rule.id, className: 'dta-row', 'data-assembly-index': index, 'data-dragging': dragFrom === index, style: { '--assembly-color': sourceColor(sourcePlugin(rule.kind)) } },
-        h('div', { className: 'dta-summary' }, dragHandle(rule, index, !nativeDraft || !['history', 'input'].includes(rule.kind)),
+        h('div', { className: 'dta-summary' }, dragHandle(rule, index, !nativeDraft || !['history', 'input'].includes(rule.kind) && (!slotMode || ['independent', 'mixed'].includes(controlFor(rule)))),
         h('input', { type: 'checkbox', checked: rule.enabled, disabled: busy || nativeDraft && ['history', 'input'].includes(rule.kind), 'aria-label': sourceName(rule.kind), onChange: e => editRule(rule.id, { enabled: e.target.checked }) }),
-        h('span', { className: 'dta-name', role: 'button', tabIndex: 0, 'aria-expanded': !!expanded[rule.id], onClick: () => toggle(rule.id), onKeyDown: e => { if (['Enter', ' '].includes(e.key)) { e.preventDefault(); toggle(rule.id) } } }, rule.name || sourceName(rule.kind), h('small', { className: 'dta-origin' }, originName(sourcePlugin(rule.kind)))), summaryMetadata(ruleStability(rule), ['native-system', 'history', 'input'].includes(rule.kind) ? 'nativeRetention' : nativeDraft && rule.role === 'user' ? rule.delivery ?? 'context' : rule.lifetime, adaptiveNative && rule.kind === 'preset' ? 'nativePresetRole' : rule.role)),
+        h('span', { className: 'dta-name', role: 'button', tabIndex: 0, 'aria-expanded': !!expanded[rule.id], onClick: () => toggle(rule.id), onKeyDown: e => { if (['Enter', ' '].includes(e.key)) { e.preventDefault(); toggle(rule.id) } } }, rule.name || sourceName(rule.kind), h('small', { className: 'dta-origin' }, originName(sourcePlugin(rule.kind))), slotMode && h('small', { 'data-placement-control': controlFor(rule) ?? 'pending' }, t(controlLabel(controlFor(rule)) ?? 'placementPending'))), summaryMetadata(ruleStability(rule), ['native-system', 'history', 'input'].includes(rule.kind) ? 'nativeRetention' : nativeDraft && rule.role === 'user' ? rule.delivery ?? 'context' : rule.lifetime, adaptiveNative && (rule.kind === 'preset' || slotMode && controlFor(rule) === 'preset') ? 'nativePresetRole' : rule.role)),
       expanded[rule.id] && h('div', { className: 'dta-detail' },
         h('div', { className: 'dta-properties' }, h('div', null, t('source'), h('small', null, originName(sourcePlugin(rule.kind))), h('small', null, sourceInfo(rule.kind))), h('div', null, t('stability'), h('small', null, t(ruleStability(rule)))), h('label', null, t('lifetime'), ['native-system', 'history', 'input'].includes(rule.kind) ? h('small', null, t('nativeRetention')) : nativeDraft && rule.role === 'user' ? h('small', null, t(rule.delivery ?? 'context')) : select(rule.lifetime, nativeDraft ? ['request'] : sourceDescriptor(rule.kind)?.lifetimes ?? ['request', 'snapshot'], v => editRule(rule.id, { lifetime: v }), sourceDescriptor(rule.kind)?.lifetimes.length === 1))),
         nativeDraft && (rule.role === 'user' || adaptiveNative && rule.kind === 'preset') && h('label', null, t('delivery'), select(rule.delivery ?? 'context', ['context', 'pre-step'], delivery => editRule(rule.id, { delivery }))),
-        h('div', { className: 'dta-grid' }, h('label', null, t('role'), adaptiveNative && rule.kind === 'preset' ? h('small', null, t('nativePresetRole')) : select(rule.role, (sourceDescriptor(rule.kind)?.roles ?? ['preserve', 'system', 'user', 'assistant']).filter(role => !nativeDraft || role !== 'assistant'), v => editRule(rule.id, { role: v }), sourceDescriptor(rule.kind)?.roles.length === 1)), sourceDescriptor(rule.kind)?.depth !== false && h('label', null, t('depth'), h('input', { type: 'number', min: 0, max: 10000, value: rule.depth ?? '', disabled: busy || nativeDraft, onChange: e => editRule(rule.id, { depth: e.target.value === '' ? null : Number(e.target.value) }) }))),
+        h('div', { className: 'dta-grid' }, h('label', null, t('role'), adaptiveNative && (rule.kind === 'preset' || slotMode && controlFor(rule) === 'preset') ? h('small', null, t('nativePresetRole')) : select(rule.role, (sourceDescriptor(rule.kind)?.roles ?? ['preserve', 'system', 'user', 'assistant']).filter(role => !nativeDraft || role !== 'assistant'), v => editRule(rule.id, { role: v }), sourceDescriptor(rule.kind)?.roles.length === 1)), sourceDescriptor(rule.kind)?.depth !== false && h('label', null, t('depth'), h('input', { type: 'number', min: 0, max: 10000, value: rule.depth ?? '', disabled: busy || nativeDraft, onChange: e => editRule(rule.id, { depth: e.target.value === '' ? null : Number(e.target.value) }) }))),
         textInput ? h('div', { className: 'dta-fields' },
           h('label', null, t('parser'), h('select', { value: rule.kind, onChange: e => { const source = sourceDescriptor(e.target.value); editRule(rule.id, { kind: source.id, inputMode: 'text', role: source.roles.includes(rule.role) ? rule.role : source.roles[0], lifetime: source.lifetimes.includes(rule.lifetime) ? rule.lifetime : source.lifetimes[0], depth: source.depth === false ? null : rule.depth }) } }, ...parsers.map(s => h('option', { key: s.id, value: s.id }, `${originName(s.pluginId)} · ${sourceName(s.id)}`)))),
           ['tavern.text', 'dsh.text'].includes(rule.kind) && h('p', null, t(rule.kind === 'tavern.text' ? 'tavernParserHelp' : 'dshParserHelp')),
@@ -264,9 +287,9 @@ function AssemblyPanelContent({ selectionTarget, sessionId, sessionLabel, onCrea
         h('h3', { className: 'dta-section-title' }, t('rulesSection')),
         h('label', { className: 'dta-toolbar' }, t('backend'), h('select', { 'aria-label': t('backend'), value: draft.backend ?? 'core', onChange: e => edit({ backend: e.target.value }) }, h('option', { value: 'native' }, t('backendNative')), h('option', { value: 'core' }, t('backendCore')))),
         h('div', { className: 'dta-notice' }, t(adaptiveNative ? draft.placement === 'native-slots' ? 'nativeSlotsHint' : 'nativeRolesHint' : nativeDraft ? 'nativeHint' : 'coreHint')), nativeError && h('div', { className: 'dta-notice', role: 'alert' }, nativeError),
-        h('div', { className: 'dta-tabs' }, h('button', { 'aria-pressed': tab === 'rules', onClick: () => setTab('rules') }, t('rules')), button('preview', () => run(async () => { setDragFrom(null); setDropIndex(null); const data = await api('/preview', 'POST', { sessionId, preset: editablePreset(draft) }); setPreview(data.preview); setTab('expanded') }), Boolean(selectionTarget && (typeof selectionTarget.previewAssembly !== 'function' || selectionTarget.editable === false)), undefined, tab === 'expanded' && !preview?.actual), button('actual', () => run(actualRequest), !sessionId, undefined, tab === 'expanded' && !!preview?.actual)),
+        h('div', { className: 'dta-tabs' }, h('button', { 'aria-pressed': tab === 'rules', onClick: () => setTab('rules') }, t('rules')), button('preview', () => run(async () => { setDragFrom(null); setDropIndex(null); const data = await api('/preview', 'POST', { sessionId, preset: editablePreset(draft) }); setPreview(data.preview); if (slotMode) setSlotAnalysis({ draft, preview: data.preview }); setTab('expanded') }), Boolean(selectionTarget && (typeof selectionTarget.previewAssembly !== 'function' || selectionTarget.editable === false)), undefined, tab === 'expanded' && !preview?.actual), button('actual', () => run(actualRequest), !sessionId, undefined, tab === 'expanded' && !!preview?.actual)),
         h('div', { className: 'dta-legend' }, ...[...new Set(sources.map(s => s.pluginId))].map(plugin => h('span', { key: plugin, style: { '--assembly-color': sourceColor(plugin) } }, originName(plugin)))),
-        tab === 'rules' ? h('div', null, h('label', { className: 'dta-toolbar' }, t('placement'), select(draft.placement, nativeDraft ? ['modules', 'native-roles', 'native-slots'] : ['modules', 'st'], placement => edit({ placement }))), draft.placement === 'st' && h('small', null, t('stHelp')), ...draft.rules.flatMap((row, i) => [placeholder(i), ruleRow(row, i)]), placeholder(draft.rules.length), modules.length > 0 && h('div', { className: 'dta-toolbar' }, h('label', { htmlFor: 'dta-add-source' }, t('addSource')), h('select', { id: 'dta-add-source', value: modules.some(s => s.id === addKind) ? addKind : modules[0].id, onChange: e => setAddKind(e.target.value) }, ...modules.map(s => h('option', { key: s.id, value: s.id }, `${originName(s.pluginId)} · ${sourceName(s.id)}`))), button('add', () => addRule(modules.some(s => s.id === addKind) ? addKind : modules[0].id))),
+        tab === 'rules' ? h('div', null, slotMode && analysis?.error && h('div', { role: 'alert' }, t('placementFailed') + analysis.error), h('label', { className: 'dta-toolbar' }, t('placement'), select(draft.placement, nativeDraft ? ['modules', 'native-roles', 'native-slots'] : ['modules', 'st'], placement => edit({ placement }))), draft.placement === 'st' && h('small', null, t('stHelp')), ...draft.rules.flatMap((row, i) => [placeholder(i), ruleRow(row, i)]), placeholder(draft.rules.length), modules.length > 0 && h('div', { className: 'dta-toolbar' }, h('label', { htmlFor: 'dta-add-source' }, t('addSource')), h('select', { id: 'dta-add-source', value: modules.some(s => s.id === addKind) ? addKind : modules[0].id, onChange: e => setAddKind(e.target.value) }, ...modules.map(s => h('option', { key: s.id, value: s.id }, `${originName(s.pluginId)} · ${sourceName(s.id)}`))), button('add', () => addRule(modules.some(s => s.id === addKind) ? addKind : modules[0].id))),
             parsers.length > 0 && h('div', { className: 'dta-toolbar' }, h('label', { htmlFor: 'dta-add-parser' }, t('parser')), h('select', { id: 'dta-add-parser', value: addParser, onChange: e => setAddParser(e.target.value) }, ...parsers.map(s => h('option', { key: s.id, value: s.id }, `${originName(s.pluginId)} · ${sourceName(s.id)}`))), button('addText', () => addRule(addParser, 'text'))), h('small', null, t('sourceHelp')))
           : h('div', null, h('div', { className: 'dta-notice' }, t(preview?.actual ? 'actualNotice' : preview?.scope === 'opening-draft' ? 'draftPreviewScope' : preview?.backend === 'native' ? 'nativePreviewScope' : 'previewScope')), !preview ? h('p', null, t('empty')) : h('div', null, ...preview.diagnostics.filter(d => ['ASSEMBLY_EMPTY', 'ASSEMBLY_SYSTEM_ONLY'].includes(d.code) && !(preview.scope === 'opening-draft' && d.code === 'ASSEMBLY_SYSTEM_ONLY')).map(d => h('div', { key: d.code, className: 'dta-notice', role: 'alert' }, t(d.code === 'ASSEMBLY_EMPTY' ? 'emptyRequest' : 'systemOnly'))), preview.diagnostics.some(d => d.code === 'NATIVE_PLACEMENT_ADJUSTED') && h('div', { className: 'dta-notice' }, t('nativeOrderChanged')), ...preview.diagnostics.filter(d => ['NATIVE_ROLE_ADJUSTED', 'NATIVE_DELIVERY_ADJUSTED', 'NATIVE_SLOTS_ABSENT', 'NATIVE_DEPTH_APPROXIMATED'].includes(d.code)).map((d, i) => h('div', { key: `native-adjustment:${i}`, className: 'dta-notice' }, d.code === 'NATIVE_SLOTS_ABSENT' ? t('nativeSlotsAbsent') : d.code === 'NATIVE_DEPTH_APPROXIMATED' ? `${d.name} · ${t('nativeDepthApproximated')} (${d.depth})` : `${d.name} · ${t(d.code === 'NATIVE_ROLE_ADJUSTED' ? 'nativeRoleChanged' : 'nativeDeliveryChanged')}: ${d.from} → ${d.to}`)), ...preview.nodes.map(nodeRow), h('details', null, h('summary', null, `${t(preview.backend === 'native' && !preview.actual ? 'logicalMessages' : 'result')} (${preview.messages.length})`), ...preview.messages.map((m, i) => h('div', { key: `${m.id}:${i}`, className: 'dta-child' }, `${i + 1} · ${m.role}`, h('pre', null, (m.content ?? []).map(b => b.type === 'text' ? b.text : `[${b.type}]`).join('\n'))))), preview.diagnostics.length > 0 && h('details', null, h('summary', null, t('diagnostics')), h('pre', null, JSON.stringify(preview.diagnostics, null, 2))))), h('small', { style: { marginTop: 20 } }, t('tools')),
         h('h3', { className: 'dta-section-title' }, t('applicationSection')),
@@ -279,3 +302,18 @@ function AssemblyPanelContent({ selectionTarget, sessionId, sessionLabel, onCrea
 }
 
 function reorderAtBoundary(items, from, boundary) { const next = [...items]; const [item] = next.splice(from, 1); next.splice(boundary > from ? boundary - 1 : boundary, 0, item); return next }
+
+/** Validate a drag against current resolved ownership, without changing mode or roles. */
+export function moveSlotRule(preset, preview, from, boundary) {
+  const rule = preset.rules[from]
+  const control = preview?.placementControls?.find(c => c.ruleId === rule.id)?.control
+  if (!['independent', 'mixed'].includes(control)) throw new Error('此模块的位置由预设控制或尚未解析。 / Module position is preset-controlled or unresolved.')
+  const rules = reorderAtBoundary(preset.rules, from, boundary)
+  const at = rules.indexOf(rule), history = rules.findIndex(r => r.kind === 'history'), input = rules.findIndex(r => r.kind === 'input')
+  const nodes = preview.nodes.filter(n => n.ruleId === rule.id && n.source?.module !== 'preset' && n.placementSource !== 'preset')
+  const roles = new Set(nodes.map(n => n.source?.module === 'native-system' ? 'system' : n.role))
+  if (roles.has('system') && at > history) throw new Error('独立 system 内容只能放在原生历史前；末尾提醒请明确选择 user 和 pre-step。 / Independent system content must precede history; choose user and pre-step for a final reminder.')
+  if (roles.has('user') && at < history) throw new Error('独立 user 内容只能放在原生历史后。 / Independent user content must follow history.')
+  if (roles.has('user') && rule.delivery !== 'pre-step' && at < input) throw new Error('context 只能位于本步输入后；输入前请选择 pre-step。 / Context follows input; select pre-step to place before input.')
+  return rules
+}

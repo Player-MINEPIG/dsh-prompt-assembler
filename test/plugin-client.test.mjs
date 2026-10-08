@@ -4,7 +4,7 @@ import { act, createElement as h } from 'react'
 import { createRoot } from 'react-dom/client'
 import { parseHTML } from 'linkedom'
 import { build } from 'esbuild'
-import { AssemblyPanel } from '../src/client.js'
+import { AssemblyPanel, moveSlotRule } from '../src/client.js'
 import { AssemblyOverlay, apply, createAssemblyController, createSessionWithPreset, inject, mainSession, name, sessionLabel } from '../src/plugin-client.js'
 
 const json = body => new Response(JSON.stringify(body), { headers: { 'Content-Type': 'application/json' } })
@@ -275,4 +275,33 @@ test('native panel exposes role/slot modes, saves the selected mode and displays
     await act(async () => button(ui.document, 'Preview current configuration').click())
     assert.match(ui.document.body.textContent, /Opening · Role adjusted: user → system/)
   } finally { await ui.close() }
+})
+
+test('slot drag keeps mode and preset-owned rows fixed while moving independent content',async()=>{
+  const {NATIVE_BUILTINS}=await import('../adapters/tavern.js')
+  const draft=structuredClone(NATIVE_BUILTINS.find(p=>p.placement==='native-slots'))
+  const at=draft.rules.findIndex(r=>r.kind==='worldbook')
+  const preview={placementControls:[{ruleId:'preset',control:'preset'},{ruleId:'worldbook',control:'mixed'}],nodes:[{ruleId:'worldbook',role:'system',source:{module:'worldbook'}}]}
+  assert.throws(()=>moveSlotRule(draft,preview,at,draft.rules.length),/system/)
+  draft.rules[at].role='user';draft.rules[at].delivery='pre-step';preview.nodes[0].role='user'
+  const moved=moveSlotRule(draft,preview,at,draft.rules.length)
+  assert.equal(moved.at(-1).kind,'worldbook')
+  assert.equal(draft.placement,'native-slots')
+  assert.deepEqual(moved.filter(r=>r.kind!=='worldbook'),draft.rules.filter(r=>r.kind!=='worldbook'))
+  assert.throws(()=>moveSlotRule(draft,preview,1,0),/preset-controlled/)
+  assert.throws(()=>moveSlotRule(draft,preview,at,0),/user/)
+})
+test('slot UI resolves ownership and locks only controlled or empty rows', async()=>{
+  const {NATIVE_BUILTINS}=await import('../adapters/tavern.js')
+  const ui=dom(),draft=structuredClone(NATIVE_BUILTINS.find(p=>p.placement==='native-slots'))
+  const controls={preset:'preset',persona:'preset',character:'mixed',worldbook:'independent',phi:'empty',history:'native',input:'native','native-system':'independent'}
+  try{
+    const fetcher=async(url)=>url.endsWith('/preview')?json({preview:{nodes:[],messages:[],diagnostics:[],placementControls:draft.rules.map(r=>({ruleId:r.id,control:controls[r.kind]}))}}):json({...library,presets:[draft],sources:[]})
+    await act(async()=>ui.root.render(h(AssemblyPanel,{standalone:true,locale:'en',sessionId:'test',fetcher})))
+    const rows=[...ui.document.querySelectorAll('[data-assembly-index]')]
+    for(const [i,rule]of draft.rules.entries()){
+      assert.equal(rows[i].querySelector('[data-placement-control]').getAttribute('data-placement-control'),controls[rule.kind])
+      assert.equal(rows[i].querySelector('.dta-handle').disabled,!['independent','mixed'].includes(controls[rule.kind]))
+    }
+  }finally{await ui.close()}
 })

@@ -75,7 +75,8 @@ test('depth worldbook entries follow native priority without splitting tool hist
   const result = await plan([prompt('p','user','A{{chatHistory}}B')], { placement:'native-slots', history, loreEntries:[{id:'lore',comment:'Deep lore',content:'LORE',role:'system',requestedPosition:'at_depth',depth:2}] })
   assert.ok(result.logical.diagnostics.some(d=>d.code==='NATIVE_DEPTH_APPROXIMATED'&&d.name==='Deep lore'))
   assert.deepEqual(result.logical.messages.filter(m=>history.some(h=>h.id===m.id)),history)
-  assert.deepEqual(result.afterInput.map(textOf),['B','LORE'])
+  assert.deepEqual(result.afterInput.map(textOf),['B'])
+  assert.equal(result.logical.messages.find(m=>textOf(m)==='LORE').role,'system')
 })
 
 test('pre-step source marks assembler injections without changing role, text or delivery regions', async () => {
@@ -88,4 +89,40 @@ test('pre-step source marks assembler injections without changing role, text or 
     assert.equal(message.source.delivery,'pre-step')
     assert.equal(message.source.ruleId,'preset')
   }
+})
+
+const moveLore = (rules, target, role = 'user') => {
+  const lore = { ...rules.find(r => r.kind === 'worldbook'), role, delivery: 'pre-step' }
+  const rest = rules.filter(r => r.kind !== 'worldbook')
+  rest.splice(target === 'end' ? rest.length : rest.findIndex(r => r.kind === target), 0, lore)
+  return rest
+}
+test('independent worldbook moves around native anchors without changing preset spine or roles', async () => {
+  const prompts = [prompt('wrapper','user','OPEN{{history}}MIDDLE{{input}}CLOSE')]
+  for (const target of ['history','input','end']) {
+    const result = await plan(prompts,{placement:'native-slots', loreEntries:[{id:'l',content:'LORE'}],rules:rules=>moveLore(rules,target)})
+    assert.deepEqual(result.logical.messages.map(textOf).filter(t=>t!=='LORE'),['OPEN','OLD','MIDDLE','NOW','CLOSE'])
+    assert.equal(result.logical.messages.find(m=>textOf(m)==='LORE').role,'user')
+    assert.ok(result.logical.placementControls.some(c=>c.ruleId==='worldbook'&&c.control==='independent'))
+    if(target==='input') assert.deepEqual(result.beforeInput.map(textOf),['MIDDLE','LORE'])
+    if(target==='end') assert.deepEqual(result.afterInput.map(textOf),['CLOSE','LORE'])
+  }
+  const system = await plan(prompts,{placement:'native-slots',loreEntries:[{id:'l',content:'LORE'}],rules:rules=>moveLore(rules,'end','system')})
+  assert.deepEqual(system.logical.messages.map(textOf),['OPEN','LORE','OLD','MIDDLE','NOW','CLOSE'])
+  assert.ok(!system.logical.diagnostics.some(d=>d.code==='NATIVE_ROLE_ADJUSTED'&&d.name==='worldbook:l'))
+})
+test('worldbook slots own only referenced groups; independent remainder remains movable', async () => {
+  const prompts=[prompt('wrapper','user','OPEN{{worldInfoBefore}}{{history}}MIDDLE{{input}}CLOSE')]
+  for(const target of ['preset','history','end']) {
+    const result=await plan(prompts,{placement:'native-slots',loreEntries:[{id:'owned',position:'before',content:'OWNED'},{id:'free',position:'after',content:'FREE'}],rules:rules=>moveLore(rules,target)})
+    assert.deepEqual(result.logical.messages.map(textOf).filter(t=>t!=='FREE'),['OPEN','OWNED','OLD','MIDDLE','NOW','CLOSE'])
+    assert.equal(result.logical.nodes.find(n=>n.text==='OWNED').placementSource,'preset')
+    assert.equal(result.logical.nodes.find(n=>n.text==='OWNED').role,'system')
+    assert.equal(result.logical.placementControls.find(c=>c.ruleId==='worldbook').control,'mixed')
+  }
+})
+test('a competing custom reference cannot steal native slots by moving ahead of the preset', async()=>{
+  const result=await plan([prompt('wrapper','user','OPEN{{chatHistory}}CLOSE')],{placement:'native-slots',rules:rules=>[{id:'custom',kind:'custom',enabled:true,role:'system',lifetime:'request',text:'{{chatHistory}}'},...rules]})
+  assert.deepEqual(result.logical.messages.map(textOf),['OPEN','OLD','NOW','CLOSE'])
+  assert.equal(result.logical.nodes.find(n=>n.source.module==='history').placementSource,'preset')
 })

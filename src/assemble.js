@@ -72,7 +72,7 @@ function assembleResolved({ preset: suppliedPreset, previous = null, snapshots =
   const roots = rules.flatMap(rule => (byRule.get(rule.id)?.blocks ?? []).filter(b => !b.referenceOnly).map(block => ({ entry: byRule.get(rule.id), block })))
   // Claims are determined before list placement. A reference has the same effect
   // whether its fallback source is before or after it in the user's strategy.
-  for (const { entry, block } of roots) {
+  function claimContent(entry, block) {
     const owner = key(entry, block)
     for (const claim of block.claims ?? []) {
       const target = bySource.get(claim.sourceId), item = target?.blocks.find(b => b.id === claim.blockId)
@@ -104,7 +104,30 @@ function assembleResolved({ preset: suppliedPreset, previous = null, snapshots =
       else if (next.has(id)) throw new TypeError('Cyclic source block reference')
     }
   }
-  for (const { entry, block } of roots) claimReferences(entry, block)
+  // Preset slots own their references even if another module is dragged ahead
+  // of the preset. Keep legacy claim precedence in other placement modes.
+  const claimGroups = preset.placement === 'native-slots'
+    ? [roots.filter(r => r.entry.descriptor.id === 'preset'), roots.filter(r => r.entry.descriptor.id !== 'preset')]
+    : [roots]
+  for (const group of claimGroups) {
+    for (const { entry, block } of group) claimContent(entry, block)
+    for (const { entry, block } of group) claimReferences(entry, block)
+  }
+  const presetKeys = new Set(roots.filter(r => r.entry.descriptor.id === 'preset').map(r => key(r.entry, r.block)))
+  const isPresetOwned = identity => {
+    const seen = new Set()
+    while (claims.has(identity) && !seen.has(identity)) { seen.add(identity); identity = claims.get(identity) }
+    return presetKeys.has(identity)
+  }
+  const placementControls = adaptive ? preset.rules.map(rule => {
+    const entry = byRule.get(rule.id)
+    const blocks = (entry?.blocks ?? []).filter(b => b.type === 'text' && b.text.trim())
+    const owned = blocks.filter(b => isPresetOwned(key(entry, b))).length
+    const independent = blocks.filter(b => !claims.has(key(entry, b)) && !b.referenceOnly).length
+    const control = rule.kind === 'preset' ? 'preset' : ['history', 'input'].includes(rule.kind) ? 'native'
+      : owned ? independent ? 'mixed' : 'preset' : independent || rule.kind === 'native-system' ? 'independent' : 'empty'
+    return { ruleId: rule.id, control, owned, independent }
+  }) : undefined
   const emitted = new Set(), plans = new Map(rules.map(r => [r.id, []]))
   function emit(entry, block, effectiveRule = entry.rule, reference = null, path = new Set()) {
     const identity = key(entry, block), owner = reference?.owner
@@ -166,6 +189,11 @@ function assembleResolved({ preset: suppliedPreset, previous = null, snapshots =
   for (const rule of rules) nodes.push(...plans.get(rule.id))
   if (adaptive) {
     projectNativeOrder(nodes, preset, diagnostics)
+    for (const control of placementControls) {
+      if (['preset', 'history', 'input'].includes(preset.rules.find(r => r.id === control.ruleId)?.kind)) continue
+      control.independent = nodes.filter(n => n.ruleId === control.ruleId && n.source.module !== 'preset' && n.placementSource !== 'preset').length
+      control.control = control.owned ? control.independent ? 'mixed' : 'preset' : control.independent ? 'independent' : 'empty'
+    }
     for (const node of nodes) if (node.lifetime !== 'native') { node.hash = hash({ text: node.text, role: node.role }); node.changed = previous?.nodes?.find(n => n.id === node.id)?.hash !== node.hash }
   }
   // Resolve placement before lifetime so depth rules and list rules share retention.
@@ -268,7 +296,7 @@ function assembleResolved({ preset: suppliedPreset, previous = null, snapshots =
     requestMessageIds: (node.messages ?? []).map(m => m.id),
   })).sort((a, b) => a.start - b.start)
   const result = { messages, nodes: expanded.map(({ messages: omitted, ...node }) => node), snapshots: nextSnapshots,
-    diagnostics, sources: entries.map(e => e.descriptor), extraBytes, preset: { id: suppliedPreset.id ?? null, name: preset.name, revision: hash(preset) },
+    diagnostics, ...(placementControls ? { placementControls } : {}), sources: entries.map(e => e.descriptor), extraBytes, preset: { id: suppliedPreset.id ?? null, name: preset.name, revision: hash(preset) },
     preview, toolsSeparate: true, evaluatedAt: 'request-assembly', compatibility: preset.placement === 'st' ? 'ST ordering, roles, supported macros and depths; not full ST runtime parity' : null }
   afterAssembly?.(result, request)
   return result

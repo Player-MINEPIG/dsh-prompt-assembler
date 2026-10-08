@@ -67,7 +67,8 @@ export interface AssemblyOptions {
   snapshots?: unknown[]; maxBytes?: number; preview?: boolean;
   sessionId?: string; turn?: number; step?: number; signal?: AbortSignal;
 }
-export interface AssemblyResult { messages: NativeMessage[]; nodes: Array<Record<string, unknown>>; sources: Descriptor[]; snapshots: unknown[]; diagnostics: Json[]; [key: string]: unknown }
+export interface PlacementControl { ruleId: string; control: 'preset' | 'mixed' | 'independent' | 'native' | 'empty'; owned: number; independent: number }
+export interface AssemblyResult { placementControls?: PlacementControl[]; messages: NativeMessage[]; nodes: Array<Record<string, unknown>>; sources: Descriptor[]; snapshots: unknown[]; diagnostics: Json[]; [key: string]: unknown }
 export function assembleRequest(options: AssemblyOptions): AssemblyResult
 export function assembleRequestAsync(options: AssemblyOptions): Promise<AssemblyResult>
 export function textOf(message: NativeMessage): string
