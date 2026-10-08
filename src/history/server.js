@@ -12,10 +12,10 @@ export function createHistoryPolicyHandler({ service, root = HISTORY_API_ROOT })
     try {
       const url = new URL(req.url, 'http://localhost'), sessionId = url.searchParams.get('sessionId')
       if (!sessionId || sessionId.length > 512) return send(res, 400, { ok: false, error: 'Session id required' })
-      if (url.pathname === root && req.method === 'GET') return send(res, 200, { ok: true, ...service.store.get(sessionId) })
+      if (url.pathname === root && req.method === 'GET') return send(res, 200, { ok: true, ...service.store.get(sessionId), capabilities: service.capabilities })
       if (url.pathname === root && req.method === 'PUT') {
         const body = await read(req)
-        return send(res, 200, { ok: true, ...service.store.save(sessionId, body.policy, body.expectedRevision) })
+        return send(res, 200, { ok: true, ...service.save(sessionId, body.policy, body.expectedRevision), capabilities: service.capabilities })
       }
       if (url.pathname === `${root}/preview` && req.method === 'POST') {
         const body = await read(req)

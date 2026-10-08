@@ -5,9 +5,9 @@ import { join, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { RequestAssembler, AssemblyPresetStore, createDshRegistry, BUILTINS } from '../src/index.js'
 import { CoreRequestBackend } from '../src/core-backend.js'
-import { HistoryPolicyStore, registerHistoryPolicy, createHistoryPolicyService } from '../src/history-policy.js'
+import { HistoryPolicyStore, registerHistoryPolicy, createHistoryPolicyService, registerStandardHistoryPolicy } from '../src/history-policy.js'
 
-export async function historyHost({ root, directory, seed, withTools = false, retryOnce = false, onRetry = () => {}, advanced = true }) {
+export async function historyHost({ root, directory, seed, withTools = false, retryOnce = false, onRetry = () => {}, advanced = true, standard = false, standardActive }) {
   const require = createRequire(join(resolve(root), 'package.json'))
   const load = name => import(pathToFileURL(require.resolve(`@deepseek-ai/${name}`)))
   const { Context } = await load('cordis'), { SystemPrompt } = await load('dsh-system-prompt'), llm = await load('dsh-llm')
@@ -47,13 +47,13 @@ export async function historyHost({ root, directory, seed, withTools = false, re
   if (advanced) assemblyStore.apply(agent.id, preset.id)
   const store = new HistoryPolicyStore(join(directory, 'history'))
   const reasoningSafety = () => ({ canOmit: true, contract: 'offline-synthetic-no-tools', toolsPresent: withTools })
-  const stop = advanced ? registerHistoryPolicy(ctx, { store, runtime, readEvents: session => session.snapshotEvents(), reasoningSafety }) : () => {}
+  const stop = standard ? registerStandardHistoryPolicy(ctx, { store, readEvents: session => session.snapshotEvents(), createDeveloperMessage: llm.createDeveloperMessage, active: standardActive }) : advanced ? registerHistoryPolicy(ctx, { store, runtime, readEvents: session => session.snapshotEvents(), reasoningSafety }) : () => {}
   const readContext = async id => {
     const session = ctx.sessions.get(id)
     if (!session) throw Object.assign(new Error('Fixture session unavailable'), { status: 404 })
-    return { messages: session.deriveMessages(), events: session.snapshotEvents(), reasoningSafety: reasoningSafety() }
+    return { nodes: [...session.surface.nodes], messages: session.deriveMessages(), events: session.snapshotEvents(), reasoningSafety: reasoningSafety() }
   }
-  const service = createHistoryPolicyService({ store, readContext, reasoningSafety })
+  const service = createHistoryPolicyService({ store, readContext, reasoningSafety, mode: standard ? 'standard' : 'advanced' })
   const turn = async text => { agent.followup(llm.createUserMessage({ content: [{ type: 'text', text }], source: { kind: 'user' } })); await agent.whenIdle(); assert.deepEqual(errors, []) }
   return { ctx, requests, errors, agent, llm, store, service, runtime, assemblyStore, stop, unmountAssembly, turn, body, dispose: () => ctx.fiber.dispose() }
 }

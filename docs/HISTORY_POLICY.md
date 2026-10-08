@@ -1,12 +1,70 @@
-# 进阶模型历史筛选
+# 模型历史筛选：标准版与进阶版
 
 [English](HISTORY_POLICY_en.md)
 
 进阶版使用已有协议 1 请求装配接口，在发送前筛选消息副本，将实际结果与规则证据一起写入
 `request/assembly`。原始 Session 事件、模型 stream 和聊天展示不改；不会注册卸载后仍需保留的
-消息投影解释器。标准版不启用此能力，也不改变原有行为。
+消息投影解释器。标准版使用 stock DSH 的公开 pre-step 和 surface replacement 清理旧插件注入，不需要协议 1 核心。
 
-## 行为
+## 标准版：来源清理
+
+`registerStandardHistoryPolicy` 自动清理已经消费的插件 `user/message`。可靠依据是精确 `source.kind`
+和原生事件位置；正文相同的真人输入不受影响。新会话默认关闭；来源选择与进阶版共用策略存储。
+标准版始终完整保留真人输入、助手正文/思考/MVU、工具调用和结果、系统指令及 replay 数据。
+只处理原生 append 消息与本功能自己的恢复副本；其他替换或压缩摘要保持不动。未知来源保留并提示，
+用户可通过精确来源规则显式决定该插件的历史是否保留。
+
+在 pre-step 入口记录上一 `step/end` 的 seq；其后追加的未发送内容、下游 pre-step 注入与本次
+`decision.messages` 均保留。最新 runtime-context 在被复用时保留；本步产生新快照时，旧快照可清理。
+每条目标在原位替换成空 **developer/message**，不产生模型消息。不能用空 system 占位：
+若旧注入早于首条 system，原生系统提示投影会接管该位置并破坏恢复依据。
+
+- 保存后从下一次被接受的 pre-step 自动运行。规则在 pre-step 入口捕获，下游并发保存从下一步生效。
+- stock 请求重试复用已完成的替换；不会在每次重试或每一轮为同一条已隐藏消息写无效替换。
+- 改为保留某来源或关闭后，下一步把仍处于 surface 的本功能占位替换回保存的有效 user 消息，
+  保留原 ID、正文与顺序。恢复事件引用占位和原始 seq；重新排除时仍按原始年龄判定。
+- 重启沿用持久配置和内置事件。fork 的新 ID 默认关闭，并在首次运行时恢复继承的占位；
+  调用方可先复制父策略来继续清理。压缩/其他替换已覆盖的占位不会复活。
+- 卸载停止自动操作，**保留已写入的清理结果**；原生会话仍能读取和续聊，无需插件解释器。
+  如需恢复，卸载前关闭并运行一步；或由持有会话写权限的调用方在空闲时使用
+  `applyStandardHistory` 传入 `enabled:false`。该显式原语不发起模型调用。
+- 系统提示会按原生规则更新；空 developer 占位不参与系统提示路由。实际发生替换才开启新请求系列。
+
+例如两轮各有 `预设、预设、真人、预设、assistant`，第三轮请求保留前两轮
+`真人、完整 assistant、真人、完整 assistant`，再发送第三轮所需预设和真人输入。
+原始 append 日志完整保留，原生聊天记录可重建。
+
+注册示例（使用 Host 自己加载的公开 LLM 工厂）：
+
+```js
+const stopStandard = registerStandardHistoryPolicy(ctx, {
+  store,
+  readEvents: async session => (await ctx.get('sessionController').inspect(session.id)).events,
+  createDeveloperMessage: hostLlm.createDeveloperMessage,
+  active: agent => !runtime.requestAssemblyAvailable(agent.id), // 按实际 backend 选择判定
+})
+```
+
+`active` 表示本步使用标准版；返回 false 时在下一 accepted pre-step 恢复本功能占位，
+因此切进阶版后仍可重新筛选完整原生有效历史。需要同时保留该生命周期 hook 和进阶 hook；
+不要只卸载标准 hook 再切 backend。标准 hook 应作为外层 middleware，让 `next()` 完成注入后再规划。
+`applyStandardHistory(session, context, {createDeveloperMessage})` 与 `planStandardHistory(context)`
+是独立原语；前者必须在调用方已获写权限且可串行修改 surface 时使用。`context` 包含完整
+`events`、`policy`、可选 `revision/cutoffSeq/pendingMessages/turn/step`；纯规划还需要 `nodes/messages`。
+生产 `readEvents` 使用公共 controller inspect；测试使用小型完整内存 Session。
+
+标准 service 用 `mode:'standard'`，进阶用 `mode:'advanced'`（默认）。路由根据会话实际 backend 选择 service，
+不能由客户端自称进阶。标准预览需要 `nodes:[...session.surface.nodes]`、原生有效 `messages` 与完整 `events`。
+预览包含隐藏消息的原文及 `restore` 动作；不含尚未生成的下一步注入，最新上下文因此先保留。
+GET/PUT/preview 返回 `capabilities`。标准 UI 的来源控件可操作，真人/助手来源锁定保留，
+内容类型与片段控件禁用并标明进阶专用；旧进阶规则保持存储但标准运行不应用。
+标准 API 修改这些进阶字段会返回 `HISTORY_ADVANCED_REQUIRED`，不会假装生效。
+
+隐藏事件的 `data.historyPolicy` 保存 owner/version、原始/替换目标 seq、有效原文快照、规则/版本及哈希；
+其 `sourceEventSeqs` 建立原生追溯。恢复写原始 user 消息并引用隐藏事件与原始事件，不创建助手回复。
+审计数据是内置事件上的惰性 JSON，无插件解释器依赖；模型请求以当时原生 surface 为准。
+
+## 进阶版行为
 
 新会话的策略默认关闭。启用默认干净策略后，保留真人输入和助手正文；排除历史中的
 `dsh-prompt-assembler`、`ptc-mode`、工具来源 user 注入及过期 `runtime-context` 副本。
@@ -68,7 +126,7 @@ Tavern 提供默认关闭的 MVU wrapper 示例；通用引擎不内置 MVU 语�
 
 ```js
 import {
-  HistoryPolicyStore, registerHistoryPolicy, createHistoryPolicyService,
+  HistoryPolicyStore, registerHistoryPolicy, registerStandardHistoryPolicy, createHistoryPolicyService,
   createHistoryPolicyHandler, HISTORY_API_ROOT,
 } from 'dsh-prompt-assembler/history-policy'
 import { mountHistoryPolicyPanel } from 'dsh-prompt-assembler/history-client'
@@ -88,9 +146,9 @@ Host 上下文需注入 `agentLoop`、`dshPromptAssembler`、`sessionController`
 不要另造一套装配器或在标准路径挂载；移除时调用 disposer。
 
 `createHistoryPolicyService({store, readContext, reasoningSafety})` 的 `readContext(sessionId)` 返回
-`{messages, events, tools?, config?, currentStepSeq?}`，其中 messages 必须来自原生当前有效 surface，
+`{messages, events, nodes?, tools?, config?, currentStepSeq?}`，其中 messages 必须来自原生当前有效 surface，
 不是上次已经筛过的 `request/assembly`。冷会话可沿用已有 inspect + sessions.prepare 读取流程，
-不启动 Agent。预览不包含未发送草稿或尚未生成的本步贡献；活跃 step 可传 currentStepSeq 保留它的消息。
+不启动 Agent。应同时提供 nodes，让进阶预览模拟切换时的标准占位恢复。预览不包含未发送草稿或尚未生成的本步贡献；活跃 step 可传 currentStepSeq 保留它的消息。
 预览和运行时应使用同一套经过验证的 reasoningSafety；preview 的 tools 应取当前目标请求的工具配置。
 
 `createHistoryPolicyHandler({service})` 是原始路由，须挂到**现有 assembler 安全包装内部**，
@@ -99,7 +157,7 @@ Host 上下文需注入 `agentLoop`、`dshPromptAssembler`、`sessionController`
 
 | 方法与路径（相对 HISTORY_API_ROOT） | 作用 |
 | --- | --- |
-| GET `?sessionId=…` | 读取 `{revision,policy}` |
+| GET `?sessionId=…` | 读取 `{revision,policy,capabilities}` |
 | PUT `?sessionId=…` | 保存 `{policy,expectedRevision}`；冲突返回 409 |
 | POST `/preview?sessionId=…` | 预览 `{policy?}`；不保存、不发送模型请求 |
 
@@ -108,8 +166,7 @@ Host 上下文需注入 `agentLoop`、`dshPromptAssembler`、`sessionController`
 多进程共享写入不在合同中。
 
 `mountHistoryPolicyPanel(container,{sessionId,request?,fragmentPresets?})` 返回 `{ready,dispose}`。
-桌面端通过 request 注入既有鉴权 transport。选择 core 会话时挂载，切换会话或卸载时 dispose；
-标准版不显示该面板。本提交提供独立组件，不改主入口或另一实现分支拥有的客户端文件。
+桌面端通过 request 注入既有鉴权 transport。两版均可挂载，能力由服务端返回；切换会话、backend 或卸载时 dispose 并重新挂载。本提交提供独立组件，不改主入口或另一实现分支拥有的客户端文件。
 
 ## 审计与兼容性
 
@@ -120,7 +177,7 @@ revision、输入/输出哈希、原消息 ID/seq、每块修改及匹配范围�
 
 没有伪造 assistant 事件或 provider stream。stock rc.2 可重放并继续包含这些既有 ignorable
 request/assembly 记录的会话。标准原生 replacement 的助手校验矛盾及投影卸载限制仍由
-`test/history-native-capabilities.test.mjs` 复现；本功能不依赖那些接口。
+`test/history-native-capabilities.test.mjs` 复现；进阶版不依赖那些受限接口；标准版只使用已验证的 user → 空 developer → user 单节点替换。
 
 ## 验证
 
@@ -131,7 +188,7 @@ node --test test/history-*.test.mjs
 ```
 
 纯规则测试覆盖来源、同文输入、当前上下文、片段及误匹配、配置冲突。HTTP/DOM 测试覆盖预览、保存、
-刷新和安全拒绝。真实 Host 模块配合离线合成 adapter 覆盖多轮、新步、重试版本固定、工具事务、
+刷新、两版控件区分和安全拒绝。`history-standard.test.mjs` 在未修改 stock Host 上覆盖三轮预设场景、原位恢复及去重。真实 Host 模块配合离线合成 adapter 覆盖多轮、新步、重试版本固定、工具事务、
 磁盘序列化后全 Host 重建、fork、原生 replacement 压缩边界，以及回到 stock Host 后继续对话。
 压缩测试用真实 surface replacement 注入合成摘要，不调用付费摘要模型；重启使用临时 JSON seed，
 不是生产 session-storage 后端验收。没有付费 provider 请求或 token 节省测量。

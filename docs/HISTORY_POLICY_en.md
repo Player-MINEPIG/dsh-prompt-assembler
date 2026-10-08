@@ -1,13 +1,79 @@
-# Advanced model history filtering
+# Model history filtering: standard and advanced
 
 [中文](HISTORY_POLICY.md)
 
 Advanced mode uses the existing protocol-1 request assembly seam to filter message copies before dispatch.
 The final messages and policy evidence are recorded in `request/assembly`. Original Session events, model
 streams and displayed transcripts stay unchanged. No persistent message projection interpreter is installed.
-Standard mode is unchanged and does not enable this feature.
+Standard mode uses the stock public pre-step and surface-replacement APIs to clean old plugin injections; it needs no protocol-1 core.
 
-## Behavior
+## Standard: source cleanup
+
+`registerStandardHistoryPolicy` automatically cleans consumed plugin `user/message` events, using exact
+`source.kind` and native event positions. Identical human text stays intact. New session IDs default to disabled;
+source rules share the advanced policy store. Standard mode always preserves human inputs, whole assistants
+(including reasoning and MVU), tool transactions, system instructions and replay data. Only append-origin users
+and this feature's own restored copies are eligible; other replacements and compaction summaries remain opaque.
+Unknown sources stay with a warning; an exact selector explicitly opts that producer into the source policy.
+
+At pre-step entry, capture the previous `step/end` sequence. Unsent tail appends, downstream pre-step injections
+and this decision's messages remain. The latest reused runtime-context stays; when a new snapshot is pending,
+its predecessor can be cleaned. Each target is replaced in position by an empty **developer/message**, which
+derives to no model message. Empty system placeholders are unsuitable: if an injection precedes the first
+system message, native system-prompt projection can take over that placeholder and break restoration.
+
+- Saving applies at the next accepted pre-step. Capture rules before downstream hooks; saves during those hooks
+  take effect next step. Stock retries reuse the committed surface and do not append duplicate cleanup events.
+- Keeping a source or disabling restores still-live owned placeholders at their original positions on the next
+  step, with original message IDs/content. Restoration cites placeholder and original sequences; re-exclusion
+  still uses the original age. Unchanged hidden entries do not generate new replacement events each turn.
+- Restart reuses persisted configuration and built-in events. A fork has a new disabled session ID and restores
+  inherited placeholders on first run, unless the caller explicitly copies the parent policy first.
+  Placeholders shadowed by compaction or another replacement are never revived.
+- Unloading stops automation and **leaves committed cleanup in place**. Stock sessions remain readable and can
+  continue with no plugin interpreter. To restore first, disable and run one step, or let an authorized caller
+  invoke `applyStandardHistory` with `enabled:false` while idle. That primitive sends no model request.
+- Empty developer placeholders do not participate in system-prompt routing. Only actual replacements start a
+  new request series. System prompt updates continue through the native projection.
+
+For two rounds of `preset, preset, human, preset, assistant`, request three keeps
+`human, complete assistant, human, complete assistant`, followed by all required current presets and input.
+The original append log remains intact and can reconstruct the native transcript.
+
+Use the public LLM factory already loaded by the Host:
+
+```js
+const stopStandard = registerStandardHistoryPolicy(ctx, {
+  store,
+  readEvents: async session => (await ctx.get('sessionController').inspect(session.id)).events,
+  createDeveloperMessage: hostLlm.createDeveloperMessage,
+  active: agent => !runtime.requestAssemblyAvailable(agent.id), // use actual backend selection
+})
+```
+
+`active` means this step uses standard mode. False restores owned placeholders at the next accepted pre-step,
+so switching to advanced can filter complete effective history again. Keep this lifecycle hook alongside the
+advanced hook; do not simply unmount it on backend switch. Mount it outside injection middleware so `next()`
+finishes before planning. `applyStandardHistory(session, context, {createDeveloperMessage})` and
+`planStandardHistory(context)` are composable primitives. The mutating primitive requires caller-owned write
+access and serialized surface mutation. Context contains complete `events`, `policy`, optional
+`revision/cutoffSeq/pendingMessages/turn/step`; pure planning also requires `nodes/messages`.
+Production reads use public controller inspect; fixtures use complete in-memory Sessions.
+
+Create the standard service with `mode:'standard'`, advanced with `mode:'advanced'` (default). Dispatch routes
+according to the actual session backend, never a client assertion. Standard previews require native
+`nodes:[...session.surface.nodes]`, effective `messages` and complete `events`. They include hidden originals
+and `restore` actions, but omit not-yet-generated next-step injections, so retain the latest context for now.
+GET/PUT/preview return `capabilities`. Standard UI enables source controls, locks human/model retention, and
+explicitly disables content/fragment controls. Existing advanced rules stay stored but are inactive in standard.
+Changing those fields through the standard API returns `HISTORY_ADVANCED_REQUIRED` rather than pretending to apply them.
+
+Each hide event's `data.historyPolicy` carries owner/version, target/original seq, the effective original message,
+rule snapshot/revision and hashes. Native `sourceEventSeqs` links the provenance. Restore events write the exact
+user message and reference both hidden and original events. These are inert JSON annotations on built-in events,
+not interpreter-dependent event types. Actual standard requests derive from the surface at request time.
+
+## Advanced behavior
 
 Policies are disabled for new session IDs. Enabling the default clean policy keeps human input and assistant
 text, while excluding obsolete `dsh-prompt-assembler`, `ptc-mode`, tool-origin user injections and old
@@ -67,7 +133,7 @@ Existing wildcard package exports expose the new entry points:
 
 ```js
 import {
-  HistoryPolicyStore, registerHistoryPolicy, createHistoryPolicyService,
+  HistoryPolicyStore, registerHistoryPolicy, registerStandardHistoryPolicy, createHistoryPolicyService,
   createHistoryPolicyHandler, HISTORY_API_ROOT,
 } from 'dsh-prompt-assembler/history-policy'
 import { mountHistoryPolicyPanel } from 'dsh-prompt-assembler/history-client'
@@ -87,7 +153,7 @@ core assembly strategy. A prepend middleware filters after existing assembly; it
 layout or registry. Do not mount it on the standard path. Call its disposer on removal.
 
 `createHistoryPolicyService({store,readContext,reasoningSafety})` expects `readContext(sessionId)` to return
-`{messages,events,tools?,config?,currentStepSeq?}`. Messages must come from the current native effective surface,
+`{messages,events,nodes?,tools?,config?,currentStepSeq?}`. Messages must come from the current native effective surface,
 not the last filtered request. Cold reads can reuse inspect + sessions.prepare without creating an Agent.
 Preview excludes unsent drafts and new contributions not assembled yet. Supply currentStepSeq to protect an
 active step. Preview and runtime must use the same verified reasoning contract and effective target tools.
@@ -99,7 +165,7 @@ Never expose the raw handler without that protection.
 
 | Method and path relative to HISTORY_API_ROOT | Purpose |
 | --- | --- |
-| GET `?sessionId=…` | Read `{revision,policy}` |
+| GET `?sessionId=…` | Read `{revision,policy,capabilities}` |
 | PUT `?sessionId=…` | Save `{policy,expectedRevision}`; stale revisions return 409 |
 | POST `/preview?sessionId=…` | Preview `{policy?}` without saving or model dispatch |
 
@@ -108,8 +174,7 @@ session-specific, never global. One Host owns `history-policies.json`, saved thr
 concurrent writes from multiple processes are unsupported.
 
 `mountHistoryPolicyPanel(container,{sessionId,request?,fragmentPresets?})` returns `{ready,dispose}`.
-Inject the existing authenticated transport for desktop. Mount for core sessions and dispose on switching or
-unload. Hide it in standard mode. This change supplies an independent component, leaving root wiring and the
+Inject the existing authenticated transport for desktop. Both modes mount this panel; capabilities come from the server. Dispose and remount on session/backend switch or unload. Supply nodes to advanced previews to simulate standard-placeholder restoration on switching. This change supplies an independent component, leaving root wiring and the
 other implementation branch's client files to the integrator.
 
 ## Audit and compatibility
@@ -121,7 +186,7 @@ sent text/counts, and historyPolicy for differences; layout node text/counts are
 
 No assistant event or provider stream is fabricated. Stock rc.2 can replay and continue sessions containing
 these existing ignorable request/assembly records. `test/history-native-capabilities.test.mjs` still reproduces
-the native assistant replacement and projection-unload limits; this feature does not depend on those interfaces.
+the native assistant replacement and projection-unload limits; advanced filtering avoids those restricted interfaces. Standard mode uses the verified single-node user → empty developer → user path.
 
 ## Verification
 
@@ -131,7 +196,7 @@ DSH_ASSEMBLER_STOCK_ROOT=/path/to/stock-runtime \
 node --test test/history-*.test.mjs
 ```
 
-Pure tests cover sources, identical input, current context, fragments, false matches and configuration conflicts.
+`history-standard.test.mjs` verifies the three-round preset scenario, restoration and deduplication on an unmodified stock Host. Pure tests cover sources, identical input, current context, fragments, false matches and configuration conflicts.
 HTTP/DOM tests exercise preview/save/reload and security rejection. Real Host modules with a synthetic offline
 adapter cover multiple turns/steps, retry revision pinning, tool transactions, disk serialization followed by
 fresh Host creation, forks, native replacement compaction boundaries and continuation on unmodified stock Host.

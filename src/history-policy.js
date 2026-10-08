@@ -1,17 +1,33 @@
 export { DEFAULT_HISTORY_POLICY, normalizeHistoryPolicy, matchHistoryFragments, filterHistory } from './history/policy.js'
 export { HistoryPolicyStore } from './history/store.js'
 export { createHistoryPolicyApi, createHistoryPolicyHandler, HISTORY_API_ROOT } from './history/server.js'
-import { filterHistory } from './history/policy.js'
+import { isDeepStrictEqual } from 'node:util'
+import { filterHistory, normalizeHistoryPolicy } from './history/policy.js'
+import { planStandardHistory } from './history/standard.js'
+export { planStandardHistory, applyStandardHistory, registerStandardHistoryPolicy } from './history/standard.js'
 
 /** Independent service. readContext must read native effective messages and durable events. */
-export function createHistoryPolicyService({ store, readContext, reasoningSafety = () => null }) {
+export function createHistoryPolicyService({ store, readContext, reasoningSafety = () => null, mode = 'advanced' }) {
+  if (!['standard', 'advanced'].includes(mode)) throw new TypeError('Invalid history mode')
+  const capabilities = { mode, sourceCleanup: true, contentFiltering: mode === 'advanced', fragmentFiltering: mode === 'advanced' }
+  const validate = (sessionId, input) => {
+    const policy = normalizeHistoryPolicy(input), previous = store.get(sessionId).policy
+    if (mode === 'standard' && (!isDeepStrictEqual(policy.contentTypes, previous.contentTypes) || !isDeepStrictEqual(policy.fragments, previous.fragments))) {
+      throw Object.assign(new Error('Content and fragment rules require advanced mode'), { status: 400, code: 'HISTORY_ADVANCED_REQUIRED' })
+    }
+    return policy
+  }
   return {
-    store,
+    store, capabilities,
+    save(sessionId, input, revision) { return store.save(sessionId, validate(sessionId, input), revision) },
     async preview(sessionId, policy) {
       const context = await readContext(sessionId), saved = store.get(sessionId)
+      if (mode === 'standard') return { ...planStandardHistory({ ...context, policy: validate(sessionId, policy ?? saved.policy), revision: saved.revision }), revision: saved.revision, capabilities, previewScope: 'next-native-step', pendingInputsIncluded: false }
       const safety = await reasoningSafety(context)
-      const result = filterHistory({ ...context, policy: policy ?? saved.policy, reasoningSafety: { ...safety, toolsPresent: Boolean(context.tools?.length) || safety?.toolsPresent === true } })
-      return { ...result, revision: saved.revision, previewScope: 'saved-native-history-only', pendingInputsIncluded: false }
+      // An advanced selection restores standard tombstones on its next pre-step.
+      const restored = context.nodes ? planStandardHistory({ ...context, policy: { ...saved.policy, enabled: false } }).messages : context.messages
+      const result = filterHistory({ ...context, messages: restored, policy: policy ?? saved.policy, reasoningSafety: { ...safety, toolsPresent: Boolean(context.tools?.length) || safety?.toolsPresent === true } })
+      return { ...result, capabilities, revision: saved.revision, previewScope: 'saved-native-history-only', pendingInputsIncluded: false }
     },
   }
 }
