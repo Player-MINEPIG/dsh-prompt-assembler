@@ -126,3 +126,26 @@ test('a competing custom reference cannot steal native slots by moving ahead of 
   assert.deepEqual(result.logical.messages.map(textOf),['OPEN','OLD','NOW','CLOSE'])
   assert.equal(result.logical.nodes.find(n=>n.source.module==='history').placementSource,'preset')
 })
+
+test('before/after slots bracket character fields and never claim depth entries', async () => {
+  const prompts = [{identifier:'worldInfoBefore',marker:true,enabled:true,role:'system'},
+    {identifier:'charDescription',marker:true,enabled:true,role:'system'},
+    {identifier:'worldInfoAfter',marker:true,enabled:true,role:'system'},
+    {identifier:'chatHistory',marker:true,enabled:true}, prompt('close','user','CLOSE')]
+  const assets={character:{data:{description:'CHAR'}},loreEntries:[
+    {id:'before',position:'before',requestedPosition:'before_character_definition',content:'BEFORE'},
+    {id:'after',position:'after',requestedPosition:'after_character_definition',content:'AFTER'},
+    {id:'depth',position:'after',requestedPosition:'at_depth',depth:1,role:'user',content:'DEPTH'}]}
+  for (const placement of ['native-slots','native-roles']) {
+    const result=await plan(prompts,{...assets,placement,rules:rules=>rules.map(r=>r.kind==='worldbook'?{...r,role:'preserve'}:r)})
+    assert.deepEqual(result.logical.nodes.filter(n=>['BEFORE','CHAR','AFTER'].includes(n.text)).map(n=>n.text),['BEFORE','CHAR','AFTER'])
+    assert.equal(result.logical.nodes.find(n=>n.text==='DEPTH').placementSource,null)
+    assert.equal(result.logical.nodes.find(n=>n.text==='DEPTH').role,'user')
+    assert.equal(result.logical.placementControls.find(c=>c.ruleId==='worldbook').control,'mixed')
+  }
+  const {assembleRequest}=await import('../src/assemble.js')
+  const {BUILTINS}=await import('../adapters/tavern.js')
+  const result=assembleRequest({registry:createDefaultRegistry(),preset:BUILTINS[0],assets:{...assets,preset:{prompts}},nativeMessages:[msg('OLD'),msg('NOW')],inputIds:['NOW']})
+  assert.deepEqual(result.messages.map(textOf),['BEFORE','CHAR','AFTER','OLD','DEPTH','NOW','CLOSE'])
+  assert.equal(result.nodes.find(n=>n.text==='DEPTH').role,'user')
+})

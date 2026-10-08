@@ -57,7 +57,7 @@ function assembleResolved({ preset: suppliedPreset, previous = null, snapshots =
   // content module as the target of other sources' declared references.
   for (const entry of entries.filter(e => e.rule.inputMode !== 'text')) bySource.set(entry.descriptor.id, entry)
   const enabled = kind => rules.some(r => r.kind === kind)
-  const diagnostics = structuredClone(assets.diagnostics ?? []).filter(d => !(preset.placement === 'st' && d.code === 'WORLD_BOOK_POSITION_APPROXIMATED' && d.originalPosition === 'at_depth'))
+  const diagnostics = structuredClone(assets.diagnostics ?? []).filter(d => !((preset.placement === 'st' || adaptive) && d.code === 'WORLD_BOOK_POSITION_APPROXIMATED' && d.originalPosition === 'at_depth'))
   diagnostics.push(...resolution.diagnostics, ...entries.flatMap(e => e.diagnostics ?? []))
   const variables = new Map(), macros = new Map(), claims = new Map(), nodes = [], deferred = [], nativeById = new Map(nativeMessages.map(m => [m.id, m])), requiredNative = new Set()
   const key = (entry, block) => `${entry.rule.id}:${block.id}`
