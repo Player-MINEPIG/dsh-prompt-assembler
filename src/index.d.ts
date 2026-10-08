@@ -8,7 +8,7 @@ export interface LayoutOverride { target: string; anchor: string; side: 'before'
 export interface ResourcePosition { sourceId: string; positionId: string; enabled: boolean; placement: 'source' | 'list' }
 export interface PositionDescriptor { configurable?: boolean; note?: [string, string]; id: string; name: [string, string]; match?: { field?: string; group?: string; depth?: boolean }; anchor?: { sourceId: string; fields?: string[]; side: 'before' | 'after' }; macros?: string[] }
 export interface ResourceLayoutPolicy { priority?: Array<'user' | 'preset' | 'resource' | 'default'> | 'user' | 'preset'; positions?: ResourcePosition[]; version: 1; source: 'manual' | 'preset-slots'; identity: 'preserve' | 'position'; fallback: 'source-order' | 'error'; overrides: LayoutOverride[] }
-export interface ResourceLayout { priorityOrder?: string[]; positionDecisions?: Array<Record<string, any>>; version: 1; legacy: boolean; policy: ResourceLayoutPolicy | null; slots: Array<Record<string, any>>; blocks: Array<Record<string, any>> }
+export interface ResourceLayout { sortingStages?: Array<{ strategy: 'user' | 'preset' | 'resource' | 'default'; nodeIds: string[] }>; priorityOrder?: string[]; positionDecisions?: Array<Record<string, any>>; version: 1; legacy: boolean; policy: ResourceLayoutPolicy | null; slots: Array<Record<string, any>>; blocks: Array<Record<string, any>> }
 export function normalizeLayout(value: unknown): ResourceLayoutPolicy | undefined
 export function describeResourceLayout(nodes: Array<Record<string, any>>, preset: Preset, slots?: Array<Record<string, any>>): ResourceLayout
 export function withBlockMove(preset: Preset, layout: ResourceLayout, target: string, anchor: string, side?: 'before' | 'after', detach?: boolean): Preset

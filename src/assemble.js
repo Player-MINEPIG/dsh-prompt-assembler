@@ -1,4 +1,4 @@
-import { blockPosition, declaredPositions, positionKey, positionWins, priorityOrder, applyPositionOrder, applyResourceAnchors } from './resource-positions.js'
+import { blockPosition, declaredPositions, positionKey, positionWins, priorityOrder, applyPositionStrategies } from './resource-positions.js'
 import { applyLayoutOverrides, describeResourceLayout } from './resource-layout.js'
 import { createHash, randomUUID } from 'node:crypto'
 import { adaptiveNativePlacement } from './native-policy.js'
@@ -256,8 +256,7 @@ function assembleResolved({ preset: suppliedPreset, previous = null, snapshots =
     if (!inserted) nodes.push(node)
   }
   applyLayoutOverrides(nodes, preset, diagnostics)
-  applyResourceAnchors(nodes, preset, diagnostics)
-  applyPositionOrder(nodes, preset, diagnostics)
+  const sortingStages = applyPositionStrategies(nodes, preset, diagnostics)
   // Native markers are nested in the preset output, not dropped from the request.
   let messages = [], expanded = []
   const snapshotRules = rules.filter(r => r.lifetime === 'snapshot' && byRule.has(r.id))
@@ -338,6 +337,7 @@ function assembleResolved({ preset: suppliedPreset, previous = null, snapshots =
   for (const node of result.nodes) node.messageRoles = node.role === 'preserve' ? node.messageRoles : [node.role]
   result.resourceLayout = describeResourceLayout(result.nodes, preset, slots)
   result.resourceLayout.priorityOrder = priorityOrder(preset)
+  result.resourceLayout.sortingStages = sortingStages
   result.resourceLayout.positionDecisions = [
     ...new Map(positionEvents.map(e => [positionKey(e.sourceId, e.positionId), e])).values(),
     ...result.nodes.map(n => ({ sourceId: n.source?.module, positionId: n.positionId, nodeId: n.id, decision: n.positionDecision ?? (n.lifetime === 'native' || n.lifetime === 'snapshot' ? 'runtime' : 'source'), slotId: n.slotId ?? null })),

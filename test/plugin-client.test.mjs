@@ -335,6 +335,21 @@ test('context controls appear for legacy strategies and persist master/child swi
   } finally {await ui.close()}
 })
 
+async function dragRow(document, handle, target) {
+  const { Simulate } = await import('react-dom/test-utils')
+  let captured = false
+  handle.setPointerCapture = () => { captured = true }
+  handle.hasPointerCapture = () => captured
+  handle.releasePointerCapture = () => { captured = false }
+  target.getBoundingClientRect = () => ({ top: 0, height: 40 })
+  const previous = document.elementFromPoint
+  document.elementFromPoint = () => target
+  try {
+    await act(() => Simulate.pointerDown(handle, { button: 0, pointerId: 1 }))
+    await act(() => Simulate.pointerUp(handle, { pointerId: 1, clientX: 0, clientY: 0 }))
+  } finally { document.elementFromPoint = previous }
+}
+
 test('resource configuration lists empty positions without preview and loads results only on demand', async () => {
   const ui = dom(), previews = [], saved = []
   const layoutPreset = { ...preset, layout: { version: 1, source: 'preset-slots', identity: 'preserve', fallback: 'source-order', priority: 'preset', overrides: [] }, rules: [{ id: 'worldbook', kind: 'worldbook', enabled: true, role: 'preserve', lifetime: 'request' }] }
@@ -352,7 +367,9 @@ test('resource configuration lists empty positions without preview and loads res
     assert.match(ui.document.body.textContent, /No content is currently available/)
     const toggle = ui.document.querySelector('[aria-label="Enable position: Before"]')
     await act(async () => { toggle.checked = false; toggle.click() })
-    await act(async () => button(ui.document, 'Up').click())
+    await dragRow(ui.document, ui.document.querySelector('[aria-label="Move position: After"]'), ui.document.querySelector('[data-position-key="worldbook#before"]'))
+    assert.equal([...ui.document.querySelectorAll('button')].some(b => ['Up', 'Down', '↑', '↓'].includes(b.textContent)), false)
+    assert.match(ui.document.querySelector('.dta-position-stability').textContent, /Constant entries/)
     assert.equal(previews.length, 0)
     await act(async () => button(ui.document, 'Assembly result').click())
     assert.equal(previews.length, 1)
@@ -375,10 +392,35 @@ test('failed result loading preserves position draft for retry', async () => {
       return json({ preview: { nodes: [], messages: [], diagnostics: [] } })
     }
     await act(async () => ui.root.render(h(AssemblyPanel, { standalone: true, locale: 'en', fetcher })))
-    await act(async () => ui.document.querySelector('[aria-label="Raise priority: Preset slots and macro references"]').click())
+    await dragRow(ui.document, ui.document.querySelector('[aria-label="Drag priority: Preset slots and macro references"]'), ui.document.querySelector('[data-priority="user"]'))
     await act(async () => button(ui.document, 'Assembly result').click())
     assert.match(ui.document.querySelector('[role="alert"]').textContent, /Preview offline/)
     await act(async () => button(ui.document, 'Assembly result').click())
     assert.deepEqual(requests[1].preset.layout.priority, ['preset', 'user', 'resource', 'default'])
+  } finally { await ui.close() }
+})
+
+for (const backend of ['native', 'core']) test(`result cards explain native history without expansion: ${backend}`, async () => {
+  const ui = dom()
+  const nodes = [
+    { id: 'system', role: 'system', lifetime: 'request' },
+    { id: 'context', role: 'user', lifetime: 'request', nativeDelivery: 'context' },
+    { id: 'step', role: 'user', lifetime: 'request', nativeDelivery: 'pre-step' },
+    ...(backend === 'core' ? [{ id: 'retained', role: 'user', lifetime: 'snapshot' }] : []),
+  ].map(n => ({ ...n, name: n.id, source: { plugin: 'thirdparty', module: 'example' }, text: n.id, stability: 'conversation' }))
+  try {
+    const fetcher = async url => url.endsWith('/preview') ? json({ preview: { backend, nodes, messages: [], diagnostics: [] } }) : json(library)
+    await act(() => ui.root.render(h(AssemblyPanel, { standalone: true, locale: 'en', sessionId: 's', fetcher })))
+    await act(() => button(ui.document, 'Assembly result').click())
+    const notes = [...ui.document.querySelectorAll('.dta-history-note')].map(n => n.textContent)
+    assert.equal(notes.length, nodes.length)
+    if (backend === 'native') {
+      assert.match(notes[0], /DSH records system instruction updates/)
+      assert.match(notes[1], /changed context creates a snapshot/)
+      assert.match(notes[2], /saved as an injected message each step/)
+    } else {
+      assert.ok(notes.every(n => n.includes('Does not enter native message history')))
+      assert.match(notes[3], /retained separately/)
+    }
   } finally { await ui.close() }
 })

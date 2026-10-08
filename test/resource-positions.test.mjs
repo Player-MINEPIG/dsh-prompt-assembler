@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { assembleRequest, textOf } from '../src/assemble.js'
 import { normalizePreset } from '../src/model.js'
 import { createDefaultRegistry, DEFAULT_RULES, registerTavernMvuSource } from '../adapters/tavern.js'
-import { positionRows, configurePosition, normalizePositions, positionKey } from '../src/resource-positions.js'
+import { positionRows, configurePosition, normalizePositions, positionKey, applyPositionStrategies } from '../src/resource-positions.js'
 const policy = { version: 1, source: 'preset-slots', identity: 'preserve', fallback: 'source-order', priority: 'user', overrides: [] }
 const preset = backend => normalizePreset({ format: 'dsh-tavern-request-assembly', version: 1, name: 'Positions', backend, rules: DEFAULT_RULES, layout: policy })
 const position = (sourceId, positionId, placement = 'source', enabled = true) => ({ sourceId, positionId, placement, enabled })
@@ -134,4 +134,28 @@ test('priority permutations round-trip while incomplete and duplicate lists are 
   const p = withPositions(preset('core'), [], ['resource', 'default', 'preset', 'user'])
   assert.deepEqual(normalizePreset(p).layout.priority, p.layout.priority)
   for (const priority of [['user'], ['user', 'preset', 'user', 'default'], ['user', 'preset', 'resource', 'runtime']]) assert.throws(() => normalizePreset({ ...p, layout: { ...p.layout, priority } }), /priority/)
+})
+
+test('sorting passes consume resources once and only move the remaining resources', () => {
+  const nodes = [
+    { id: 'character', source: { module: 'character', field: 'description' }, positionId: 'description' },
+    { id: 'lore', source: { module: 'worldbook' }, positionId: 'before', resourceAnchor: { sourceId: 'character', fields: ['description'], side: 'before' } },
+    { id: 'preset', source: { module: 'preset' }, positionId: 'main', slotId: 'slot' },
+    { id: 'tail', source: { module: 'other' }, positionId: 'content' },
+  ].map(n => ({ ...n, role: 'system', lifetime: 'request' }))
+  const p = withPositions(preset('core'), [position('preset', 'main'), position('character', 'description', 'list')], ['user', 'preset', 'resource', 'default'])
+  const stages = applyPositionStrategies(nodes, p, [])
+  assert.deepEqual(stages, [
+    { strategy: 'user', nodeIds: ['character'] },
+    { strategy: 'preset', nodeIds: ['preset'] },
+    { strategy: 'resource', nodeIds: ['lore'] },
+    { strategy: 'default', nodeIds: ['tail'] },
+  ])
+  assert.deepEqual(nodes.map(n => n.id), ['preset', 'lore', 'character', 'tail'], 'resource pass runs after user placement and only moves lore')
+  const presetFirst = withPositions(p, p.layout.positions, ['default', 'user', 'resource', 'preset'])
+  const original = structuredClone(nodes)
+  const claimed = applyPositionStrategies(nodes, presetFirst, [])
+  assert.deepEqual(nodes.map(n => n.id), original.map(n => n.id))
+  assert.equal(claimed[0].nodeIds.length, 4)
+  assert.ok(claimed.slice(1).every(s => s.nodeIds.length === 0), 'later passes cannot touch resources consumed by default')
 })

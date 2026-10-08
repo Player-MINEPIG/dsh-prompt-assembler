@@ -37,7 +37,7 @@ The module menu lists only sources with current independent content. Expanded mo
 
 A source with dispersed content can expose a text parser without appearing as a module. Add custom text selects that parser. DSH text expands only DSH-supplied `{{variable}}` values and rejects missing variables. Installing Tavern adds one unified parser: restricted read-only EJS, content references, then ST macros. Third-party parsers own their syntax and do not implicitly execute other sources’ code.
 
-Resource positions configures declared macro targets, worldbook positions and standalone injections, including empty positions, without loading assets first. Assembly result resolves current resources using the selected conflict priority. Expanded source settings on the configuration page retain supported depth, role and retention settings. Rebuild each request evaluates fresh content without accumulating copies. Retained snapshots save changed bodies and history anchors. Disabled or removed sources stop injecting old snapshots, while recorded bodies remain readable. Complete tool calls and results cannot be split.
+Resource positions configures declared macro targets, worldbook positions and standalone injections, including empty positions, without loading assets first. Assembly result resolves current resources using the selected sorting priority. Expanded source settings on the configuration page retain supported depth, role and retention settings. Rebuild each request evaluates fresh content without accumulating copies. Retained snapshots save changed bodies and history anchors. Disabled or removed sources stop injecting old snapshots, while recorded bodies remain readable. Complete tool calls and results cannot be split.
 
 ## Preview and actual requests
 

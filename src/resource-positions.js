@@ -71,7 +71,7 @@ export function configurePosition(preset, sources, key, patch, beforeKey) {
 }
 
 /** Order whole semantic position groups. Native and retained anchors remain authoritative. */
-export function applyPositionOrder(nodes, preset, diagnostics) {
+export function applyPositionOrder(nodes, preset, diagnostics, active = null) {
   const settings = preset.layout?.positions ?? [], priority = priorityOrder(preset)
   const keyOf = n => positionKey(n.source?.module, n.positionId)
   const fixed = n => n.lifetime === 'native' || n.lifetime === 'snapshot' || n.nativeDepthAnchor
@@ -82,8 +82,8 @@ export function applyPositionOrder(nodes, preset, diagnostics) {
     const key = positionKey(setting.sourceId, setting.positionId)
     const all = nodes.filter(n => keyOf(n) === key)
     const winner = node => fixed(node) ? 'runtime' : priority.find(rule => rule === 'user' || rule === 'default' || rule === 'preset' && (node.slotId || node.placementSource === 'preset') || rule === 'resource' && (node.depth != null || node.nativeRequestedDepth != null || node.positionDecision === 'resource'))
-    const movable = all.filter(n => winner(n) === 'user')
-    for (const decision of new Set(all.filter(n => !movable.includes(n)).map(winner))) diagnostics.push({ code: 'POSITION_CONFLICT', sourceId: setting.sourceId, positionId: setting.positionId, winner: decision, requested: 'list' })
+    const movable = all.filter(n => active ? active.has(n) : winner(n) === 'user')
+    for (const decision of new Set((active ? [] : all.filter(n => !movable.includes(n))).map(winner))) diagnostics.push({ code: 'POSITION_CONFLICT', sourceId: setting.sourceId, positionId: setting.positionId, winner: decision, requested: 'list' })
     for (const area of new Set(movable.map(region))) {
       const group = movable.filter(n => region(n) === area)
       const later = settings.slice(index + 1).map(s => positionKey(s.sourceId, s.positionId))
@@ -106,7 +106,7 @@ export function applyPositionOrder(nodes, preset, diagnostics) {
 }
 
 /** Provider-declared relative placement competes with slots and user order. */
-export function applyResourceAnchors(nodes, preset, diagnostics) {
+export function applyResourceAnchors(nodes, preset, diagnostics, active = null) {
   if (!Array.isArray(preset.layout?.priority)) return
   const priority = priorityOrder(preset), groups = new Map()
   const area = n => preset.backend !== 'native' ? 'core' : n.role === 'system' ? 'system' : `${n.nativePlacement}:${n.nativeDelivery}`
@@ -114,7 +114,7 @@ export function applyResourceAnchors(nodes, preset, diagnostics) {
     if (!node.resourceAnchor || node.lifetime === 'native' || node.lifetime === 'snapshot' || node.nativeDepthAnchor) continue
     const setting = preset.layout.positions?.find(p => p.sourceId === node.source.module && p.positionId === node.positionId)
     const winner = priority.find(p => p === 'resource' || p === 'default' || p === 'preset' && node.slotId || p === 'user' && setting?.placement === 'list')
-    if (winner !== 'resource') continue
+    if (active ? !active.has(node) : winner !== 'resource') continue
     const key = positionKey(node.source.module, node.positionId) + ':' + area(node)
     if (!groups.has(key)) groups.set(key, [])
     groups.get(key).push(node)
@@ -133,4 +133,31 @@ export function applyResourceAnchors(nodes, preset, diagnostics) {
     rest.splice(index, 0, ...group); nodes.splice(0, nodes.length, ...rest)
     for (const node of group) { node.positionDecision = 'resource'; if (node.slotId) { node.originalSlotId = node.slotId; node.slotId = null; node.locked = false; node.lockReason = null } }
   }
+}
+
+/** Each pass consumes only unassigned nodes; later passes cannot move consumed nodes. */
+export function applyPositionStrategies(nodes, preset, diagnostics) {
+  if (!Array.isArray(preset.layout?.priority)) {
+    applyPositionOrder(nodes, preset, diagnostics)
+    return []
+  }
+  const pending = new Set(nodes.filter(n => n.lifetime !== 'native' && n.lifetime !== 'snapshot' && !n.nativeDepthAnchor))
+  const stages = []
+  const setting = node => preset.layout.positions?.find(p => p.sourceId === node.source?.module && p.positionId === node.positionId)
+  for (const strategy of priorityOrder(preset)) {
+    const active = new Set([...pending].filter(node => strategy === 'default'
+      || strategy === 'user' && setting(node)?.enabled && setting(node)?.placement === 'list'
+      || strategy === 'preset' && (node.slotId || node.placementSource === 'preset')
+      || strategy === 'resource' && (node.resourceAnchor || node.depth != null || node.nativeRequestedDepth != null)))
+    if (strategy === 'user') applyPositionOrder(nodes, preset, diagnostics, active)
+    if (strategy === 'resource') applyResourceAnchors(nodes, preset, diagnostics, active)
+    const consumed = [...active].filter(n => strategy !== 'resource' || n.positionDecision === 'resource' || n.depth != null || n.nativeRequestedDepth != null)
+    for (const node of consumed) {
+      pending.delete(node)
+      node.positionDecision = strategy === 'resource' && (node.depth != null || node.nativeRequestedDepth != null) ? 'resource-depth' : strategy
+    }
+    stages.push({ strategy, nodeIds: consumed.map(n => n.id) })
+  }
+  for (const node of nodes) if (setting(node)?.placement === 'list' && node.positionDecision !== 'user') diagnostics.push({ code: 'POSITION_CONFLICT', sourceId: node.source?.module, positionId: node.positionId, winner: node.positionDecision === 'resource-depth' ? 'resource' : node.positionDecision ?? 'runtime', requested: 'list' })
+  return stages
 }

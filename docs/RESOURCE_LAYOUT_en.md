@@ -2,7 +2,7 @@
 
 [中文](RESOURCE_LAYOUT.md) · [Usage](USAGE_en.md) · [Backend limits](BACKENDS_en.md)
 
-The editor has two pages. Resource positions lists every potential content position declared by providers, with switches, drag handles and up/down controls; no asset preview is required. Assembly result loads current assets and applies the selected conflict policy, showing emitted content, provenance, roles, order and decisions. Reading the latest recorded request is a separate read-only action; editing a draft cannot change that record.
+The editor has two pages. Resource positions lists every potential content position declared by providers, with switches and drag handles; no asset preview is required. Assembly result loads current assets and applies the selected sorting policy, showing emitted content, provenance, roles, order and decisions. Reading the latest recorded request is a separate read-only action; editing a draft cannot change that record.
 
 ## Configuration units
 
@@ -16,7 +16,7 @@ Source, parser, role, delivery, retention and native-context settings are under 
 
 Each position follows its source or uses user order. Moving a row marks only that position as user-ordered. Other positions continue following their preset/source; the list supplies neighboring semantic anchors, and empty positions emit no text.
 
-Conflict priority is an ordered, draggable list with keyboard up/down controls, not a choice of fixed plans. `user` (user position configuration), `preset` (preset slots/macros), `resource` (resource-defined anchors/depth) and `default` (source list order) appear exactly once. Assembly selects the highest applicable rule for each position; all 24 permutations can be saved.
+Sorting priority is an ordered, draggable list. `user` (user position configuration), `preset` (preset slots/macros), `resource` (resource-defined anchors/depth) and `default` (source list order) appear exactly once. Assembly executes each strategy in list order and excludes already placed resources from subsequent passes; all 24 permutations can be saved.
 
 When preset ownership wins, content stays at the reference. A winning user move emits the category independently without duplicate inline content. A winning resource rule applies its declared relative anchor or depth. Default precedence uses source list order. Missing anchors follow the selected fallback policy. Results show the priority list used and the resulting decisions.
 
@@ -52,3 +52,5 @@ Positions contain no resource IDs, entry IDs, state revisions or activation list
 Preview and sending share resolution and ordering. Native previews exclude pending input and user-context contributions may reuse retained snapshots, so a current assembly result is not a complete network request; read a recorded actual request for frozen evidence. The UI cannot generate content from an unregistered plugin.
 
 Validation: `node --test test/resource-positions.test.mjs test/plugin-client.test.mjs`. `test/resource-layout-host.test.mjs` uses `DSH_ASSEMBLER_STOCK_ROOT` / `DSH_ASSEMBLER_CORE_ROOT` and temporary profiles to check persisted policies, replacement assets, priority ordering and offline real requests. Browser acceptance covers configuration without preview, switches, dragging, priority changes, results, saving and applying.
+
+Sorting proceeds through the saved list one strategy at a time. Each pass consumes only unplaced resources; later passes cannot move resources consumed by an earlier pass. Result `sortingStages` records which nodes each pass placed. Resource cards explain declared stability before loading assets. Result cards explicitly distinguish existing native messages, native system/context/pre-step retention, request-only content, and separately retained assembly snapshots. Neither list has up/down buttons.
