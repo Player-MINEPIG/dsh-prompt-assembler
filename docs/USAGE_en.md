@@ -45,7 +45,7 @@ Resource positions configures declared macro targets, worldbook positions and st
 
 Assembly result uses the editor draft, readable resources and durable history. It neither applies a strategy nor calls a model, and excludes unsent composer drafts. Random macros use a fixed sample. Uninitialized or damaged source state should return an explicit diagnostic.
 
-View latest actual request reads durable request/assembly in advanced mode. With Tavern installed, standard mode also reads recorded native request boundaries and source details. Older requests without those boundaries may be unavailable until the next send. Editing strategies or removing providers cannot change that record; the record does not prove provider delivery.
+View latest actual request reads durable request/assembly in advanced mode. With Tavern installed, standard mode also reads recorded native request boundaries and source details. Older requests without those boundaries may be unavailable until the next send. Editing strategies or removing providers cannot change that record; the record does not prove provider delivery. This button reads only the latest request and cannot substitute for another historical record. Tavern Trace reads verified details by record ID, retaining messages of every role. System content appears as source modules, with module bodies and complete system text expanded separately; missing source evidence remains explicit.
 
 ## Removing and reinstalling providers
 

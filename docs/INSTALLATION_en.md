@@ -10,6 +10,8 @@ Target DSH `0.2.0-rc.2`, Node `^22.19.0 || >=24` for the Host; library-only use 
 dsh plugin --profile web add github:Player-MINEPIG/dsh-prompt-assembler#main
 ```
 
+`#main` follows the main branch rather than an immutable source revision. To reproduce a reviewed candidate, replace `main` with its full reviewed commit and pin that same commit in the caller's lockfile. Standard and optional addon versions are both `0.2.0`; the addon requires exact standard peer `0.2.0`. Check their source revisions together as well.
+
 The repository is public. Standard metadata provides `main:src/plugin.js`, `dsh.bundle:cordis.patch.yml` and prebuilt `dist/client.js`. Stock rc.2 needs no core changes. Stop/restart the intended Host, then open Settings → Prompt assembly. Save rules updates the library; Save and apply to this session saves edits before applying; new sessions bind before opening. Standalone use has no global default and does not require Tavern. Repository visibility does not establish npm, tag/release or plugin-directory publication.
 
 ## Optional advanced extension
@@ -48,4 +50,6 @@ DSH_ASSEMBLER_STOCK_ROOT=<stock-runtime> node --test test/native-backend.test.mj
 DSH_ASSEMBLER_CORE_ROOT=<prepared-runtime> DSH_ASSEMBLER_MANAGER_ROOT=<manager-checkout> node --test test/host.test.mjs test/plugin-host.test.mjs
 ```
 
-Host fixtures use temporary sessions and offline synthetic providers, covering native/advanced assembly, durable evidence, removal and optional Manager. Skipped fixtures do not establish acceptance. Browser/desktop checks separately cover sidebar, blank sessions, save/apply/preview, secure fetch, switching and removal. Real providers/user profiles require their own authorized acceptance. Directory submissions and tag/release/npm publication require explicit authorization.
+Host fixtures loading `core-extension` from a source checkout also need its standard-package peer to resolve. After `npm ci` in the development checkout, `ln -s .. node_modules/dsh-prompt-assembler` provides that local peer link. This affects only development dependencies and is not a plugin installation step.
+
+Host fixtures use temporary sessions and offline synthetic providers, covering native/advanced assembly, durable evidence, removal and optional Manager. Skipped fixtures do not establish acceptance. Browser/desktop checks separately cover the Settings entry, blank sessions, save/apply/preview, secure fetch, switching and removal. Real providers/user profiles require their own authorized acceptance. Directory submissions and tag/release/npm publication require explicit authorization.

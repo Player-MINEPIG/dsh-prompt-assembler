@@ -10,6 +10,8 @@
 dsh plugin --profile web add github:Player-MINEPIG/dsh-prompt-assembler#main
 ```
 
+`#main` 跟随主线，不固定可复现的源码；复验某个候选时以其已审查的完整 commit 替换 `main`，并在调用方 lockfile 固定同一 commit。标准包与可选 addon 的版本均为 `0.2.0`，addon 的 peer 精确要求标准 `0.2.0`；具体源码修订仍须一起核对。
+
 仓库是 public。标准包拥有 `main:src/plugin.js`、`dsh.bundle:cordis.patch.yml` 和预构建 `dist/client.js`，无需改动 stock rc.2 核心。停止并重启目标 Host 后打开“设置 → 提示词装配”；“保存规则”仅保存资源，“保存并应用到当前会话”先保存修改再应用，新会话先绑定再打开。独立运行没有全局默认，Tavern 不必安装。GitHub 源码、npm 包与插件目录是不同分发途径，不由仓库可见性推断发布状态。
 
 ## 可选进阶扩展
@@ -48,4 +50,6 @@ DSH_ASSEMBLER_STOCK_ROOT=<stock-runtime> node --test test/native-backend.test.mj
 DSH_ASSEMBLER_CORE_ROOT=<prepared-runtime> DSH_ASSEMBLER_MANAGER_ROOT=<manager-checkout> node --test test/host.test.mjs test/plugin-host.test.mjs
 ```
 
-Host fixture 使用临时会话与离线合成 provider，覆盖原生/进阶装配、持久记录、卸载和可选 Manager；没有环境的跳过项不代表验收通过。浏览器与 desktop 另检查侧栏、空白会话、保存/应用/预览、安全 fetch、切换与卸载；真实 provider 与用户 profile 是另外的授权验收。申请公开目录、tag/release/npm 发布需明确授权。
+源码 checkout 中加载 `core-extension` 的 Host fixture 还需要能解析其标准包 peer。在已执行 `npm ci` 的开发 checkout 中，可用 `ln -s .. node_modules/dsh-prompt-assembler` 建立本地 peer 链接；这只影响开发依赖目录，不是插件安装步骤。
+
+Host fixture 使用临时会话与离线合成 provider，覆盖原生/进阶装配、持久记录、卸载和可选 Manager；没有环境的跳过项不代表验收通过。浏览器与 desktop 另检查设置入口、空白会话、保存/应用/预览、安全 fetch、切换与卸载；真实 provider 与用户 profile 是另外的授权验收。申请公开目录、tag/release/npm 发布需明确授权。

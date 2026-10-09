@@ -6,16 +6,22 @@
     "locale": "zh-CN",
     "quality_profile": "showcase",
     "viewBox": [
-      1380,
+      1240,
       760
-    ]
+    ],
+    "repository": {
+      "url": "https://github.com/Player-MINEPIG/dsh-prompt-assembler.git",
+      "revision": "4be47ae20a2e475bf352c3e1abc84197d5c1dde5",
+      "link_mode": "web"
+    },
+    "output": "docs/assets/architecture/assembler.zh-CN.html"
   },
   "components": [
     {
       "id": "assembly-panel",
       "type": "frontend",
       "label": "装配策略界面",
-      "sublabel": "侧栏入口 / 安全 fetch",
+      "sublabel": "设置入口 / 安全 fetch",
       "pos": [
         40,
         330
@@ -23,6 +29,13 @@
       "size": [
         230,
         78
+      ],
+      "sources": [
+        {
+          "path": "src/plugin-client.js",
+          "line": 117,
+          "end_line": 128
+        }
       ]
     },
     {
@@ -31,12 +44,24 @@
       "label": "策略 API 与存储",
       "sublabel": "应用独立快照 / session ID",
       "pos": [
-        390,
+        394,
         330
       ],
       "size": [
         230,
         78
+      ],
+      "sources": [
+        {
+          "path": "src/plugin.js",
+          "line": 67,
+          "end_line": 75
+        },
+        {
+          "path": "src/server.js",
+          "line": 9,
+          "end_line": 21
+        }
       ]
     },
     {
@@ -45,12 +70,19 @@
       "label": "请求装配运行时",
       "sublabel": "共享来源与策略 / 标准默认",
       "pos": [
-        740,
+        660,
         330
       ],
       "size": [
         230,
         78
+      ],
+      "sources": [
+        {
+          "path": "src/runtime.js",
+          "line": 19,
+          "end_line": 75
+        }
       ]
     },
     {
@@ -59,12 +91,24 @@
       "label": "DSH 请求执行",
       "sublabel": "原生冻结 / llm/stream",
       "pos": [
-        1090,
+        926,
         330
       ],
       "size": [
         230,
         78
+      ],
+      "sources": [
+        {
+          "path": "src/runtime.js",
+          "line": 49,
+          "end_line": 75
+        },
+        {
+          "path": "src/core-backend.js",
+          "line": 27,
+          "end_line": 45
+        }
       ]
     },
     {
@@ -73,12 +117,19 @@
       "label": "assembly-presets.json",
       "sublabel": "预设库与会话选择",
       "pos": [
-        390,
+        394,
         100
       ],
       "size": [
         230,
         78
+      ],
+      "sources": [
+        {
+          "path": "src/store.js",
+          "line": 6,
+          "end_line": 34
+        }
       ]
     },
     {
@@ -87,12 +138,19 @@
       "label": "公开来源服务",
       "sublabel": "dshPromptSources 协议 1",
       "pos": [
-        740,
+        660,
         100
       ],
       "size": [
         230,
         78
+      ],
+      "sources": [
+        {
+          "path": "src/plugin.js",
+          "line": 19,
+          "end_line": 46
+        }
       ]
     },
     {
@@ -101,12 +159,29 @@
       "label": "来源提供方",
       "sublabel": "DSH / Tavern / 可选 Manager",
       "pos": [
-        740,
+        660,
         590
       ],
       "size": [
         230,
         78
+      ],
+      "sources": [
+        {
+          "path": "adapters/dsh.js",
+          "line": 5,
+          "end_line": 22
+        },
+        {
+          "path": "adapters/memory-manager.js",
+          "line": 5,
+          "end_line": 24
+        },
+        {
+          "path": "src/plugin.js",
+          "line": 22,
+          "end_line": 42
+        }
       ]
     },
     {
@@ -115,12 +190,24 @@
       "label": "DSH durable history",
       "sublabel": "原生历史 / 进阶请求记录",
       "pos": [
-        1090,
+        926,
         590
       ],
       "size": [
         230,
         78
+      ],
+      "sources": [
+        {
+          "path": "src/server.js",
+          "line": 16,
+          "end_line": 21
+        },
+        {
+          "path": "src/core-backend.js",
+          "line": 33,
+          "end_line": 45
+        }
       ]
     },
     {
@@ -129,12 +216,19 @@
       "label": "可选 core 扩展",
       "sublabel": "共享 assembler / 准备后核心",
       "pos": [
-        1090,
+        926,
         100
       ],
       "size": [
         230,
         78
+      ],
+      "sources": [
+        {
+          "path": "core-extension/src/plugin.js",
+          "line": 5,
+          "end_line": 16
+        }
       ]
     }
   ],
@@ -176,7 +270,7 @@
       "variant": "default",
       "from": "registered-sources",
       "labelAt": [
-        855,
+        775,
         254
       ]
     },
@@ -190,11 +284,11 @@
     {
       "id": "dsh-request-durable-history",
       "to": "durable-history",
-      "label": "DSH 记录实际请求",
+      "label": "原生事件 / 进阶请求记录",
       "variant": "default",
       "from": "dsh-request",
       "labelAt": [
-        1205,
+        1041,
         505
       ]
     },
@@ -205,7 +299,7 @@
       "label": "协议 1 钩子",
       "variant": "dashed",
       "labelAt": [
-        1205,
+        1041,
         254
       ]
     }

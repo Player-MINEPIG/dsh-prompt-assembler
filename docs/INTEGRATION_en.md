@@ -93,8 +93,25 @@ Callers embedding `AssemblyPanel` may provide `selectionTarget: { id, editable, 
 
 Host activation and legacy strategy migration follow [backend rules](BACKENDS_en.md). Treat statements about depth/snapshot/projection and protocol-1 execution above as advanced-library contracts. `nativeAssembly`/`nativePreStep` are the standard public-seam lifecycle; `execute` is delegated only after an addon explicitly calls `registerRequestBackend`. `requireAvailable(preset)` is the application check.
 
+## Actual requests and historical sources
+
 `GET /assembly-presets/actual?sessionId=…` reads the latest frozen request; a current native selection does not block an existing `request/assembly`. An attached provider may return `{request,backend,recordKind,seq}` through `attachTavern({…,readActual})` or the HTTP factory's `readActual(sessionId)`. DSH log sequence determines precedence over durable frozen records. Tavern's native observer saves only the request cut and whole-message digest, then uses public detached Session replay and verifies that digest on read. It neither copies bodies nor reassembles current resources. Missing references and older sessions without captures remain explicitly unavailable. Stock native hosts without that observer cannot supply complete historical requests.
 
 The actual request view follows actual message order and uses recorded provenance, without evaluating current presets. New native `nativeSourceRefs` retain version 1, item names, source field/resource identifiers, message hashes and UTF-16 ranges. They cover system contributions, context, pre-step PHI and uniquely verified nested references; bodies remain in DSH history. Older verified section references can recover source identifiers while missing item names remain explicit. Unverified ranges show “Source not recorded”; a merged system body is not labeled as native base instructions. A provider result at the same log sequence enriches a frozen request only when it supplies historical assembly detail; absent evidence does not replace that frozen body.
 
 Legacy preset items may carry a current display name with `sourceStatus:current-name`; the UI distinguishes it from names saved at request time. Unresolved identifiers remain in details while summaries use readable ordinals.
+
+`actualAssemblyResult(record)` is a public read-only display projection, exported from `dsh-prompt-assembler/actual-result`. Callers verify the durable record before passing its `{messages,metadata}`; this helper does not read, authorize or verify records. Returned `messages` retains the original `record.messages` array and actual order. It neither turns source modules into request messages nor reevaluates sources. `metadata.assembly` describes layout before history filtering: final bodies/counts come from `messages`, differences from `metadata.historyPolicy`. The helper reconciles node display only through recorded filtering decisions and preserves the original audit.
+
+Tavern Trace uses v3 record-ID details with verified `requestAssembly` or `nativeRequest`. Only when that request lacks `metadata.assembly` may the caller supply that same record's `nativeProvenance` as display metadata; other records and current configuration cannot fill gaps. Trace retains all system/user/assistant/tool messages in their original order. System content appears as source modules with nested sections; module bodies and exact complete system text expand separately. This is caller-owned presentation, not a new message protocol.
+
+Associate sources only through recorded coordinates (such as `messageIndex` or `reference.messageId`), `requestMessageIds` or node message IDs. Advanced `systemProjection.version:1` / `semantics:complete-snapshots` entries contain `index`, `messageId`, `inputIds` and `contributorIds`. Later complete system snapshots also include earlier contributions: associate node `inputMessageIds` with that snapshot's `contributorIds`, rather than inferring from adjacency or equal text. If history filtering changes final system bytes without refreshed module evidence, show that recorded complete text with an explicit evidence gap instead of attributing stale module bodies. A `current-name` status identifies a current-name fallback; it does not certify historically recorded bodies or names.
+
+Minimal display composition (`verifiedRequest` has already been verified for that record by the caller):
+
+```js
+import { actualAssemblyResult } from 'dsh-prompt-assembler/actual-result'
+const view = actualAssemblyResult(verifiedRequest)
+// view.messages is the complete recorded request; view.nodes is source display evidence.
+// Report unavailable historical evidence; never fill it from /actual or /preview.
+```

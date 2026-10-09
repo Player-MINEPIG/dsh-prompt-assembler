@@ -49,6 +49,6 @@ npm ci
 npm run check
 ```
 
-`check` covers local tests, client building and package checks. CI runs these commands on supported library Node versions. Real Host checks require an explicitly supplied prepared rc.2 core. Skipped default tests do not establish Host or browser acceptance; see [verification](docs/INSTALLATION_en.md#verification). See [version history](CHANGELOG.md) for current changes.
+`check` covers local tests, client building and package checks. CI runs these commands on supported library Node versions. Real Host checks explicitly select stock rc.2 for native behavior and prepared rc.2 plus the addon for advanced behavior. Skipped default tests do not establish Host or browser acceptance; see [verification](docs/INSTALLATION_en.md#verification). See [version history](CHANGELOG.md) for current changes.
 
 [Third-party guide](docs/DEVELOPER_GUIDE_en.md) · [HTTP API](docs/API_en.md) · [Architecture](docs/ARCHITECTURE_en.md).

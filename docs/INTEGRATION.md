@@ -91,8 +91,25 @@ Tavern 的 preset/custom/template 保留旧手填解析兼容入口；新界面�
 
 Host 启用与旧策略迁移遵循[后端规则](BACKENDS.md)。上文 depth/snapshot/projectSystemSnapshots/协议 1 的合同属于进阶库路径。标准生命周期为 nativeAssembly/nativePreStep；execute 仅在 addon 显式 registerRequestBackend 后委托。应用使用 requireAvailable(preset) 检查。
 
+## 实际请求与历史来源
+
 `GET /assembly-presets/actual?sessionId=…` 读取最近的冻结请求，不因当前策略是 native 而拒绝已有 `request/assembly`。附加 provider 可通过 `attachTavern({…,readActual})` 或 HTTP factory 的 `readActual(sessionId)` 返回 `{request,backend,recordKind,seq}`；按 DSH 日志序号与持久冻结记录比较。Tavern 的原生 observer 只保存请求边界和整组消息哈希，读取时用公共 Session detached replay 恢复该边界并核验哈希，不复制正文、不重新装配。缺少历史引用或旧会话没有当次记录时明确返回不可用。没有该 observer 的普通原生宿主无法提供完整历史请求。
 
 实际请求视图按实际消息顺序展示当时记录的来源段落，不重新求值当前预设。新原生请求的 `nativeSourceRefs` 保存 version 1、条目名称、来源字段/资源标识及消息哈希和 UTF-16 范围；system、context、pre-step PHI 和可唯一核验的嵌套引用均可关联。正文只从 DSH 历史读取。旧记录可利用已核验段落引用恢复来源标识，缺失的条目名称明确标为未记录；无法核验的区间显示“来源未记录”，不将合并的 system 全文标为官方基础指令。 同日志序号的 provider 结果只有带历史装配明细时才用于增强冻结请求展示；缺失证据不会覆盖该次冻结正文。
 
 旧预设条目可附带 `sourceStatus:current-name` 的当前名称标签；界面明确区分该标签与请求时保存的名称。未解析的来源标识保留在详情，摘要使用可读序号。
+
+`actualAssemblyResult(record)` 是公开的只读展示投影，入口为 `dsh-prompt-assembler/actual-result`。调用方先验证 durable 记录，再传入该次的 `{messages,metadata}`；该 helper 不负责读取、授权或核验记录。返回的 `messages` 保持 `record.messages` 原数组与实际顺序，不把来源模块改写成请求消息，也不重新执行来源。`metadata.assembly` 描述布局；历史筛选发生在布局之后，最终正文/数量必须取 `messages`，差异取 `metadata.historyPolicy`。helper 只按已记录筛选决策协调节点展示，保留原始 audit。
+
+Tavern Trace 使用 v3 按记录 ID 核验过的 `requestAssembly` 或 `nativeRequest`。仅当请求缺少 `metadata.assembly` 时，调用方可把该记录的 `nativeProvenance` 作为展示 metadata 传入；不补其他记录或当前配置。Trace 保留全部 system/user/assistant/tool 消息的原顺序；system 内按来源小模块及嵌套 section 展示，模块正文与完整 system 原文独立展开。这是调用方的展示方式，不是新的消息协议。
+
+来源关联只使用记录坐标（如 `messageIndex`、`reference.messageId`）、`requestMessageIds` 或节点消息 ID。进阶 `systemProjection.version:1` / `semantics:complete-snapshots` 的每项包含 `index`、`messageId`、`inputIds` 和 `contributorIds`；后续完整 system 快照还包含较早贡献，调用方用节点的 `inputMessageIds` 与该快照的 `contributorIds` 关联它们，不能只靠相邻模块或文本相等推断。如果最终 system 字节被历史筛选修改而模块证据未刷新，应显示该次完整原文并明确来源不足，不能沿用旧模块正文归因。名称状态 `current-name` 只说明当前名称回退，不证明正文或名称在当时已记录。
+
+最小展示组合（`verifiedRequest` 由调用方完成该次记录核验）：
+
+```js
+import { actualAssemblyResult } from 'dsh-prompt-assembler/actual-result'
+const view = actualAssemblyResult(verifiedRequest)
+// view.messages 是该次记录的完整消息；view.nodes 是来源展示证据。
+// 历史记录缺证据时明确返回不可用，不调用 /actual 或 /preview 补齐。
+```

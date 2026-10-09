@@ -14,7 +14,7 @@ The prefix is `/dsh-prompt-assembler/api/v1/assembly-presets`; paths below are r
 | DELETE | /:id | {ok:true} |
 | PUT | /selection | {sessionId,id:string|null} → {selection} |
 | POST | /preview | {sessionId,preset} or {sessionId,presetId} → {preview} |
-| GET | /actual?sessionId=… | {request: durable request/assembly | null} |
+| GET | /actual?sessionId=… | Latest recorded request `{request,backend,recordKind,seq?}`; `request:null` when unavailable |
 
 Saving affects only the library. Applying copies an independent snapshot; `id:null` disables. Running Agents reject apply (409). Builtins cannot be overwritten or removed; selected preset deletion is refused. Preview uses persisted current session and current source reads without unsent input, Agent activation or model preparation. Actual reads recorded data without reevaluating parsers/macros. Unknown preset IDs use the store's error status; do not assume every missing ID has HTTP 404.
 
@@ -22,4 +22,8 @@ The separate token route is `GET /dsh-prompt-assembler/api/v1/request-token` wit
 
 Tavern's compatibility prefix `/pmp-dsh-tavern/api/v1/assembly-presets` forwards the same store/runtime through Tavern's security boundary. It does not create a second strategy system. Host service, source/block types, store and panel embedding contracts are in [INTEGRATION](INTEGRATION_en.md) and [types](../src/index.d.ts).
 
-Strategies optionally carry `backend:native|core`; absent means legacy core. Native user rules optionally specify `delivery:context|pre-step`. Unsupported native layouts return 409 ASSEMBLY_NATIVE_UNSUPPORTED. GET actual returns `backend` and `recordKind:request/assembly`; native mode returns request:null rather than reconstructed frozen-request evidence. See [backend rules](BACKENDS_en.md).
+Strategies optionally carry `backend:native|core`; absent means legacy core. Native user rules optionally specify `delivery:context|pre-step`. Unsupported native layouts return 409 ASSEMBLY_NATIVE_UNSUPPORTED. `GET /actual` reads the latest durable `request/assembly` by default, returning `backend` and `recordKind:request/assembly`. An attached `readActual(sessionId)` provider may also supply a verified native request with its `recordKind` and `seq`. Log sequence selects the latest record; at equal sequence, only a provider result with historical assembly detail enriches the display. A native session without that provider or an existing `request/assembly` returns `request:null`; current history or preview cannot fabricate frozen evidence. Selecting native does not hide an older core record. See [backend rules](BACKENDS_en.md) and the [actual request contract](INTEGRATION_en.md#actual-requests-and-historical-sources).
+
+## API scope
+
+The strategy library, applied session snapshot, current read-only preview and latest actual request are separate composable capabilities. `/actual` has no historical record-ID selector: never use it to fill a different turn/step or use `/preview` to reconstruct history. Callers compose public interfaces for record-specific history, source-body authorization and Trace presentation. Assembler owns neither source resource editors nor a second session history.
