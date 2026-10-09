@@ -1235,11 +1235,17 @@ function AssemblyPanelContent({ selectionTarget, sessionId, sessionLabel: sessio
       (0, import_react5.createElement)(
         "div",
         { className: "dta-summary" },
-        (0, import_react5.createElement)("span", { "aria-hidden": true }, "\u{1F512}"),
+        (0, import_react5.createElement)("span", { title: t("contextControlled"), "aria-hidden": true }, "\u25C8"),
         (0, import_react5.createElement)("input", { type: "checkbox", checked: rule.enabled, disabled: busy, "aria-label": sourceName(rule.kind), onChange: (e) => editRule(rule.id, { enabled: e.target.checked }) }),
-        (0, import_react5.createElement)("span", { className: "dta-name" }, sourceName(rule.kind), (0, import_react5.createElement)("small", { className: "dta-origin" }, t("contextControlled")))
+        (0, import_react5.createElement)("span", { className: "dta-name", role: "button", tabIndex: 0, "aria-expanded": !!expanded[rule.id], onClick: () => toggle(rule.id), onKeyDown: (e) => {
+          if (["Enter", " "].includes(e.key)) {
+            e.preventDefault();
+            toggle(rule.id);
+          }
+        } }, sourceName(rule.kind), (0, import_react5.createElement)("small", { className: "dta-origin" }, originName("DSH"))),
+        summaryMetadata("assembly", "nativeRetention", "preserve")
       ),
-      (0, import_react5.createElement)("div", { className: "dta-detail" }, (0, import_react5.createElement)("small", null, t(rule.kind === "dsh.runtime-context" ? "contextMasterHint" : "contextControlHint")))
+      expanded[rule.id] && (0, import_react5.createElement)("div", { className: "dta-detail" }, (0, import_react5.createElement)("small", null, t("contextControlled")), (0, import_react5.createElement)("small", null, t(rule.kind === "dsh.runtime-context" ? "contextMasterHint" : "contextControlHint")))
     );
     const roleLabel = draft.layout?.identity === "preserve" && rule.inputMode !== "text" && !["custom", "dsh.text", "native-system", "history", "input"].includes(rule.kind) ? "sourceIdentity" : adaptiveNative && rule.kind === "worldbook" && !slotMode ? "nativeWorldRole" : slotMode && controlFor(rule) === "preset" ? "nativeSlotRole" : adaptiveNative && rule.kind === "preset" ? "nativePresetRole" : null;
     const textInput = rule.inputMode === "text" || ["custom", "dsh.text"].includes(rule.kind);

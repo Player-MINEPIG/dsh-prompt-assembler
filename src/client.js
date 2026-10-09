@@ -283,9 +283,9 @@ function AssemblyPanelContent({ selectionTarget, sessionId, sessionLabel, onCrea
   function ruleRow(rule, index) {
     rule = editableRule(rule)
     if (isContextControl(rule.kind)) return h('article', { key: rule.id, className: 'dta-row', 'data-context-control': rule.kind, style: { '--assembly-color': sourceColor('DSH') } },
-      h('div', { className: 'dta-summary' }, h('span', { 'aria-hidden': true }, '🔒'), h('input', { type: 'checkbox', checked: rule.enabled, disabled: busy, 'aria-label': sourceName(rule.kind), onChange: e => editRule(rule.id, { enabled: e.target.checked }) }),
-        h('span', { className: 'dta-name' }, sourceName(rule.kind), h('small', { className: 'dta-origin' }, t('contextControlled')))),
-      h('div', { className: 'dta-detail' }, h('small', null, t(rule.kind === 'dsh.runtime-context' ? 'contextMasterHint' : 'contextControlHint'))))
+      h('div', { className: 'dta-summary' }, h('span', { title: t('contextControlled'), 'aria-hidden': true }, '◈'), h('input', { type: 'checkbox', checked: rule.enabled, disabled: busy, 'aria-label': sourceName(rule.kind), onChange: e => editRule(rule.id, { enabled: e.target.checked }) }),
+        h('span', { className: 'dta-name', role: 'button', tabIndex: 0, 'aria-expanded': !!expanded[rule.id], onClick: () => toggle(rule.id), onKeyDown: e => { if (['Enter', ' '].includes(e.key)) { e.preventDefault(); toggle(rule.id) } } }, sourceName(rule.kind), h('small', { className: 'dta-origin' }, originName('DSH'))), summaryMetadata('assembly', 'nativeRetention', 'preserve')),
+      expanded[rule.id] && h('div', { className: 'dta-detail' }, h('small', null, t('contextControlled')), h('small', null, t(rule.kind === 'dsh.runtime-context' ? 'contextMasterHint' : 'contextControlHint'))))
     const roleLabel = draft.layout?.identity === 'preserve' && rule.inputMode !== 'text' && !['custom', 'dsh.text', 'native-system', 'history', 'input'].includes(rule.kind) ? 'sourceIdentity' : adaptiveNative && rule.kind === 'worldbook' && !slotMode ? 'nativeWorldRole' : slotMode && controlFor(rule) === 'preset' ? 'nativeSlotRole' : adaptiveNative && rule.kind === 'preset' ? 'nativePresetRole' : null
     const textInput = rule.inputMode === 'text' || ['custom', 'dsh.text'].includes(rule.kind)
     return h('article', { key: rule.id, className: 'dta-row', 'data-assembly-index': index, style: { '--assembly-color': sourceColor(sourcePlugin(rule.kind)) } },
