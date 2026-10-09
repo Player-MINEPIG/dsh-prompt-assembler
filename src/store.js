@@ -4,6 +4,7 @@ import { randomUUID } from 'node:crypto'
 import { BUILTINS, normalizePreset } from './model.js'
 
 export class AssemblyPresetStore {
+  #providerPresets = new Map()
   constructor(root, { mode = () => null, builtins = BUILTINS, defaultPresetId = builtins[0]?.id, unified = false } = {}) {
     this.unified = unified; this.mode = mode; this.builtins = builtins; this.defaultPresetId = defaultPresetId
     mkdirSync(root, { recursive: true }); this.path = join(root, 'assembly-presets.json')
@@ -45,7 +46,23 @@ export class AssemblyPresetStore {
   }
   list() {
     // Applied snapshots are session state, never registrations in the catalog.
-    return structuredClone([...this.builtins.map(p => ({ ...p, builtin: true })), ...Object.values(this.state.presets)])
+    return structuredClone([...this.builtins.map(p => ({ ...p, builtin: true })), ...this.#providerPresets.values(), ...Object.values(this.state.presets)])
+  }
+  registerPresets({ pluginId, presets }) {
+    if (typeof pluginId !== 'string' || !/^[a-zA-Z0-9][a-zA-Z0-9_.:/-]{0,159}$/.test(pluginId) || ['__proto__', 'constructor', 'prototype'].includes(pluginId)) throw new TypeError('Invalid preset provider pluginId')
+    if (!Array.isArray(presets)) throw new TypeError('Preset registration requires an array')
+    const entries = new Map(), builtinIds = new Set(this.builtins.map(p => p.id))
+    for (const value of presets) {
+      const id = value?.id
+      if (typeof id !== 'string' || !/^[a-zA-Z0-9_-]{1,200}$/.test(id) || ['__proto__', 'constructor', 'prototype'].includes(id)) throw new TypeError('Invalid registered preset id')
+      if (entries.has(id) || builtinIds.has(id) || this.#providerPresets.has(id) || Object.hasOwn(this.state.presets, id)) throw new TypeError(`Duplicate assembly preset: ${id}`)
+      entries.set(id, structuredClone({ ...normalizePreset(value), id, builtin: true, pluginId }))
+    }
+    // Validate the complete registration before publishing any catalog entries.
+    for (const [id, entry] of entries) this.#providerPresets.set(id, entry)
+    return () => {
+      for (const [id, entry] of entries) if (this.#providerPresets.get(id) === entry) this.#providerPresets.delete(id)
+    }
   }
   get(id) {
     const preset = this.list().find(p => p.id === id)
@@ -54,13 +71,13 @@ export class AssemblyPresetStore {
   }
   save(value, id) {
     if (id?.startsWith('builtin-')) throw new TypeError('Copy a built-in preset before editing')
-    if (id !== undefined) this.get(id)
+    if (id !== undefined && this.get(id).builtin) throw new TypeError('Copy a built-in preset before editing')
     const preset = { ...normalizePreset(value), id: id ?? randomUUID() }
     const next = structuredClone(this.state); next.presets[preset.id] = preset; this.persist(next); return preset
   }
   remove(id) {
-    this.get(id)
-    if (id.startsWith('builtin-')) throw new TypeError('Built-in presets cannot be deleted')
+    const preset = this.get(id)
+    if (id.startsWith('builtin-') || preset.builtin) throw new TypeError('Built-in presets cannot be deleted')
     if (Object.values(this.state.selections).some(s => s?.id === id)) throw Object.assign(new Error('Preset is applied to a session'), { status: 409 })
     const next = structuredClone(this.state); delete next.presets[id]; this.persist(next)
   }
