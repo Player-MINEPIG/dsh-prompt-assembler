@@ -1,25 +1,24 @@
 import { applyPositionStrategies } from './resource-positions.js'
 const fail = (message, node) => { throw Object.assign(new Error(message), { status: 409, code: 'ASSEMBLY_NATIVE_UNSUPPORTED', detail: node && { ruleId: node.ruleId, field: node.source?.field, name: node.name } }) }
 const kind = node => node.source?.module
-const presetOwned = node => kind(node) === 'preset' || node.placementSource === 'preset'
+const presetOwned = node => typeof node.slotOwner === 'string'
 
 /** Project source order onto public native delivery regions, retaining empty anchors. */
 export function projectNativeOrder(nodes, preset, diagnostics) {
   const history = nodes.find(n => kind(n) === 'history'), input = nodes.find(n => kind(n) === 'input')
   if (!history || !input) fail('Native ordering requires both history and current-input anchors.')
   const requestedSlots = preset.placement === 'native-slots'
-  const historySlot = history.placementSource === 'preset', inputSlot = input.placementSource === 'preset'
+  const historySlot = presetOwned(history), inputSlot = presetOwned(input)
   const slots = requestedSlots && (historySlot || inputSlot)
   if (requestedSlots && !slots) diagnostics.push({ code: 'NATIVE_SLOTS_ABSENT' })
   const authored = [...nodes]
   if (slots) {
-    // The preset is one immutable spine. Independent modules attach to its
+    // Slot owners form one immutable spine. Independent modules attach to its
     // native anchors, not to the fallback position of a consumed module row.
     const independent = nodes.filter(n => !presetOwned(n) && n !== history && n !== input)
     const spine = nodes.filter(n => !independent.includes(n))
-    const firstPreset = spine.find(presetOwned)
     const anchors = preset.rules.flatMap(r => {
-      const node = r.kind === 'preset' ? firstPreset : r.kind === 'history' ? history : r.kind === 'input' ? input : null
+      const node = r.kind === 'history' ? history : r.kind === 'input' ? input : spine.find(n => n.slotOwner === r.kind)
       return node ? [{ rule: r, node }] : []
     })
     for (const node of independent) {

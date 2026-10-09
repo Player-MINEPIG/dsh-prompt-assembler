@@ -79,7 +79,7 @@ export function registerTavernSources(registry, { worldbookPolicy, worldbookVali
     name: e.comment || `worldbook:${e.id ?? e.uid}`, positionId: e.requestedPosition === 'at_depth' ? 'depth' : e.requestedPosition ?? e.position ?? 'after', group: worldbookGroup(e, context, diagnostics), stability: e.constant ? 'asset' : 'conversation', role: e.role ?? 'system',
     ...(e.requestedPosition === 'at_depth' ? { depth: e.depth ?? 0 } : {}), source: { resourceId: e.resourceId, field: String(e.uid ?? e.id) },
   })) }; return worldbookPolicy ? worldbookPolicy(context, output) : output } })
-  register({ id: 'preset', name: '预设正文', textParserAliasFor: 'tavern.text', parseText: parseTavernText, lifetimes: ['request'], dependencies: ['character', 'persona', 'history', 'input', 'worldbook', 'phi'], resolve({ assets, preset }) {
+  register({ id: 'preset', name: '预设正文', ownsSlots: true, textParserAliasFor: 'tavern.text', parseText: parseTavernText, lifetimes: ['request'], dependencies: ['character', 'persona', 'history', 'input', 'worldbook', 'phi'], resolve({ assets, preset }) {
     const blocks = [], diagnostics = [], fields = characterFields(assets, preset)
     const markerFields = { charDescription: ['character', 'description'], charPersonality: ['character', 'personality'], scenario: ['character', 'scenario'], dialogueExamples: ['character', 'examples'], personaDescription: ['persona', 'persona'], userDescription: ['persona', 'persona'], userPersona: ['persona', 'persona'] }
     for (const p of assets.preset?.prompts ?? []) {

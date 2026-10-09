@@ -128,13 +128,13 @@ function assembleResolved({ preset: suppliedPreset, previous = null, snapshots =
   // Preset slots own their references even if another module is dragged ahead
   // of the preset. Keep legacy claim precedence in other placement modes.
   const claimGroups = adaptive
-    ? [roots.filter(r => r.entry.descriptor.id === 'preset'), roots.filter(r => r.entry.descriptor.id !== 'preset')]
+    ? [roots.filter(r => r.entry.descriptor.ownsSlots), roots.filter(r => !r.entry.descriptor.ownsSlots)]
     : [roots]
   for (const group of claimGroups) {
     for (const { entry, block } of group) claimContent(entry, block)
     for (const { entry, block } of group) claimReferences(entry, block)
   }
-  const presetKeys = new Set(roots.filter(r => r.entry.descriptor.id === 'preset').map(r => key(r.entry, r.block)))
+  const presetKeys = new Set(roots.filter(r => r.entry.descriptor.ownsSlots).map(r => key(r.entry, r.block)))
   const isPresetOwned = identity => {
     const seen = new Set()
     while (claims.has(identity) && !seen.has(identity)) { seen.add(identity); identity = claims.get(identity) }
@@ -145,13 +145,14 @@ function assembleResolved({ preset: suppliedPreset, previous = null, snapshots =
     const blocks = (entry?.blocks ?? []).filter(b => b.type === 'text' && b.text.trim())
     const owned = blocks.filter(b => isPresetOwned(key(entry, b))).length
     const independent = blocks.filter(b => !claims.has(key(entry, b)) && !b.referenceOnly).length
-    const control = rule.kind === 'preset' ? 'preset' : ['history', 'input'].includes(rule.kind) ? 'native'
+    const control = entry?.descriptor.ownsSlots ? 'preset' : ['history', 'input'].includes(rule.kind) ? 'native'
       : owned ? independent ? 'mixed' : 'preset' : independent || rule.kind === 'native-system' ? 'independent' : 'empty'
     return { ruleId: rule.id, control, owned, independent }
   }) : undefined
   const emitted = new Set(), plans = new Map(rules.map(r => [r.id, []]))
   function emit(entry, block, effectiveRule = entry.rule, reference = null, path = new Set()) {
     const identity = key(entry, block), owner = reference?.owner
+    const slotOwner = reference?.slotOwner ?? (entry.descriptor.ownsSlots ? entry.descriptor.id : null)
     if (!positionEnabled(entry, block)) return
     if ((claims.has(identity) && claims.get(identity) !== owner) || emitted.has(identity)) return
     if (path.has(identity)) throw new TypeError('Cyclic source block reference')
@@ -163,7 +164,7 @@ function assembleResolved({ preset: suppliedPreset, previous = null, snapshots =
       if (slots.at(-1).duplicate) diagnostics.push({ code: 'LAYOUT_DUPLICATE_SLOT', slotId: identity })
       for (const target of referenced) {
         const targetRule = block.useOwnerRule ? effectiveRule : target.entry.rule
-        emit(target.entry, target.block, targetRule, { slotId: reference?.slotId ?? identity, owner: identity, placementRule: reference?.placementRule ?? effectiveRule.id, locked: block.lock !== false, reason: `reference:${block.owner ?? block.id}`, sourceId: reference?.sourceId ?? entry.descriptor.id, authoredRole: reference?.authoredRole ?? (entry.descriptor.id === 'preset' ? block.role ?? 'system' : undefined) }, next)
+        emit(target.entry, target.block, targetRule, { slotId: reference?.slotId ?? identity, owner: identity, placementRule: reference?.placementRule ?? effectiveRule.id, locked: block.lock !== false, reason: `reference:${block.owner ?? block.id}`, sourceId: reference?.sourceId ?? entry.descriptor.id, slotOwner, authoredRole: reference?.authoredRole ?? (slotOwner ? block.role ?? 'system' : undefined) }, next)
       }
       return
     }
@@ -186,7 +187,7 @@ function assembleResolved({ preset: suppliedPreset, previous = null, snapshots =
       if (typeof rendered !== 'string') throw new TypeError('renderText must synchronously return text')
       if (!rendered) return
       role = preset.layout?.identity === 'preserve' ? block.role ?? (targetRule.inputMode === 'text' && targetRule.role !== 'preserve' ? targetRule.role : 'system') : preset.placement === 'native-roles' && entry.descriptor.id === 'worldbook' ? block.role ?? 'system'
-        : adaptive && (entry.descriptor.id === 'preset' || reference?.authoredRole)
+        : adaptive && (entry.descriptor.ownsSlots || reference?.authoredRole)
         ? reference?.authoredRole ?? block.role ?? 'system'
         : targetRule.role === 'preserve' ? block.role ?? 'system' : targetRule.role
       lifetime = targetRule.lifetime; contentHash = hash({ text: rendered, role })
@@ -209,7 +210,7 @@ function assembleResolved({ preset: suppliedPreset, previous = null, snapshots =
       depth = null
     }
     const node = { ...(positionOf(entry, block)?.anchor ? { resourceAnchor: positionOf(entry, block).anchor } : {}), positionId: positionOf(entry, block)?.id, positionDecision: block.type === 'native' ? 'runtime' : userPlaced(entry, block) ? 'user' : depth != null || nativeRequestedDepth != null ? 'resource-depth' : reference?.slotId ? 'preset' : 'source', originalRole: block.type === 'native' ? 'preserve' : block.role ?? (targetRule.inputMode === 'text' && targetRule.role !== 'preserve' ? targetRule.role : 'system'), messageRoles: messages.map(m => m.role), layoutGroup: block.group ?? null, slotId: reference?.slotId ?? null, id: identity, ruleId: targetRule.id, module: targetRule.kind, name: block.name || block.id, role, text: rendered, messages, source: origin(entry, block),
-      ...(adaptive ? { placementSource: reference?.sourceId ?? null, nativeRequestedDepth } : {}),
+      ...(slotOwner ? { slotOwner } : {}), ...(adaptive ? { placementSource: reference?.sourceId ?? null, nativeRequestedDepth } : {}),
       stability: block.stability ?? entry.descriptor.stability,
       lifetime, recorded: true, locked: reference?.locked ?? false, lockReason: reference?.locked ? reference.reason : null, children, hash: contentHash, depth, order: block.order ?? 100, changed: previous?.nodes?.find(n => n.id === identity)?.hash !== contentHash }
     if (depth != null) deferred.push(node)
@@ -222,10 +223,10 @@ function assembleResolved({ preset: suppliedPreset, previous = null, snapshots =
   if (adaptive) {
     sortingStages = projectNativeOrder(nodes, preset, diagnostics)
     for (const control of placementControls) {
-      if (['preset', 'history', 'input'].includes(preset.rules.find(r => r.id === control.ruleId)?.kind)) continue
+      if (byRule.get(control.ruleId)?.descriptor.ownsSlots || ['history', 'input'].includes(preset.rules.find(r => r.id === control.ruleId)?.kind)) continue
       const fixed = nodes.filter(n => n.ruleId === control.ruleId && n.nativeDepthAnchor)
       control.owned += fixed.length
-      control.independent = nodes.filter(n => n.ruleId === control.ruleId && n.source.module !== 'preset' && n.placementSource !== 'preset' && !n.nativeDepthAnchor).length
+      control.independent = nodes.filter(n => n.ruleId === control.ruleId && !n.slotOwner && !n.nativeDepthAnchor).length
       control.control = control.owned ? control.independent ? 'mixed' : 'preset' : control.independent ? 'independent' : 'empty'
     }
     for (const node of nodes) if (node.lifetime !== 'native') { node.hash = hash({ text: node.text, role: node.role }); node.changed = previous?.nodes?.find(n => n.id === node.id)?.hash !== node.hash }
@@ -260,7 +261,7 @@ function assembleResolved({ preset: suppliedPreset, previous = null, snapshots =
   sortingStages ??= applyPositionStrategies(nodes, preset, diagnostics)
   // Native markers are nested in the preset output, not dropped from the request.
   let messages = [], expanded = []
-  const snapshotRules = rules.filter(r => r.lifetime === 'snapshot' && byRule.has(r.id))
+  const snapshotRules = entries.map(e => e.rule).filter(r => r.lifetime === 'snapshot' && (r.enabled || !listed.has(r.id)))
   const nextSnapshots = snapshots.filter(s => snapshotRules.some(r => r.id === s.ruleId))
   const handledSnapshots = new Set()
   for (const node of nodes) {

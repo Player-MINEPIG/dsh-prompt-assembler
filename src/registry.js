@@ -23,7 +23,7 @@ export class RequestSourceRegistry {
     if (this.#sources.has(source.id)) throw new TypeError(`Duplicate assembly source: ${source.id}`)
     const descriptor = freeze(structuredClone({ id: source.id, pluginId: source.pluginId, name: source.name, version: source.version ?? 1,
       ...(source.positions ? { positions: source.positions } : {}), stability: source.stability ?? 'conversation', dependencies: source.dependencies ?? [], multiple: source.multiple === true,
-      roles: source.roles ?? ['preserve', 'system', 'user', 'assistant'], lifetimes: source.lifetimes ?? ['request', 'snapshot'], depth: source.depth !== false,
+      roles: source.roles ?? ['preserve', 'system', 'user', 'assistant'], lifetimes: source.lifetimes ?? ['request', 'snapshot'], depth: source.depth !== false, ownsSlots: source.ownsSlots ?? source.id === 'preset',
       generationRequiresPlugin: source.generationRequiresPlugin !== false, recordedContentSurvivesRemoval: true, ...(source.textParserAliasFor ? { textParserAliasFor: source.textParserAliasFor } : {}), ...(source.contentGuide ? { contentGuide: source.contentGuide } : {}), acceptsText: typeof source.parseText === 'function', supportsModule: source.supportsModule !== false && typeof source.resolve === 'function',
     }))
     if (descriptor.positions) {
@@ -48,6 +48,7 @@ export class RequestSourceRegistry {
     if (source.parseText !== undefined && typeof source.parseText !== 'function') throw new TypeError('parseText must be a function')
     if (source.renderText !== undefined && typeof source.renderText !== 'function') throw new TypeError('renderText must be a function')
     if (source.supportsModule !== undefined && typeof source.supportsModule !== 'boolean') throw new TypeError('supportsModule must be a boolean')
+    if (source.ownsSlots !== undefined && typeof source.ownsSlots !== 'boolean') throw new TypeError('ownsSlots must be a boolean')
     if (source.moduleAvailable !== undefined && typeof source.moduleAvailable !== 'function') throw new TypeError('moduleAvailable must be a synchronous metadata reader')
     const entry = { descriptor, moduleAvailable: source.moduleAvailable, resolve: source.resolve, parseText: source.parseText, renderText: source.renderText ?? this.renderText, validateResolved: source.validateResolved }
     this.#sources.set(source.id, entry)
@@ -76,7 +77,12 @@ export class RequestSourceRegistry {
       if (!d.roles.includes(rule.role) || !d.lifetimes.includes(rule.lifetime) || (!d.depth && rule.depth != null)) throw new TypeError(`Unsupported rule settings for ${rule.kind}`)
       if (!d.multiple && rule.inputMode !== 'text' && context.preset.rules.filter(r => r.kind === rule.kind && r.inputMode !== 'text').length > 1) throw new TypeError(`Duplicate source rule: ${rule.kind}`)
       visiting.add(rule.kind)
-      for (const id of d.dependencies) visit(context.preset.rules.find(r => r.kind === id && r.inputMode !== 'text') ?? { id: `reference-${id}`, kind: id, enabled: false, role: 'preserve', lifetime: 'request', depth: null, text: '', name: '' })
+      for (const id of d.dependencies) {
+        const dependency = sources.get(id)?.descriptor
+        visit(context.preset.rules.find(r => r.kind === id && r.inputMode !== 'text') ?? { id: `reference-${id}`, kind: id, enabled: false,
+          role: dependency?.roles.includes('preserve') ? 'preserve' : dependency?.roles[0] ?? 'preserve',
+          lifetime: dependency?.lifetimes.includes('request') ? 'request' : dependency?.lifetimes[0] ?? 'request', depth: null, text: '', name: '' })
+      }
       visiting.delete(rule.kind); done.add(rule.id); jobs.push({ rule, ...source })
     }
     for (const rule of context.preset.rules.filter(r => r.enabled)) visit(rule)
