@@ -13,7 +13,8 @@ export interface ResourceLayout { sortingStages?: Array<{ strategy: 'user' | 'pr
 export function normalizeLayout(value: unknown): ResourceLayoutPolicy | undefined
 export function describeResourceLayout(nodes: Array<Record<string, any>>, preset: Preset, slots?: Array<Record<string, any>>): ResourceLayout
 export function withBlockMove(preset: Preset, layout: ResourceLayout, target: string, anchor: string, side?: 'before' | 'after', detach?: boolean): Preset
-export interface Preset { layout?: ResourceLayoutPolicy; backend?: 'native' | 'core'; format: 'dsh-tavern-request-assembly'; version: 1; name: string; placement: 'st' | 'modules' | 'native-roles' | 'native-slots'; rules: Rule[]; id?: string }
+export interface HistoryPolicy { version: 1; enabled: boolean; sources: Array<{ kind: string; include: boolean }>; contentTypes: { text: boolean; image: boolean; reasoning: boolean }; fragments: Array<{ id: string; sourceKind: string; start: string; end: string; mode: 'lines' | 'literal'; enabled: boolean }> }
+export interface Preset { historyPolicy?: HistoryPolicy; layout?: ResourceLayoutPolicy; backend?: 'native' | 'core'; format: 'dsh-tavern-request-assembly'; version: 1; name: string; placement: 'st' | 'modules' | 'native-roles' | 'native-slots'; rules: Rule[]; id?: string }
 export type PresetInput = Omit<Preset, 'rules' | 'placement'> & { placement?: Preset['placement']; rules: RuleInput[] }
 export interface NativeMessage { id: string; role: string; content: Array<{ type: string; [key: string]: unknown }>; source?: { kind?: string; [key: string]: unknown }; [key: string]: unknown }
 /** Detached and deeply frozen at runtime. Resolvers must be read-only in both modes. */

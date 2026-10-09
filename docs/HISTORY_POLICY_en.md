@@ -9,9 +9,11 @@ Standard mode uses the stock public pre-step and surface-replacement APIs to cle
 
 ## Installed entry points and usage
 
-Open prompt assembly settings and expand “Model history filtering” in the current-session application area. Select retained sources, inspect matching previews, then save history rules. These rules belong to the session and are saved independently from assembly strategies. Switching a strategy preserves history settings. New sessions start disabled.
+Open “History filtering rules and preview” directly below “Assembly rules and preview”. Both sections share collapsible highlighted headings and rules/preview tabs. Select sources and inspect the preview, then use “Save rules” to save the complete preset. “Apply to this session” changes the active snapshot. Save as, import/export, opening drafts and applied snapshots carry the optional `historyPolicy` field. Saving a library preset does not change already-applied sessions.
 
-The assembler plugin mounts standard cleanup using one shared `HistoryPolicyStore`; the optional core plugin mounts advanced request filtering. The actually applied backend determines API capabilities and editor controls. Editing a strategy does not change those capabilities early. When switching to advanced mode, the standard hook first restores still-live owned placeholders before filtering the request copy.
+Preview backgrounds are red for removed text, blue for retained text and green for additions (restoring messages previously hidden by this feature). Fragment edits mark retained and removed ranges in the original text. Green does not mean generated content. Preview does not mutate logs or sessions. Policies can be edited before a session exists; history previews become available after creation.
+
+Presets without `historyPolicy` retain the legacy session policy at runtime. The editor loads and identifies that fallback, capturing it into the preset on the next save. Existing resources are not rewritten in bulk. Unconfigured policies default to disabled. Standard and optional core hooks read the applied strategy snapshot. Editor controls and read-only previews follow the draft backend; execution and direct session APIs follow the applied backend. Switching to advanced mode restores live standard placeholders before filtering the request copy.
 
 History and assembly APIs share the existing security router and browser/desktop transport. Cold-session previews use public inspect and sessions.prepare without creating an Agent. Tavern supplies the MVU example and embedding, without copying the generic engine or settings store. The `./history-policy` package export provides the Tavern example and mounting function.
 
@@ -70,8 +72,7 @@ access and serialized surface mutation. Context contains complete `events`, `pol
 `revision/cutoffSeq/pendingMessages/turn/step`; pure planning also requires `nodes/messages`.
 Production reads use public controller inspect; fixtures use complete in-memory Sessions.
 
-Create the standard service with `mode:'standard'`, advanced with `mode:'advanced'` (default). Dispatch routes
-according to the actual session backend, never a client assertion. Standard previews require native
+Create the standard service with `mode:'standard'`, advanced with `mode:'advanced'` (default). Dispatch GET/PUT according to the applied backend. Read-only previews may select a draft backend without granting execution capability. Standard previews require native
 `nodes:[...session.surface.nodes]`, effective `messages` and complete `events`. They include hidden originals
 and `restore` actions, but omit not-yet-generated next-step injections, so retain the latest context for now.
 GET/PUT/preview return `capabilities`. Standard UI enables source controls, locks human/model retention, and
@@ -121,7 +122,7 @@ Assistant text rules use exact delimiters, without regex or script execution:
 `lines` matches complete standalone lines starting at column zero and skips code fences. `literal` explicitly
 allows inline matches. Nested, orphaned and unclosed markers are retained with diagnostics. Fragment rules
 are empty by default. Ranges use original UTF-16 offsets `[start,end)`; overlapping ranges are merged and
-surrounding prose is preserved. Preview shows original/effective content, matched spans and retention reasons.
+surrounding prose is preserved. Preview marks retained and removed spans in the original text and explains retention reasons.
 Tavern supplies an opt-in MVU wrapper preset; the generic engine has no MVU-specific parsing.
 
 For the verified stock rc.2 DeepSeek Messages v1 replay format, text fragments may change while every
@@ -130,8 +131,8 @@ Whole-message and block removal are prohibited. Unknown fields/versions retain t
 `test/history-replay.test.mjs` executes the shipped adapter replay validator and assistant serializer,
 confirming changed text is used without signature degradation. No remote API is contacted.
 
-- Saves apply from the next advanced **step**, re-evaluating the current native effective history without changing recorded requests.
-- Retries within a step retain the captured policy revision. Concurrent saves take effect on the next step.
+- Applied strategies take effect from the next advanced **step**, re-evaluating the current native effective history without changing recorded requests.
+- Retries within a step retain the captured policy revision. Concurrent applications take effect on the next step.
 - Active filtering starts a new request series because earlier prefixes may change without native surface mutations.
 - Disabling/unloading restores native effective history on the next step; native compaction cannot be undone by this policy.
 - Restart reloads settings for the same session ID. A fork has a new ID and defaults to disabled; callers may explicitly copy a policy.
@@ -177,14 +178,13 @@ Never expose the raw handler without that protection.
 | --- | --- |
 | GET `?sessionId=…` | Read `{revision,policy,capabilities}` |
 | PUT `?sessionId=…` | Save `{policy,expectedRevision}`; stale revisions return 409 |
-| POST `/preview?sessionId=…` | Preview `{policy?}` without saving or model dispatch |
+| POST `/preview?sessionId=…` | Preview `{policy?,backend?}` without saving or model dispatch |
 
 The root is `/dsh-prompt-assembler/api/v1/history-policy`; request bodies are capped at 256 KiB. Settings are
-session-specific, never global. One Host owns `history-policies.json`, saved through temporary-file rename;
-concurrent writes from multiple processes are unsupported.
+stored inside library presets and applied snapshots in `assembly-presets.json`, with legacy session fallback in `history-policies.json`. Direct PUT updates an explicit applied history snapshot without editing the library, or the legacy session policy when no explicit snapshot exists. Revisions are opaque numeric tokens; echo GET values without incrementing them. Each store uses atomic temporary-file rename under one Host; concurrent multi-process writes are unsupported.
 
 `mountHistoryPolicyPanel(container,{sessionId,request?,fragmentPresets?})` returns `{ready,dispose}`.
-Inject the existing authenticated transport for desktop. Both modes mount this panel; capabilities come from the server. Dispose and remount on session/backend switch or unload. Supply nodes to advanced previews to simulate standard-placeholder restoration on switching. The installed plugin mounts this component; independent callers can also reuse it.
+Inject the authenticated transport for desktop. Standalone mounting retains direct session saves. The strategy page uses controlled `value/backend/onChange` draft mode and `getPolicy()` to capture changes into its preset, hiding the separate save button. Remount on session, preset or backend changes and dispose on unload. Preview POST accepts `backend:"native"|"core"` for read-only draft inspection, without granting execution capability; GET/PUT follow the applied backend. Supply nodes to advanced previews to simulate standard-placeholder restoration.
 
 ## Audit and compatibility
 

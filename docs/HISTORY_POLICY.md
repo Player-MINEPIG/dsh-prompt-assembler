@@ -8,9 +8,11 @@
 
 ## 正式入口与操作
 
-打开提示词装配策略，在当前会话应用区域展开「模型历史筛选」。选择保留来源，先查看匹配预览，再点「保存历史规则」。这份规则属于当前会话，与装配策略分别保存；切换装配策略不会丢弃历史规则。新会话默认关闭。
+打开提示词装配策略，在「装配规则与预览」下方展开「历史筛选规则与预览」。两个区域使用相同的折叠标题、规则/预览切换样式。选择保留来源并查看匹配预览，然后使用上方「保存规则」保存整份预设；「应用到当前会话」才切换实际规则。另存为、导入、导出、新会话开场与应用快照均携带可选的 `historyPolicy` 字段。保存预设不会修改已经应用的会话快照。
 
-assembler 主插件挂载标准版清理钩子，共用 `HistoryPolicyStore`；可选 core 插件挂载进阶筛选钩子。实际已应用的 backend 决定 API 能力和编辑器控件，编辑中的策略不会提前改变能力。切换到进阶版时，标准钩子先恢复仍有效的隐藏占位，再由进阶路径筛选请求副本。
+匹配预览用红底表示去除，蓝底表示保留，绿底表示新增（恢复之前由本功能隐藏的消息）；片段排除在原文中分别标出保留段和去除段。绿色不表示生成了新正文。预览不修改原始日志或会话。尚未创建会话时可编辑和保存，历史预览等待会话创建后使用。
+
+旧预设没有 `historyPolicy` 时，运行时继续使用原有会话设置；编辑器读取并提示这一来源，下次保存预设时一并收录。不会批量改写已有资源。未配置的历史策略默认关闭。assembler 主插件挂载标准清理，可选 core 插件挂载进阶筛选，二者读取已应用策略快照。编辑器及只读预览跟随草稿 backend；真正运行和直接会话 API 的能力仍由已应用 backend 决定。切换进阶版时先恢复标准版仍有效的占位，再筛选请求副本。
 
 历史 API 与装配 API 共用已有安全路由及浏览器/桌面 transport。冷会话通过公共 inspect 和 sessions.prepare 预览，不创建 Agent。Tavern 只提供 MVU 示例和界面嵌入，不复制通用引擎或策略存储。包级 `./history-policy` 导出 Tavern 示例与挂载函数。
 
@@ -29,7 +31,7 @@ assembler 主插件挂载标准版清理钩子，共用 `HistoryPolicyStore`；�
 每条目标在原位替换成空 **developer/message**，不产生模型消息。不能用空 system 占位：
 若旧注入早于首条 system，原生系统提示投影会接管该位置并破坏恢复依据。
 
-- 保存后从下一次被接受的 pre-step 自动运行。规则在 pre-step 入口捕获，下游并发保存从下一步生效。
+- 应用后从下一次被接受的 pre-step 自动运行。规则在 pre-step 入口捕获，下游并发应用从下一步生效。
 - stock 请求重试复用已完成的替换；不会在每次重试或每一轮为同一条已隐藏消息写无效替换。
 - 改为保留某来源或关闭后，下一步把仍处于 surface 的本功能占位替换回保存的有效 user 消息，
   保留原 ID、正文与顺序。恢复事件引用占位和原始 seq；重新排除时仍按原始年龄判定。
@@ -63,8 +65,7 @@ const stopStandard = registerStandardHistoryPolicy(ctx, {
 `events`、`policy`、可选 `revision/cutoffSeq/pendingMessages/turn/step`；纯规划还需要 `nodes/messages`。
 生产 `readEvents` 使用公共 controller inspect；测试使用小型完整内存 Session。
 
-标准 service 用 `mode:'standard'`，进阶用 `mode:'advanced'`（默认）。路由根据会话实际 backend 选择 service，
-不能由客户端自称进阶。标准预览需要 `nodes:[...session.surface.nodes]`、原生有效 `messages` 与完整 `events`。
+标准 service 用 `mode:'standard'`，进阶用 `mode:'advanced'`（默认）。GET/PUT 根据会话实际 backend 选择 service；只读 preview 可通过 `backend:"native"|"core"` 检查草稿方式，不授予运行能力。标准预览需要 `nodes:[...session.surface.nodes]`、原生有效 `messages` 与完整 `events`。
 预览包含隐藏消息的原文及 `restore` 动作；不含尚未生成的下一步注入，最新上下文因此先保留。
 GET/PUT/preview 返回 `capabilities`。标准 UI 的来源控件可操作，真人/助手来源锁定保留，
 内容类型与片段控件禁用并标明进阶专用；旧进阶规则保持存储但标准运行不应用。
@@ -123,8 +124,8 @@ Tavern 提供默认关闭的 MVU wrapper 示例；通用引擎不内置 MVU 语�
 任何内容块。未知字段/版本回退为整条保留。`test/history-replay.test.mjs` 执行原版 adapter
 的 replay 校验和 assistant 序列化函数，确认编辑后的正文被采用且签名未降级；未调用远端 API。
 
-- 保存从**下一步进阶请求**生效，并重算现存原生有效历史，不改已经记录的请求。
-- 同一步的重试沿用捕获的规则版本；中途保存的规则从下一个 step 生效。
+- 应用从**下一步进阶请求**生效，并重算现存原生有效历史，不改已经记录的请求。
+- 同一步的重试沿用捕获的规则版本；中途应用的规则从下一个 step 生效。
 - 启用期间开启新请求系列，以免把历史前缀变化当成原序列的纯追加。
 - 关闭或卸载后，下一步恢复原生有效历史；已被原生压缩覆盖的消息不会复原。
 - 重启从配置文件恢复同一 session 的选择。fork 的会话 ID 不同，默认关闭；需要继承时由调用方显式复制策略。
@@ -169,14 +170,14 @@ Host 上下文需注入 `agentLoop`、`dshPromptAssembler`、`sessionController`
 | --- | --- |
 | GET `?sessionId=…` | 读取 `{revision,policy,capabilities}` |
 | PUT `?sessionId=…` | 保存 `{policy,expectedRevision}`；冲突返回 409 |
-| POST `/preview?sessionId=…` | 预览 `{policy?}`；不保存、不发送模型请求 |
+| POST `/preview?sessionId=…` | 预览 `{policy?,backend?}`；不保存、不发送模型请求 |
 
 完整根路径为 `/dsh-prompt-assembler/api/v1/history-policy`。请求体上限 256 KiB。
-默认配置关闭；保存没有全局作用域。存储为单 Host 实例持有的 `history-policies.json`，先写临时文件再原子 rename。
+预设及其应用快照中的规则保存在 `assembly-presets.json`；旧会话独立设置仍保存在 `history-policies.json`。直接 PUT 对含历史规则的已应用快照作会话级更新，不修改策略库；旧快照则更新原有会话设置。revision 是不透明的数值版本，调用方只回传 GET 的值，不自行递增。两份存储均由单 Host 实例持有，使用临时文件原子 rename。
 多进程共享写入不在合同中。
 
 `mountHistoryPolicyPanel(container,{sessionId,request?,fragmentPresets?})` 返回 `{ready,dispose}`。
-桌面端通过 request 注入既有鉴权 transport。两版均可挂载，能力由服务端返回；切换会话、backend 或卸载时 dispose 并重新挂载。主插件已挂载该组件，独立调用方也可复用。
+桌面端通过 request 注入既有鉴权 transport。独立挂载保留直接会话保存方式；策略页使用 `value/backend/onChange` 草稿模式，通过 `getPolicy()` 将编辑结果并入预设，隐藏独立保存按钮。切换会话、预设、backend 或卸载时 dispose 并重新挂载。
 
 ## 审计与兼容性
 

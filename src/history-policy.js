@@ -22,7 +22,7 @@ export function createHistoryPolicyService({ store, readContext, reasoningSafety
     save(sessionId, input, revision) { return store.save(sessionId, validate(sessionId, input), revision) },
     async preview(sessionId, policy) {
       const context = await readContext(sessionId), saved = store.get(sessionId)
-      if (mode === 'standard') return { ...planStandardHistory({ ...context, policy: validate(sessionId, policy ?? saved.policy), revision: saved.revision }), revision: saved.revision, capabilities, previewScope: 'next-native-step', pendingInputsIncluded: false }
+      if (mode === 'standard') return { ...planStandardHistory({ ...context, policy: normalizeHistoryPolicy(policy ?? saved.policy), revision: saved.revision }), revision: saved.revision, capabilities, previewScope: 'next-native-step', pendingInputsIncluded: false }
       const safety = await reasoningSafety(context)
       // An advanced selection restores standard tombstones on its next pre-step.
       const restored = context.nodes ? planStandardHistory({ ...context, policy: { ...saved.policy, enabled: false } }).messages : context.messages

@@ -1,3 +1,4 @@
+import {DEFAULT_HISTORY_POLICY} from '../src/history/schema.js'
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { act, createElement as h } from 'react'
@@ -88,7 +89,7 @@ function dom() {
   const root = createRoot(window.document.getElementById('root'))
   return { root, document: window.document, async close() { await act(async () => root.unmount()); for (const [key, value] of Object.entries(previous)) { if (value === undefined) delete globalThis[key]; else globalThis[key] = value } } }
 }
-const preset = { id: 'p', name: 'Strategy', builtin: false, placement: 'modules', rules: [] }
+const preset = { historyPolicy: DEFAULT_HISTORY_POLICY, id: 'p', name: 'Strategy', builtin: false, placement: 'modules', rules: [] }
 const library = { presets: [preset], defaultPresetId: 'p', selection: null, capability: true, sources: [] }
 const button = (document, label) => [...document.querySelectorAll('button')].find(node => node.textContent === label)
 
@@ -260,7 +261,7 @@ test('unannotated system messages no longer pretend to be official base instruct
 
 test('native panel exposes role/slot modes, saves the selected mode and displays role adjustments', async () => {
   const { NATIVE_BUILTINS } = await import('../adapters/tavern.js')
-  const ui = dom(), saved = [], draft = { ...NATIVE_BUILTINS.find(p => p.placement === 'native-roles'), id: 'test', builtin: false }
+  const ui = dom(), saved = [], draft = { ...NATIVE_BUILTINS.find(p => p.placement === 'native-roles'), id: 'test', builtin: false, historyPolicy: DEFAULT_HISTORY_POLICY }
   try {
     const fetcher = async (url, options) => {
       if (url.endsWith('/preview')) return json({ preview: { backend: 'native', nodes: [], messages: [], diagnostics: [{ code: 'NATIVE_ROLE_ADJUSTED', name: 'Opening', from: 'user', to: 'system' }] } })
@@ -316,6 +317,7 @@ test('context controls appear for legacy strategies and persist master/child swi
   const original={...structuredClone(BUILTINS[0]),id:'legacy',builtin:false}
   try {
     const fetcher=async(url,options)=>{
+      if(url.includes('/history-policy')) return json({ok:true,policy:DEFAULT_HISTORY_POLICY,revision:0})
       if(options.method==='PUT') { const p=JSON.parse(options.body); saved.push(p); return json({preset:{...p,id:'legacy'}}) }
       return json({...library,presets:[original],defaultPresetId:'legacy',sources:createDshRegistry().list(),capabilities:{native:true,core:false}})
     }

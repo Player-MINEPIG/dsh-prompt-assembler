@@ -1,3 +1,4 @@
+import { normalizeHistoryPolicy } from './history/schema.js'
 import { normalizeLayout, layoutPlacement } from './resource-layout.js'
 export const FORMAT = 'dsh-tavern-request-assembly'
 export const MODULES = Object.freeze(['native-system', 'history', 'input', 'dsh.text'])
@@ -22,7 +23,7 @@ export function normalizePreset(value) {
     if (rule.inputMode !== undefined && !['source', 'text'].includes(rule.inputMode)) throw new TypeError('Invalid rule inputMode')
     return { ...(rule.delivery ? { delivery: rule.delivery } : {}), ...(rule.inputMode === 'text' ? { inputMode: 'text' } : {}), id: rule.id, kind: rule.kind, enabled: rule.enabled !== false, role, lifetime, depth: rule.depth ?? null, text: rule.text ?? '', name: typeof rule.name === 'string' ? rule.name.slice(0, 200) : '' }
   })
-  return { ...(value.backend ? { backend: value.backend } : {}), format: FORMAT, version: 1, name: value.name.trim(), placement: layoutPlacement({ ...value, layout, placement: ['st', 'native-roles', 'native-slots'].includes(value.placement) ? value.placement : 'modules' }), ...(layout ? { layout } : {}), rules }
+  return { ...(value.historyPolicy !== undefined ? { historyPolicy: normalizeHistoryPolicy(value.historyPolicy) } : {}), ...(value.backend ? { backend: value.backend } : {}), format: FORMAT, version: 1, name: value.name.trim(), placement: layoutPlacement({ ...value, layout, placement: ['st', 'native-roles', 'native-slots'].includes(value.placement) ? value.placement : 'modules' }), ...(layout ? { layout } : {}), rules }
 }
 export const BUILTINS = Object.freeze([{ id: 'builtin-native', ...normalizePreset({ format: FORMAT, version: 1, name: 'DSH 原生 / DSH native', backend: 'native', rules: DEFAULT_RULES }) }])
 export function moveRule(rules, id, targetId) {

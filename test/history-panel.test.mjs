@@ -21,18 +21,21 @@ function harness() {
   const fetcher = async (url, options = {}) => {
     calls.push({ url, options })
     if (url.includes('/history-policy')) {
+      if (url.includes('/preview')) return json({ok:true,preview:[],audit:{decisions:[],warnings:[]},operations:[]})
       if (options.method === 'PUT') {
         if (saveResponse) return saveResponse
         stored = JSON.parse(options.body).policy; revision++
       }
       return json({ ok: true, policy: structuredClone(stored), revision, capabilities: { mode: selection?.backend === 'core' ? 'advanced' : 'standard' } })
     }
+    if (url.includes('/history-policy/preview')) return json({ok:true,preview:[],audit:{decisions:[],warnings:[]},operations:[]})
     if (url.endsWith('/preview')) return json({preview:{nodes:[],messages:[],diagnostics:[]}})
     if (url.endsWith('/selection')) {
-      selection = JSON.parse(options.body).id ? { id: preset.id, name: preset.name, backend: preset.backend } : null
+      selection = JSON.parse(options.body).id ? structuredClone(preset) : null
       return json({ selection })
     }
     if (options.method === 'PUT' || options.method === 'POST') {
+      if (saveResponse) return saveResponse
       preset = JSON.parse(options.body); return json({ preset })
     }
     return json({ presets: [preset], defaultPresetId: 'p', selection, capability: true, sources: [] })
@@ -52,105 +55,90 @@ function harness() {
   }
 }
 
-test('history editor is a collapsed session section using the injected transport, API root and MVU presets', async () => {
+test('history is a collapsible strategy section between assembly and application, with shared save/apply', async () => {
   const ui = harness()
   try {
     await ui.render({ historyApiRoot: '/authenticated/history-policy' })
     const section = ui.document.querySelector('.dta-history-section')
-    assert.ok(section && !section.hasAttribute('open'))
-    assert.equal(section.querySelector('summary').textContent, '模型历史筛选')
-    assert.deepEqual([...ui.document.querySelector('.dta-tabs').children].map(node => node.textContent), ['资源位置', '装配结果'])
-    assert.ok(findButton(ui.document, '保存规则'))
-    assert.ok(findButton(ui.document, '保存历史规则'))
+    assert.ok(section?.hasAttribute('open'))
+    assert.equal(section.querySelector('summary').textContent, '历史筛选规则与预览')
+    assert.ok(ui.document.querySelector('.dta-assembly-section>summary'))
+    assert.equal(section.previousElementSibling.className, 'dta-editor-section dta-assembly-section')
+    assert.equal(section.nextElementSibling.textContent, '会话应用')
+    assert.equal(findButton(ui.document, '保存历史规则'), undefined)
     assert.ok(ui.calls.some(call => call.url === '/authenticated/history-policy?sessionId=a'))
     await ui.click('添加 MVU')
     assert.deepEqual(JSON.parse(ui.document.querySelector('textarea[aria-label="片段规则 JSON"]').value), [fragmentPresets[0].rule])
     assert.equal(ui.unload(), true)
-    await ui.render({ sessionId: undefined })
-    assert.equal(ui.document.querySelector('.dta-history-section'), null)
-    assert.ok(ui.calls.find(call => call.url.includes('/authenticated/history-policy')).options.signal.aborted)
+    await ui.click('保存规则')
+    const save = ui.calls.find(call => call.options.method === 'PUT')
+    assert.deepEqual(JSON.parse(save.options.body).historyPolicy.fragments, [fragmentPresets[0].rule])
+    assert.equal(ui.calls.some(call => call.url.endsWith('/selection')), false)
+    assert.equal(ui.unload(), false)
+    await ui.click('应用到当前会话')
+    assert.ok(ui.calls.some(call => call.url.endsWith('/selection')))
+    assert.equal(ui.calls.some(call => call.url.includes('/history-policy') && call.options.method === 'PUT'), false)
   } finally { await ui.close() }
 })
 
-test('history remount follows applied backend, preserving drafts across equivalent props and strategy edits', async () => {
+test('backend edits update history capabilities immediately and retain history draft', async () => {
   const ui = harness()
   try {
-    await ui.render()
-    await ui.editHistory()
+    await ui.render(); await ui.editHistory(); await ui.click('添加 MVU')
     const original = ui.document.querySelector('.history-policy-panel')
     await ui.render({ historyFragmentPresets: structuredClone(fragmentPresets) })
+    assert.equal(ui.document.querySelector('.history-policy-panel'), original)
     await ui.selectBackend('native')
-    assert.equal(ui.document.querySelector('.history-policy-panel'), original)
-    assert.equal(ui.calls.filter(call => call.url.includes('/history-policy')).length, 1)
-    await ui.click('应用到当前会话')
-    assert.ok(ui.document.querySelector('[role="alertdialog"]'))
-    await ui.click('取消')
-    assert.equal(ui.calls.filter(call => call.url.endsWith('/selection')).length, 0)
-    assert.equal(ui.document.querySelector('.history-policy-panel'), original)
-    await ui.click('应用到当前会话')
-    await ui.click('确认')
-    assert.notEqual(ui.document.querySelector('.history-policy-panel'), original)
-    assert.equal(ui.calls.filter(call => call.url.includes('/history-policy')).length, 2)
-    assert.ok(ui.calls.find(call => call.url.includes('/history-policy')).options.signal.aborted)
-    assert.match(ui.document.querySelector('.history-policy-panel h2').textContent, /标准版/)
+    assert.equal(ui.document.querySelector('[aria-label="启用历史筛选"]').checked, true)
+    assert.equal(ui.document.querySelector('[aria-label="片段规则 JSON"]').disabled, true)
+    assert.deepEqual(JSON.parse(ui.document.querySelector('textarea').value), [fragmentPresets[0].rule])
+    await ui.click('匹配预览')
+    const preview = ui.calls.find(call => call.url.includes('/history-policy/preview'))
+    assert.equal(JSON.parse(preview.options.body).backend, 'native')
+    assert.equal(ui.calls.some(call => call.url.endsWith('/selection')), false)
+    await ui.selectBackend('core')
+    assert.equal(ui.document.querySelector('[aria-label="片段规则 JSON"]').disabled, false)
+    assert.equal(ui.document.querySelector('[aria-label="启用历史筛选"]').checked, true)
   } finally { await ui.close() }
 })
 
-test('history dirty state participates in navigation, close and beforeunload; only a successful history save clears it', async () => {
+test('unsaved history shares navigation guard and failed preset saves preserve edits', async () => {
   const ui = harness()
   try {
-    await ui.render({ registerBeforeLeave: ui.register })
-    await ui.editHistory()
+    await ui.render({ registerBeforeLeave: ui.register }); await ui.editHistory()
     assert.equal(ui.unload(), true)
     let decision
-    await act(async () => { decision = ui.guard() })
-    await ui.click('取消')
+    await act(async () => { decision = ui.guard() }); await ui.click('取消')
     assert.equal(await decision, false)
-    await ui.click('保存规则')
+    ui.failSave(json({ ok: false, error: '保存失败' }, 409)); await ui.click('保存规则')
     assert.equal(ui.unload(), true)
-    ui.failSave(json({ ok: false, error: '版本冲突' }, 409))
-    await ui.click('保存历史规则')
-    assert.equal(ui.unload(), true)
-    assert.match(ui.document.querySelector('.history-policy-panel [role=status]').textContent, /版本冲突/)
-    ui.failSave(null)
-    await ui.click('保存历史规则')
+    ui.failSave(null); await ui.click('保存规则')
     assert.equal(ui.unload(), false)
     assert.equal(await ui.guard(), true)
-    await ui.render({ registerBeforeLeave: undefined })
-    await ui.editHistory()
-    await act(async () => ui.document.querySelector('button[aria-label="关闭"]').click())
-    assert.equal(ui.closed, false)
-    await ui.click('取消')
-    assert.equal(ui.closed, false)
   } finally { await ui.close() }
 })
 
-test('session disposal aborts old history transport and ignores its late save completion', async () => {
-  const ui = harness(), pending = deferred()
+test('new sessions can edit policies, and invalid fragment JSON cannot be saved or applied', async () => {
+  const ui = harness()
+  try {
+    await ui.render({ sessionId: undefined })
+    assert.ok(ui.document.querySelector('.dta-history-section'))
+    assert.equal(findButton(ui.document, '匹配预览').disabled, true)
+    await act(async () => { const input = ui.document.querySelector('textarea'); input.value = '{'; input.dispatchEvent(new window.Event('input', {bubbles:true})) })
+    assert.equal(ui.unload(), true)
+    await ui.click('保存规则')
+    assert.equal(ui.calls.some(call => call.options.method === 'PUT'), false)
+    assert.ok(ui.document.querySelector('[role=alert]'))
+  } finally { await ui.close() }
+})
+
+test('switching sessions aborts the prior legacy policy read', async () => {
+  const ui = harness()
   try {
     await ui.render()
-    await ui.editHistory()
-    ui.failSave(pending.promise)
-    await ui.click('保存历史规则')
-    const oldSave = ui.calls.find(call => call.url.includes('/history-policy') && call.options.method === 'PUT')
-    await ui.render({ sessionId: 'b' })
-    assert.equal(oldSave.options.signal.aborted, true)
-    await ui.editHistory()
-    await act(async () => pending.resolve(json({ ok: true, revision: 1, policy: policy() })))
-    assert.equal(ui.unload(), true)
+    const prior = ui.calls.find(call => call.url.includes('/history-policy'))
+    await ui.render({sessionId:'b'})
+    assert.equal(prior.options.signal.aborted, true)
     assert.ok(ui.calls.some(call => call.url.endsWith('/history-policy?sessionId=b')))
-  } finally { await ui.close() }
-})
-
-test('editing history while its save is pending retains the new unsaved changes', async () => {
-  const ui = harness(), pending = deferred()
-  try {
-    await ui.render()
-    await ui.editHistory()
-    ui.failSave(pending.promise)
-    await ui.click('保存历史规则')
-    await ui.editHistory()
-    await act(async () => pending.resolve(json({ ok: true, revision: 1, policy: { ...policy(), enabled: true } })))
-    assert.equal(ui.unload(), true)
   } finally { await ui.close() }
 })

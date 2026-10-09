@@ -52,3 +52,20 @@ for (const mode of ['advanced', 'standard']) test(`${mode}: HTTP and embedded ed
     assert.equal((await fetch(`${origin}${HISTORY_API_ROOT}/preview?sessionId=test`, { method: 'POST', headers: { Origin: origin, 'Content-Type': 'application/json' }, body: '{' })).status, 400)
   } finally { mounted?.dispose(); await new Promise(resolve => server.close(resolve)); rmSync(directory, { recursive: true, force: true }) }
 })
+
+test('history preview colors removal, retained fragments and restored messages without rewriting their text', async () => {
+  const {document} = parseHTML('<main></main>')
+  const message = (id,text) => ({id,role:'assistant',content:[{type:'text',text}]})
+  const rows = [
+    {action:'exclude',original:message('a','remove all'),blocks:[],reasons:[],role:'user',sourceKind:'plugin'},
+    {action:'edit',original:message('b','before [remove] after'),blocks:[{index:0,ranges:[{start:7,end:15}]}],reasons:[],role:'assistant',sourceKind:'model'},
+    {action:'restore',original:message('c','restore saved text'),blocks:[],reasons:[],role:'user',sourceKind:'plugin'},
+  ]
+  const editor = mountHistoryPolicyPanel(document.querySelector('main'), {sessionId:'fixture',backend:'core',value:DEFAULT_HISTORY_POLICY,onChange:()=>{},request:async()=>new Response(JSON.stringify({ok:true,preview:rows,audit:{decisions:rows,warnings:[]}}))})
+  try {
+    await editor.ready
+    await [...document.querySelectorAll('button')].find(b=>b.textContent==='匹配预览').onclick()
+    const chunks = [...document.querySelectorAll('.history-diff span')].map(n=>[n.className,n.textContent])
+    assert.deepEqual(chunks,[['history-diff-remove','remove all'],['history-diff-keep','before '],['history-diff-remove','[remove]'],['history-diff-keep',' after'],['history-diff-add','restore saved text']])
+  } finally {editor.dispose()}
+})

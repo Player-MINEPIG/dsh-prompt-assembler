@@ -185,3 +185,38 @@ for (const withCore of [false, true]) {
     assert.deepEqual(log.slice(0, firstEvents.length), firstEvents)
   }))
 }
+
+for (const withCore of [false, true]) {
+  const root = process.env[withCore ? 'DSH_ASSEMBLER_CORE_ROOT' : 'DSH_ASSEMBLER_STOCK_ROOT']
+  test(`strategy history snapshots ${withCore ? 'advanced' : 'standard'}: save, apply, restore and draft preview`, { skip: !root, timeout: 20000 }, () => host(root, withCore, async h => {
+    const original = h.face.store.get(withCore ? h.coreId : h.nativeId)
+    const policy = { ...h.policy, enabled: false }
+    const saved = await h.call('POST', h.assemblyRoot, { ...original, historyPolicy: policy })
+    assert.equal(saved.status, 201)
+    assert.equal((await h.call('GET', h.historyUrl)).body.policy.enabled, true, 'saving does not apply')
+    await h.select(saved.body.preset.id)
+    assert.deepEqual((await h.call('GET', h.historyUrl)).body.policy, policy)
+    await h.turn('HUMAN ONE')
+    const first = (await h.events()).find(e => e.type === 'assistant/message').data.message
+    const editedPolicy = { ...h.policy, fragments: [{ id: 'body', sourceKind: 'model', start: '<UpdateVariable>', end: '</UpdateVariable>', mode: 'lines', enabled: true }] }
+    const preview = await h.call('POST', `${h.historyRoot}/preview?sessionId=combined`, { backend: 'core', policy: editedPolicy })
+    assert.equal(preview.status, 200)
+    assert.equal(preview.body.capabilities.mode, 'advanced')
+    assert.equal(text(preview.body.messages.find(m => m.id === first.id)), 'Before.\nAfter.')
+    assert.equal((await h.call('GET', h.historyUrl)).body.policy.enabled, false)
+    const update = await h.call('PUT', `${h.assemblyRoot}/${saved.body.preset.id}`, { ...saved.body.preset, historyPolicy: editedPolicy })
+    assert.equal(update.status, 200)
+    assert.equal((await h.call('GET', h.historyUrl)).body.policy.enabled, false, 'library updates preserve applied snapshot')
+    await h.select(saved.body.preset.id)
+    await h.turn('HUMAN TWO')
+    const reply = h.requests.at(-1).find(m => m.id === first.id)
+    assert.equal(text(reply), withCore ? 'Before.\nAfter.' : body)
+    assert.ok(h.requests.at(-1).some(m => text(m) === 'HUMAN ONE'))
+    assert.deepEqual((await h.events()).find(e => e.type === 'assistant/message').data.message, first)
+    const active = (await h.call('GET', h.historyUrl)).body
+    const direct = await h.call('PUT', h.historyUrl, {policy:{...editedPolicy, enabled:false}, expectedRevision:active.revision})
+    assert.equal(direct.status, 200)
+    assert.equal(h.face.store.get(saved.body.preset.id).historyPolicy.enabled, true, 'direct API only updates applied snapshot')
+    assert.equal((await h.call('PUT', h.historyUrl, {policy:editedPolicy, expectedRevision:active.revision})).status, 409)
+  }))
+}

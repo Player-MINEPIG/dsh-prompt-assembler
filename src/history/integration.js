@@ -1,9 +1,10 @@
+import { presetHistoryStore } from './preset-store.js'
 import { createDeveloperMessage } from '@deepseek-ai/dsh-llm'
 import { HistoryPolicyStore, createHistoryPolicyService, createHistoryPolicyHandler, registerStandardHistoryPolicy } from '../history-policy.js'
 
 /** Shared state for the stock lifecycle and the optional request backend. */
 export function connectHistoryPolicy(ctx, { runtime, storageDir }) {
-  const store = new HistoryPolicyStore(storageDir)
+  const store = presetHistoryStore(new HistoryPolicyStore(storageDir), runtime.store)
   const inspect = async id => {
     try { return await ctx.get('sessionController').inspect(id) }
     catch (error) {
@@ -21,9 +22,9 @@ export function connectHistoryPolicy(ctx, { runtime, storageDir }) {
   }
   const advanced = id => Boolean(runtime.selected(id)) && runtime.requestAssemblyAvailable(id)
   const services = Object.fromEntries(['standard', 'advanced'].map(mode => [mode, createHistoryPolicyService({ store, readContext, mode })]))
-  const handler = createHistoryPolicyHandler({ service: async id => {
+  const handler = createHistoryPolicyHandler({ service: async (id, previewBackend) => {
     await inspect(id) // Validate even GET/save; opening settings must not create an Agent.
-    return services[advanced(id) ? 'advanced' : 'standard']
+    return services[previewBackend ? previewBackend === 'core' ? 'advanced' : 'standard' : advanced(id) ? 'advanced' : 'standard']
   } })
   ctx.effect(() => registerStandardHistoryPolicy(ctx, { store, readEvents, createDeveloperMessage, active: agent => !advanced(agent.id) }))
   return { store, readEvents, readContext, services, handler }

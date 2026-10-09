@@ -12,14 +12,16 @@ export function createHistoryPolicyHandler({ service, root = HISTORY_API_ROOT })
     try {
       const url = new URL(req.url, 'http://localhost'), sessionId = url.searchParams.get('sessionId')
       if (!sessionId || sessionId.length > 512) return send(res, 400, { ok: false, error: 'Session id required' })
-      const selected = typeof service === 'function' ? await service(sessionId) : service
+      const preview = url.pathname === `${root}/preview` && req.method === 'POST'
+      const body = preview ? await read(req) : null
+      if (preview && body.backend !== undefined && !['native', 'core'].includes(body.backend)) return send(res, 400, { ok: false, error: 'Invalid preview backend' })
+      const selected = typeof service === 'function' ? await service(sessionId, preview ? body.backend : undefined) : service
       if (url.pathname === root && req.method === 'GET') return send(res, 200, { ok: true, ...selected.store.get(sessionId), capabilities: selected.capabilities })
       if (url.pathname === root && req.method === 'PUT') {
         const body = await read(req)
         return send(res, 200, { ok: true, ...selected.save(sessionId, body.policy, body.expectedRevision), capabilities: selected.capabilities })
       }
-      if (url.pathname === `${root}/preview` && req.method === 'POST') {
-        const body = await read(req)
+      if (preview) {
         return send(res, 200, { ok: true, ...await selected.preview(sessionId, body.policy) })
       }
       return send(res, 404, { ok: false, error: 'History route not found' })
