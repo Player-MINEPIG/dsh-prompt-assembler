@@ -35,8 +35,7 @@ and this decision's messages remain. When runtime-context is excluded and DSH wo
 derives to no model message. Empty system placeholders are unsuitable: if an injection precedes the first
 system message, native system-prompt projection can take over that placeholder and break restoration.
 
-- Saving applies at the next accepted pre-step. Capture rules before downstream hooks; saves during those hooks
-  take effect next step. Stock retries reuse the committed surface and do not append duplicate cleanup events.
+- Capture rules before downstream pre-step hooks; saves during those hooks take effect next step. Commit cleanup in agent/request after DSH has written step/start, before preparing the request. Stock retries reuse the committed surface and do not append duplicate cleanup events.
 - Keeping a source or disabling restores still-live owned placeholders at their original positions on the next
   step, with original message IDs/content. Restoration cites placeholder and original sequences; re-exclusion
   still uses the original age. Unchanged hidden entries do not generate new replacement events each turn.
@@ -69,7 +68,7 @@ so switching to advanced can filter complete effective history again. Keep this 
 advanced hook; do not simply unmount it on backend switch. Mount it outside injection middleware so `next()`
 finishes before planning. `applyStandardHistory(session, context, {createDeveloperMessage})` and
 `planStandardHistory(context)` are composable primitives. The mutating primitive requires caller-owned write
-access and serialized surface mutation. Context contains complete `events`, `policy`, optional
+access and serialized surface mutation. Hiding additionally requires a matching open turn/step (otherwise HISTORY_STEP_REQUIRED); idle callers may only restore. Context contains complete `events`, `policy`, optional
 `revision/cutoffSeq/pendingMessages/turn/step`; pure planning also requires `nodes/messages`.
 When a plan returns `reconcileSystem:true`, the caller must start a new request series so DSH reconciles system prompts; `applyStandardHistory` itself only writes user cleanup replacements.
 Production reads use public controller inspect; fixtures use complete in-memory Sessions.

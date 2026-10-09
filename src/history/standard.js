@@ -72,6 +72,13 @@ export function planStandardHistory({ events, nodes, messages, policy: input, pe
 /** All appends are synchronous: no concurrent await between planning and replacements. */
 export function applyStandardHistory(session, context, { createDeveloperMessage }) {
   const plan = planStandardHistory({ ...context, nodes: [...session.surface.nodes], messages: session.deriveMessages() })
+  if (plan.operations.some(operation => operation.action === 'hide')) {
+    const started = context.events.findLast(event => event.type === 'step/start')
+    const ended = context.events.findLast(event => event.type === 'step/end')
+    if (!started || started.seq <= (ended?.seq ?? -1) || started.data.turn !== context.turn || started.data.step !== context.step) {
+      throw Object.assign(new Error('History cleanup requires an open matching step; use the registered request lifecycle'), { code: 'HISTORY_STEP_REQUIRED' })
+    }
+  }
   const committed = []
   for (const operation of plan.operations) {
     const { action, targetSeq, originalSeq, message } = operation
@@ -85,10 +92,11 @@ export function applyStandardHistory(session, context, { createDeveloperMessage 
   return { ...plan, committed }
 }
 
-/** Public stock pre-step seam; compose outside injection hooks so next() finishes first. */
+/** Capture at pre-step; commit only after DSH opens the step, before request preparation. */
 export function registerStandardHistoryPolicy(ctx, { store, readEvents, createDeveloperMessage, active = () => true }) {
   if (typeof createDeveloperMessage !== 'function') throw new TypeError('Pass the Host llm.createDeveloperMessage factory')
-  return ctx.on('agent/pre-step', async (payload, next) => {
+  const pending = new WeakMap()
+  const stopStep = ctx.on('agent/pre-step', async (payload, next) => {
     const saved = store.get(payload.agent.id)
     // Switching to advanced mode restores our native tombstones before request assembly.
     if (!active(payload.agent)) saved.policy.enabled = false
@@ -97,10 +105,20 @@ export function registerStandardHistoryPolicy(ctx, { store, readEvents, createDe
     let decision = await next()
     if (decision?.kind !== 'enter') return decision
     payload.signal?.throwIfAborted()
-    const events = await readEvents(payload.agent.session)
-    payload.signal?.throwIfAborted()
     decision = refreshRuntimeContext(decision, payload.agent.session, saved.policy, cutoffSeq)
-    const result = applyStandardHistory(payload.agent.session, { ...saved, events, cutoffSeq, pendingMessages: decision.messages, turn: payload.turn, step: payload.step }, { createDeveloperMessage })
-    return result.committed.length || result.reconcileSystem ? { ...decision, startsRequestSeries: true } : decision
+    pending.set(payload.agent, { ...saved, cutoffSeq, turn: payload.turn, step: payload.step })
+    return excludesSource(saved.policy, 'system-prompt') ? { ...decision, startsRequestSeries: true } : decision
   }, { prepend: true })
+  const stopRequest = ctx.on('agent/request', async (payload, next) => {
+    const context = pending.get(payload.agent)
+    if (context && context.turn === payload.turn && context.step === payload.step) {
+      const events = await readEvents(payload.agent.session)
+      payload.signal?.throwIfAborted()
+      applyStandardHistory(payload.agent.session, { ...context, events }, { createDeveloperMessage })
+      // Retried requests reuse the committed surface and captured rules.
+      pending.delete(payload.agent)
+    }
+    return next()
+  }, { prepend: true })
+  return async () => { await stopRequest(); await stopStep() }
 }

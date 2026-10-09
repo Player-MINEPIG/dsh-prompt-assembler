@@ -184,3 +184,20 @@ for (const advanced of [false, true]) test(`${advanced ? 'core' : 'stock'}: runt
     assert.ok(h.requests.at(-1).filter(m => m.source.kind === 'runtime-context').length > 1)
   } finally { await h?.dispose(); rmSync(directory, { recursive: true, force: true }) }
 })
+
+test('stock cleanup logs pass official durable format validation across turns and restarts', { skip: !root }, async () => {
+  const directory = mkdtempSync(join(tmpdir(), 'history-durable-')); let h
+  try {
+    h = await historyHost({ root, directory, advanced: false, standard: true, validatePersistence: true })
+    h.store.save('history', clean(), 0); presets(h)
+    h.ctx.systemPrompt.context({ name: 'durable-context', order: 100, text: 'CURRENT CONTEXT' })
+    await h.turn('ONE'); await h.turn('TWO'); await h.turn('THREE')
+    const seed = structuredClone(h.agent.session.snapshotEvents())
+    assert.ok(seed.some(e => e.data.historyPolicy?.action === 'hide'))
+    await h.dispose()
+    h = await historyHost({ root, directory, seed, advanced: false, standard: true, validatePersistence: true })
+    await h.turn('RESTARTED')
+    h.store.save('history', { ...clean(), enabled: false }, 1)
+    await h.turn('RESTORE')
+  } finally { await h?.dispose(); rmSync(directory, { recursive: true, force: true }) }
+})

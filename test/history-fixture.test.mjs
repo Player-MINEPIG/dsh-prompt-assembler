@@ -7,10 +7,11 @@ import { RequestAssembler, AssemblyPresetStore, createDshRegistry, BUILTINS } fr
 import { CoreRequestBackend } from '../src/core-backend.js'
 import { HistoryPolicyStore, registerHistoryPolicy, createHistoryPolicyService, registerStandardHistoryPolicy } from '../src/history-policy.js'
 
-export async function historyHost({ root, directory, seed, withTools = false, retryOnce = false, onRetry = () => {}, advanced = true, standard = false, standardActive }) {
+export async function historyHost({ root, directory, seed, withTools = false, retryOnce = false, onRetry = () => {}, advanced = true, standard = false, standardActive, validatePersistence = false }) {
   const require = createRequire(join(resolve(root), 'package.json'))
   const load = name => import(pathToFileURL(require.resolve(`@deepseek-ai/${name}`)))
   const { Context } = await load('cordis'), { SystemPrompt } = await load('dsh-system-prompt'), llm = await load('dsh-llm')
+  const { sessionFormatCatalog: codec } = await load('dsh-session-format-catalog')
   const ctx = new Context(), requests = [], errors = []
   await ctx.plugin(SystemPrompt, { includeHarnessIdentity: false, personaPrefix: 'HISTORY FIXTURE' })
   for (const name of ['session', 'agent', 'session-projection', 'llm', 'tools', 'agent-loop']) await ctx.plugin((await load(`dsh-${name}`)).default, name === 'agent-loop' ? { agents: [] } : {})
@@ -54,6 +55,11 @@ export async function historyHost({ root, directory, seed, withTools = false, re
     return { nodes: [...session.surface.nodes], messages: session.deriveMessages(), events: session.snapshotEvents(), reasoningSafety: reasoningSafety() }
   }
   const service = createHistoryPolicyService({ store, readContext, reasoningSafety, mode: standard ? 'standard' : 'advanced' })
-  const turn = async text => { agent.followup(llm.createUserMessage({ content: [{ type: 'text', text }], source: { kind: 'user' } })); await agent.whenIdle(); assert.deepEqual(errors, []) }
+  const turn = async text => { agent.followup(llm.createUserMessage({ content: [{ type: 'text', text }], source: { kind: 'user' } })); await agent.whenIdle(); assert.deepEqual(errors, [])
+    if (!validatePersistence) return
+    const restore = codec.createRestore(codec.encodeCurrentHeader({ delegationDepth: 0, isSeeded: false, ...agent.session.header }, 0), { recovery: 'strict', validation: 'current' })
+    for (const event of agent.session.snapshotEvents()) restore.decodeRow(codec.encodeCurrentEvent(event))
+    restore.finish()
+  }
   return { ctx, requests, errors, agent, llm, store, service, runtime, assemblyStore, stop, unmountAssembly, turn, body, dispose: () => ctx.fiber.dispose() }
 }

@@ -33,7 +33,7 @@
 每条目标在原位替换成空 **developer/message**，不产生模型消息。不能用空 system 占位：
 若旧注入早于首条 system，原生系统提示投影会接管该位置并破坏恢复依据。
 
-- 应用后从下一次被接受的 pre-step 自动运行。规则在 pre-step 入口捕获，下游并发应用从下一步生效。
+- 规则在 pre-step 入口捕获，下游并发应用从下一步生效。DSH 写入 step/start 后，在 agent/request 开始准备请求时提交清理；重试不重复提交。
 - stock 请求重试复用已完成的替换；不会在每次重试或每一轮为同一条已隐藏消息写无效替换。
 - 改为保留某来源或关闭后，下一步把仍处于 surface 的本功能占位替换回保存的有效 user 消息，
   保留原 ID、正文与顺序。恢复事件引用占位和原始 seq；重新排除时仍按原始年龄判定。
@@ -63,7 +63,7 @@ const stopStandard = registerStandardHistoryPolicy(ctx, {
 因此切进阶版后仍可重新筛选完整原生有效历史。需要同时保留该生命周期 hook 和进阶 hook；
 不要只卸载标准 hook 再切 backend。标准 hook 应作为外层 middleware，让 `next()` 完成注入后再规划。
 `applyStandardHistory(session, context, {createDeveloperMessage})` 与 `planStandardHistory(context)`
-是独立原语；前者必须在调用方已获写权限且可串行修改 surface 时使用。`context` 包含完整
+是独立原语；前者必须在调用方已获写权限且可串行修改 surface 时使用。写入 hide 占位还要求已经打开匹配的 turn/step，否则返回 HISTORY_STEP_REQUIRED；空闲时仅可恢复占位。`context` 包含完整
 `events`、`policy`、可选 `revision/cutoffSeq/pendingMessages/turn/step`；纯规划还需要 `nodes/messages`。
 计划中的 `reconcileSystem` 为 true 时，调用方必须让本步 `startsRequestSeries:true`，由 DSH 执行系统提示收拢；`applyStandardHistory` 本身只写 user 清理替换。
 生产 `readEvents` 使用公共 controller inspect；测试使用小型完整内存 Session。
