@@ -1,6 +1,6 @@
 {
   "name": "dsh-prompt-assembler-core",
-  "version": "0.2.0",
+  "version": "1.0.0",
   "type": "module",
   "description": "Optional protocol-1 request assembly backend; requires an explicitly prepared DSH core.",
   "main": "src/plugin.js",
@@ -19,7 +19,7 @@
     "LICENSE"
   ],
   "peerDependencies": {
-    "dsh-prompt-assembler": "0.2.0"
+    "dsh-prompt-assembler": "1.0.0"
   },
   "engines": {
     "node": ">=20"

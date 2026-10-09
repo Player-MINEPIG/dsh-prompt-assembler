@@ -7,22 +7,38 @@ Target DSH `0.2.0-rc.2`, Node `^22.19.0 || >=24` for the Host; library-only use 
 ## Standard installation
 
 ```sh
-dsh plugin --profile web add github:Player-MINEPIG/dsh-prompt-assembler#main
+dsh plugin --profile web add github:Player-MINEPIG/dsh-prompt-assembler#v1.0.0
 ```
 
-`#main` follows the main branch rather than an immutable source revision. To reproduce a reviewed candidate, replace `main` with its full reviewed commit and pin that same commit in the caller's lockfile. Standard and optional addon versions are both `0.2.0`; the addon requires exact standard peer `0.2.0`. Check their source revisions together as well.
+`#v1.0.0` pins this version; `#main` follows development. To reproduce another reviewed candidate, use its full reviewed commit and pin the same revision in the caller's lockfile. Standard and optional addon versions are both `1.0.0`; the addon requires exact standard peer `1.0.0`. Check their source revisions together as well.
 
 The repository is public. Standard metadata provides `main:src/plugin.js`, `dsh.bundle:cordis.patch.yml` and prebuilt `dist/client.js`. Stock rc.2 needs no core changes. Stop/restart the intended Host, then open Settings → Prompt assembly. Save rules updates the library; Save and apply to this session saves edits before applying; new sessions bind before opening. Standalone use has no global default and does not require Tavern. Repository visibility does not establish npm, tag/release or plugin-directory publication.
 
 ## Optional advanced extension
 
-Stop the target Host, then run one installation command from the same checkout. It installs/enables the addon, switches core builds, and retains stock builds for rollback:
+Install standard `1.0.0` with the command above, then obtain the same tagged source and preparation-tool dependencies:
+
+```sh
+git clone --branch v1.0.0 --depth 1 https://github.com/Player-MINEPIG/dsh-prompt-assembler.git
+cd dsh-prompt-assembler
+npm ci
+node core-extension/scripts/prepare-request-assembly.mjs /path/to/dsh-rc2-source /path/to/prepared-core
+```
+
+`dsh-rc2-source` is the complete official DSH `0.2.0-rc.2` source root. Preparation verifies pinned core source digests,
+and the output directory must be separate from the source. It only creates standalone build artifacts.
+Initial installation also needs an unmodified official rc.2 `stock-runtime` to verify the target and retain rollback files.
+`runtime` is the target Host's runtime root, `home` is its DSH_HOME, and `profile` must match the standard plugin installation.
+
+Stop the target Host, then run this installation command from the checkout. It installs/enables the addon, switches core builds, and retains stock builds for rollback:
 
 ```sh
 node core-extension/scripts/switch-runtime.mjs install --runtime /path/to/runtime --home /path/to/dsh-home --profile web --prepared /path/to/prepared-core --stock-runtime /path/to/stock-runtime
 ```
 
-Before the first install, generate prepared-core with `node core-extension/scripts/prepare-request-assembly.mjs /path/to/dsh-rc2-source /path/to/prepared-core`. Stock-runtime must contain unmodified official rc.2 `node_modules/@deepseek-ai/dsh-session` and `dsh-agent-loop`. All target/reference/prepared builds must use 0.2.0-rc.2; the standard plugin must be 0.2.0. The switch uses public `dsh-plugin-manager/operations` for package installation and activation, calling npm by default; `--npm /path/to/npm` selects a command. Preparation verifies pinned source digests; switching rejects unknown builds, damaged backups and incompatible versions.
+Stock-runtime must contain official rc.2 `node_modules/@deepseek-ai/dsh-session` and `dsh-agent-loop`. All target/reference/prepared builds must use 0.2.0-rc.2; the standard plugin must be 1.0.0. The switch uses public `dsh-plugin-manager/operations` for package installation and activation, calling npm by default; `--npm /path/to/npm` selects a command. Switching rejects unknown builds, damaged backups and incompatible versions.
+
+Restart the Host, choose “Advanced · core extension” in Settings → Prompt assembly, inspect the assembly result, then save and apply to the session. Installing the addon does not automatically switch existing strategies.
 
 Subsequent installation or removal needs no prepared/stock input. Stop the Host, run the appropriate single command, then restart:
 

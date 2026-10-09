@@ -23,7 +23,7 @@ export async function switchRuntime({ action, runtime, home, profile = 'web', pr
   const profileManifest = join(profileDir, 'package.json'), storePath = join(home, 'dsh-prompt-assembler/assembly-presets.json')
   const profileData = json(profileManifest)
   for (const name of ['session', 'agent-loop']) if (json(packageFile(runtime, `${name}/package.json`)).version !== version) throw new Error(`Unsupported runtime dsh-${name}; expected ${version}`)
-  if (json(join(profileDir, 'node_modules/dsh-prompt-assembler/package.json')).version !== '0.2.0') throw new Error('Install standard dsh-prompt-assembler@0.2.0 first')
+  if (json(join(profileDir, 'node_modules/dsh-prompt-assembler/package.json')).version !== '1.0.0') throw new Error('Install standard dsh-prompt-assembler@1.0.0 first')
   let receipt = existsSync(receiptPath) ? json(receiptPath) : null
   if (!receipt) {
     if (action !== 'install' || !prepared || !stock) throw new Error('First install requires --prepared and --stock-runtime; uninstall requires an installation receipt')

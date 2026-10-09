@@ -1,5 +1,16 @@
 # Changelog / 变更记录
 
+## 1.0.0
+
+- 首个稳定版本：独立提示词装配插件与可组合库，支持来源注册、模块与自定义文本、资源位置、角色与排序、策略库、预览及会话应用；Tavern 与 Memory Manager 为可选来源。
+- 标准版使用 DSH `0.2.0-rc.2` 公开接口，支持可恢复的历史来源清理；可选进阶 addon 使用显式准备的协议 1 核心，筛选请求副本并保存装配证据，保留 DSH 原始历史。
+- 标准包与 core addon 同步为 `1.0.0`，安装器要求精确匹配；双语 Quick start 与安装示例固定到 `v1.0.0`。
+- 已知限制：标准历史清理在官方轨迹中显示空上下文审计条目；可整轮折叠，按来源处理等待官方展示接口。进阶版仍需单独准备核心，不由标准安装自动启用。
+- First stable version: a standalone prompt assembly plugin and composable library with source registration, modules and custom text, resource positions, roles and ordering, a strategy library, preview and session application. Tavern and Memory Manager remain optional sources.
+- Standard mode uses public DSH `0.2.0-rc.2` interfaces with restorable history source cleanup. The optional advanced addon uses an explicitly prepared protocol-1 core, filters request copies and records assembly evidence while preserving native DSH history.
+- Standard and core addon versions are both `1.0.0`, with an exact installer version check. Bilingual Quick start and installation examples pin `v1.0.0`.
+- Known limitation: standard history cleanup appears as empty context audit rows in the official trajectory. Whole-turn folding is available; handling by source awaits an official display interface. Advanced mode still requires separate core preparation and is not enabled by standard installation.
+
 ## 0.2.0
 
 - 资源位置页支持来源声明的位置、开关、排序优先级及自定义位置；装配结果只读展示正文、角色适配与处理原因。保存规则与保存并应用分开，应用前重新校验并说明不可用原因。

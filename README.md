@@ -2,7 +2,7 @@
 
 [English](README_en.md) · [安装](docs/INSTALLATION.md) · [使用](docs/USAGE.md) · [来源接入合同](docs/INTEGRATION.md) · [安全边界](SECURITY.md)
 
-`dsh-prompt-assembler` 0.2.0 是面向 **DSH `0.2.0-rc.2`** 的独立提示词装配插件，也提供可组合的装配库。插件自己管理策略存储、来源注册、请求钩子、安全 API 和界面；无需安装 Tavern 或 Memory Manager。来源继续拥有正文、资源、解析语法与读取权限，DSH durable history 继续作为会话历史的权威记录。
+`dsh-prompt-assembler` 1.0.0 是面向 **DSH `0.2.0-rc.2`** 的独立提示词装配插件，也提供可组合的装配库。插件自己管理策略存储、来源注册、请求钩子、安全 API 和界面；无需安装 Tavern 或 Memory Manager。来源继续拥有正文、资源、解析语法与读取权限，DSH durable history 继续作为会话历史的权威记录。
 
 ## 快速开始 / Quick start
 
@@ -11,7 +11,7 @@
 1. 停止目标 Host，安装插件；将 `web` 替换为实际使用的 profile：
 
    ```sh
-   dsh plugin --profile web add github:Player-MINEPIG/dsh-prompt-assembler#main
+   dsh plugin --profile web add github:Player-MINEPIG/dsh-prompt-assembler#v1.0.0
    ```
 
 2. 重新启动 Host，打开一个会话，再进入 **设置 → 提示词装配**。尚未发送第一条消息的空白会话也可使用。
@@ -21,7 +21,7 @@
 
 **保存规则** 只更新策略库；修改后须重新应用才影响后续请求。安装本身不应用策略，没有全局默认策略。完整操作见[使用说明](docs/USAGE.md)；标准历史清理的轨迹显示限制见[已知缺陷](docs/HISTORY_POLICY.md#官方轨迹显示限制)。
 
-`#main` 跟随主线；固定版本与其他安装方式见[安装说明](docs/INSTALLATION.md)。仓库为 public；GitHub 源码、npm 与公开目录是独立分发途径。标准 bundle 使用已构建客户端，安装时不编译源码。进阶策略要求可选 addon 与准备后的协议 1 核心，缺任一返回 409，见[两种后端](docs/BACKENDS.md)。纯装配库需要 Node **`>=20`**。
+`#v1.0.0` 固定此版本；跟随开发主线可改用 `#main`。其他安装方式及进阶版步骤见[安装说明](docs/INSTALLATION.md)。仓库为 public；GitHub 源码、npm 与公开目录是独立分发途径。标准 bundle 使用已构建客户端，安装时不编译源码。进阶策略要求可选 addon 与准备后的协议 1 核心，缺任一返回 409，见[两种后端](docs/BACKENDS.md)。纯装配库需要 Node **`>=20`**。
 
 ## 来源与第三方扩展
 

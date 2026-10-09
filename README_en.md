@@ -2,7 +2,7 @@
 
 [中文](README.md) · [Installation](docs/INSTALLATION_en.md) · [Usage](docs/USAGE_en.md) · [Source integration contract](docs/INTEGRATION_en.md) · [Security boundaries](SECURITY_en.md)
 
-`dsh-prompt-assembler` 0.2.0 is a standalone prompt assembly plugin for **DSH `0.2.0-rc.2`**, with composable library APIs. The plugin owns its strategy store, registry, request hook, secure API and UI. Tavern and Memory Manager are optional sources. Sources retain ownership of content, resources, syntax and read permissions; DSH durable history remains authoritative for session history.
+`dsh-prompt-assembler` 1.0.0 is a standalone prompt assembly plugin for **DSH `0.2.0-rc.2`**, with composable library APIs. The plugin owns its strategy store, registry, request hook, secure API and UI. Tavern and Memory Manager are optional sources. Sources retain ownership of content, resources, syntax and read permissions; DSH durable history remains authoritative for session history.
 
 ## Quick start
 
@@ -11,7 +11,7 @@ Start with a working DSH **`0.2.0-rc.2`** Host using Node **`^22.19.0 || >=24`**
 1. Stop the target Host and install the plugin. Replace `web` with your profile name:
 
    ```sh
-   dsh plugin --profile web add github:Player-MINEPIG/dsh-prompt-assembler#main
+   dsh plugin --profile web add github:Player-MINEPIG/dsh-prompt-assembler#v1.0.0
    ```
 
 2. Restart the Host, open a session, then go to **Settings → Prompt assembly**. A blank session before its first message also works.
@@ -21,7 +21,7 @@ Start with a working DSH **`0.2.0-rc.2`** Host using Node **`^22.19.0 || >=24`**
 
 **Save rules** only updates the library; reapply changes to affect subsequent requests. Installation does not apply a strategy, and there is no global default. See [usage](docs/USAGE_en.md) for the full workflow and the [known limitation](docs/HISTORY_POLICY_en.md#official-trajectory-display-limitation) for standard cleanup's trajectory display behavior.
 
-`#main` follows the main branch; see [installation](docs/INSTALLATION_en.md) for pinning and other options. The repository is public, which does not establish npm publication or a plugin-directory listing. `dsh.bundle` loads `cordis.patch.yml`; `dsh.client` loads the committed `dist/client.js`, without compiling client source on installation. Advanced strategies require the optional addon and prepared protocol-1 core; missing either returns 409. See [backend behavior](docs/BACKENDS_en.md). Library-only use requires Node **`>=20`**.
+`#v1.0.0` pins this version; use `#main` to follow development. See [installation](docs/INSTALLATION_en.md) for other options and advanced setup. The repository is public, which does not establish npm publication or a plugin-directory listing. `dsh.bundle` loads `cordis.patch.yml`; `dsh.client` loads the committed `dist/client.js`, without compiling client source on installation. Advanced strategies require the optional addon and prepared protocol-1 core; missing either returns 409. See [backend behavior](docs/BACKENDS_en.md). Library-only use requires Node **`>=20`**.
 
 ## Sources and third-party extensions
 
