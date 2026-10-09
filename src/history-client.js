@@ -18,7 +18,7 @@ export function mountHistoryPolicyPanel(container, { sessionId, root = '/dsh-pro
   const label = el('label', '', panel), enabled = el('input', '', label); enabled.type = 'checkbox'; enabled.setAttribute('aria-label', '启用历史筛选'); el('span', ' 启用历史筛选', label)
   const sources = el('fieldset', '', panel); el('legend', '保留哪些历史来源', sources)
   const sourceRows = el('div', '', sources)
-  el('p', '此处筛选已消费的旧消息。取消 runtime-context 只清理过期副本，最新有效快照仍保留；当前步注入、system/developer 指令和工具调用及结果不由来源开关删除。', sources)
+  el('p', '此处筛选已消费的旧消息。取消 runtime-context 会清理包括最新一条在内的旧快照，本步需要的上下文重新加入；取消 system-prompt 会收拢旧系统提示，只发送本轮有效版本。当前步注入、developer 指令和工具调用及结果仍保留。', sources)
   const addRow = el('div', '', sources), sourceName = el('input', '', addRow); sourceName.placeholder = '精确 source.kind'; sourceName.setAttribute('aria-label', '添加来源')
   const addSource = el('button', '添加来源', addRow)
   const content = el('fieldset', '', panel); el('legend', '保留哪些内容类型', content)
@@ -44,17 +44,19 @@ export function mountHistoryPolicyPanel(container, { sessionId, root = '/dsh-pro
   previewButton.disabled = true; if (saveButton) saveButton.disabled = true; addSource.disabled = true
   const status = el('p', '正在读取…', panel); status.setAttribute('role', 'status')
   const results = el('div', '', panel); results.className = 'history-results'; results.setAttribute('aria-label', '历史匹配预览')
-  const reasonLabels = { SOURCE_EXCLUDED: '按来源排除旧消息', UNKNOWN_SOURCE_RETAINED: '未知来源：保留原文', REASONING_REQUIRED_OR_UNVERIFIED: '模型协议要求保留思考，或尚未验证能安全省略', SOURCE_REQUIRED_REASONING_RETAINED: '此消息含必需思考，不能整条排除', CURRENT_OR_ASSEMBLED_CONTENT: '当前步或本次装配内容：保留', PROTECTED_PROTOCOL_MESSAGE: '工具事务、系统指令或 adapter replay 数据：保留', CURRENT_RUNTIME_CONTEXT: '最新有效运行上下文：即使取消该来源，也会保留此快照供 DSH 复用', AMBIGUOUS_FRAGMENT: '片段标记有歧义：保留', UNCLOSED_FRAGMENT: '片段未闭合：保留', EMPTY_AFTER_FILTER: '筛选后无剩余内容' }
+  const reasonLabels = { SOURCE_EXCLUDED: '按来源排除旧消息', UNKNOWN_SOURCE_RETAINED: '未知来源：保留原文', REASONING_REQUIRED_OR_UNVERIFIED: '模型协议要求保留思考，或尚未验证能安全省略', SOURCE_REQUIRED_REASONING_RETAINED: '此消息含必需思考，不能整条排除', CURRENT_OR_ASSEMBLED_CONTENT: '当前步或本次装配内容：保留', PROTECTED_PROTOCOL_MESSAGE: '工具事务、系统指令或 adapter replay 数据：保留', AMBIGUOUS_FRAGMENT: '片段标记有歧义：保留', UNCLOSED_FRAGMENT: '片段未闭合：保留', EMPTY_AFTER_FILTER: '筛选后无剩余内容' }
   const display = message => message.content.map(block => block.type === 'text' ? block.text : block.type === 'reasoning' ? `〔思考〕\n${block.text}` : `〔${block.type}〕`).join('\n\n')
   reasonLabels.POLICY_DISABLED = '已关闭：恢复仍由本功能隐藏的消息'
+  reasonLabels.SYSTEM_REASSEMBLED = '旧系统提示由 DSH 收拢，本轮系统提示重新装配（不关闭当前指令）'
+  reasonLabels.CURRENT_SYSTEM_PROMPT = '本轮有效系统提示：保留'
   reasonLabels.NATIVE_REPLACEMENT_RETAINED = '原生压缩或其他替换结果：保留'
   reasonLabels.SOURCE_REPLAY_RETAINED = '此消息携带协议重放数据，保留消息身份与内容块'
   reasonLabels.REPLAY_BLOCKS_RETAINED = '保留协议重放所需的内容块与思考，仅允许已验证的正文片段编辑'
   function renderSources() {
     sourceRows.replaceChildren()
-    const listed = new Map([['user', true], ['model', true], ...policy.sources.map(r => [r.kind, r.include])])
+    const listed = new Map([['user', true], ['model', true], ['system-prompt', true], ['runtime-context', true], ...policy.sources.map(r => [r.kind, r.include])])
     for (const [kind, include] of listed) {
-      const row = el('label', '', sourceRows), input = el('input', '', row); input.type = 'checkbox'; input.checked = standard && ['user', 'model'].includes(kind) ? true : include; input.disabled = standard && ['user', 'model'].includes(kind); input.dataset.kind = kind; input.setAttribute('aria-label', `保留来源 ${kind}`); el('span', ` ${kind} `, row)
+      const row = el('label', '', sourceRows), input = el('input', '', row); input.type = 'checkbox'; input.checked = standard && ['user', 'model'].includes(kind) ? true : include; input.disabled = standard && ['user', 'model'].includes(kind); input.dataset.kind = kind; input.setAttribute('aria-label', `保留来源 ${kind}`); el('span', ` ${{'system-prompt': '系统提示历史 · system-prompt', 'runtime-context': '运行上下文历史 · runtime-context'}[kind] ?? kind} `, row)
     }
   }
   const draft = () => ({ version: 1, enabled: enabled.checked,

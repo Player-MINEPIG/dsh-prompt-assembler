@@ -18,18 +18,18 @@
 
 实际请求以保存的最终 messages 为准；进阶卡片按 `metadata.historyPolicy` 对布局中的历史正文作显示修正，保留原始布局及事件审计。标准版通过内置替换事件的 `data.historyPolicy/sourceEventSeqs` 追溯。布局先装配，历史策略随后筛选。
 
-预览条目默认全部折叠，点击条目才展开正文。此预览读取原生有效消息列表，不只是真人和助手的聊天文本：DSH 会记录 `system/message`，其中仍生效的 system 快照也会出现并受保护。取消 `runtime-context` 仅排除过期副本；最新有效快照可能被 DSH 复用，仍保留。预览尚未产生下一步快照，因此保留当前最新一条。
+预览条目默认全部折叠，点击条目才展开正文。它读取原生有效消息列表，包含 DSH 保存的 `system/message`。来源列表提供独立的 `system-prompt`（系统提示历史）和 `runtime-context`（运行上下文历史）开关。取消后，预览将旧副本标红：最新的旧 runtime-context 也会去除，本步需要时重新加入一份；旧 system 由 DSH 收拢为本轮有效系统提示。预览不包含尚未生成的本步内容，标红不代表当前系统提示或运行上下文也会停止发送。工具事务和 developer 指令仍受保护。旧策略缺少 system-prompt 规则时沿用保留行为；新建默认筛选策略包含该排除项，但筛选总开关默认关闭。
 
 ## 标准版：来源清理
 
 `registerStandardHistoryPolicy` 自动清理已经消费的插件 `user/message`。可靠依据是精确 `source.kind`
 和原生事件位置；正文相同的真人输入不受影响。新会话默认关闭；来源选择与进阶版共用策略存储。
-标准版始终完整保留真人输入、助手正文/思考/MVU、工具调用和结果、系统指令及 replay 数据。
+标准版始终完整保留真人输入、助手正文/思考/MVU、工具调用和结果、当前系统指令及 replay 数据。
 只处理原生 append 消息与本功能自己的恢复副本；其他替换或压缩摘要保持不动。未知来源保留并提示，
 用户可通过精确来源规则显式决定该插件的历史是否保留。
 
 在 pre-step 入口记录上一 `step/end` 的 seq；其后追加的未发送内容、下游 pre-step 注入与本次
-`decision.messages` 均保留。最新 runtime-context 在被复用时保留；本步产生新快照时，旧快照可清理。
+`decision.messages` 均保留。取消 runtime-context 时，若 DSH 因正文相同而复用旧快照，先将其复制为本步新消息，再清理旧副本。
 每条目标在原位替换成空 **developer/message**，不产生模型消息。不能用空 system 占位：
 若旧注入早于首条 system，原生系统提示投影会接管该位置并破坏恢复依据。
 
@@ -42,7 +42,7 @@
 - 卸载停止自动操作，**保留已写入的清理结果**；原生会话仍能读取和续聊，无需插件解释器。
   如需恢复，卸载前关闭并运行一步；或由持有会话写权限的调用方在空闲时使用
   `applyStandardHistory` 传入 `enabled:false`。该显式原语不发起模型调用。
-- 系统提示会按原生规则更新；空 developer 占位不参与系统提示路由。实际发生替换才开启新请求系列。
+- 系统提示会按原生规则更新；空 developer 占位不参与系统提示路由。发生替换或取消 system-prompt 历史保留时开启新请求系列，让 DSH 收拢系统提示。系统原始事件仍在日志中；重新勾选不会复活已被 DSH 收拢的旧系统版本。
 
 例如两轮各有 `预设、预设、真人、预设、assistant`，第三轮请求保留前两轮
 `真人、完整 assistant、真人、完整 assistant`，再发送第三轮所需预设和真人输入。
@@ -65,10 +65,11 @@ const stopStandard = registerStandardHistoryPolicy(ctx, {
 `applyStandardHistory(session, context, {createDeveloperMessage})` 与 `planStandardHistory(context)`
 是独立原语；前者必须在调用方已获写权限且可串行修改 surface 时使用。`context` 包含完整
 `events`、`policy`、可选 `revision/cutoffSeq/pendingMessages/turn/step`；纯规划还需要 `nodes/messages`。
+计划中的 `reconcileSystem` 为 true 时，调用方必须让本步 `startsRequestSeries:true`，由 DSH 执行系统提示收拢；`applyStandardHistory` 本身只写 user 清理替换。
 生产 `readEvents` 使用公共 controller inspect；测试使用小型完整内存 Session。
 
 标准 service 用 `mode:'standard'`，进阶用 `mode:'advanced'`（默认）。GET/PUT 根据会话实际 backend 选择 service；只读 preview 可通过 `backend:"native"|"core"` 检查草稿方式，不授予运行能力。标准预览需要 `nodes:[...session.surface.nodes]`、原生有效 `messages` 与完整 `events`。
-预览包含隐藏消息的原文及 `restore` 动作；不含尚未生成的下一步注入，最新上下文因此先保留。
+预览包含隐藏消息的原文及 `restore` 动作；不含尚未生成的下一步注入；被排除的最新旧上下文标红，本步所需副本稍后重新加入。
 GET/PUT/preview 返回 `capabilities`。标准 UI 的来源控件可操作，真人/助手来源锁定保留，
 内容类型与片段控件禁用并标明进阶专用；旧进阶规则保持存储但标准运行不应用。
 标准 API 修改这些进阶字段会返回 `HISTORY_ADVANCED_REQUIRED`，不会假装生效。
@@ -87,8 +88,8 @@ GET/PUT/preview 返回 `capabilities`。标准 UI 的来源控件可操作，真
 以下内容受保护：
 
 - 当前 step 接收的消息与本次装配的新贡献，包括当前 preset/worldbook/PHI。
-- 当前有效历史中最新的 `runtime-context`。DSH 在正文不变时复用原快照，不能按年龄删除仍有效的上下文。
-- system/developer 消息、完整工具调用消息、tool 结果，以及未知格式的 `source.replayState` 消息。
+- 本步重新加入的 `runtime-context`；所有匹配排除规则的旧快照（包括此前最新一条）均可去除。
+- 本轮有效 system、developer 消息、完整工具调用消息、tool 结果，以及未知格式的 `source.replayState` 消息。旧 system-prompt 可按来源去除。
 - 未经验证能安全省略的 reasoning。含必需 reasoning 的消息也不能按来源整条排除。
 
 来源开关控制旧副本；关闭当前运行上下文贡献仍由已有装配配置负责。工具事务保护不因来源开关解除。

@@ -53,7 +53,7 @@ function mergedRanges(ranges) {
 const messageOf = event => event.type === 'user/message' ? event.data : event.data?.message
 
 /** Pure copy-on-request filtering. No Session mutations or projection registrations. */
-export function filterHistory({ messages, events, policy: input, currentStepSeq = Infinity, reasoningSafety = null }) {
+export function filterHistory({ messages, events, policy: input, currentStepSeq = Infinity, reasoningSafety = null, retainCurrentSystem = false }) {
   const policy = normalizeHistoryPolicy(input), original = clone(messages)
   const eventById = new Map()
   for (const event of events) {
@@ -67,16 +67,15 @@ export function filterHistory({ messages, events, policy: input, currentStepSeq 
   // A caller cannot override a tool-bearing request with an unsafe capability claim.
   const transactionPresent = original.some(m => m.role === 'tool' || m.content?.some(b => b.type === 'tool-call'))
   const canOmitReasoning = reasoningSafety?.canOmit === true && typeof reasoningSafety.contract === 'string' && reasoningSafety.contract.length > 0 && !reasoningSafety.toolsPresent && !transactionPresent
-  // Stock DSH reuses its latest runtime-context snapshot when unchanged. Age alone
-  // does not make that snapshot obsolete; it may contain this step's active context.
-  const activeRuntimeId = original.findLast(m => m.source?.kind === 'runtime-context')?.id
+  // Native system projection has reconciled this step's effective prompt before assembly.
+  const currentSystemId = retainCurrentSystem ? original.findLast(m => m.role === 'system' && m.source?.kind === 'system-prompt' && m.content.length)?.id : null
   for (const message of original) {
     const event = eventById.get(message.id), kind = message.source?.kind ?? 'unknown'
     const decision = { messageId: message.id, seq: event?.seq ?? null, sourceKind: kind, role: message.role, beforeHash: historyHash(message), action: 'keep', blocks: [], reasons: [] }
     const warn = code => { warnings.push({ code, messageId: message.id, seq: decision.seq }); decision.reasons.push(code) }
     const old = event && event.seq < currentStepSeq
     const replayTextOnly = supportsReplayTextEdits(message)
-    const protectedMessage = message.id === activeRuntimeId || message.role === 'system' || message.role === 'developer' || message.role === 'tool' || message.content?.some(b => b.type === 'tool-call') || (message.source?.replayState !== undefined && !replayTextOnly)
+    const protectedMessage = message.id === currentSystemId || (message.role === 'system' && (kind !== 'system-prompt' || sources.get(kind) !== false)) || message.role === 'developer' || message.role === 'tool' || message.content?.some(b => b.type === 'tool-call') || (message.source?.replayState !== undefined && !replayTextOnly)
     let changed = clone(message)
     if (policy.enabled && old && !protectedMessage) {
       if (!known.has(kind)) warn('UNKNOWN_SOURCE_RETAINED')
@@ -111,7 +110,7 @@ export function filterHistory({ messages, events, policy: input, currentStepSeq 
         else if (decision.blocks.length) decision.action = 'edit'
       }
     } else if (policy.enabled) {
-      decision.reasons.push(!old ? 'CURRENT_OR_ASSEMBLED_CONTENT' : message.id === activeRuntimeId ? 'CURRENT_RUNTIME_CONTEXT' : 'PROTECTED_PROTOCOL_MESSAGE')
+      decision.reasons.push(!old ? 'CURRENT_OR_ASSEMBLED_CONTENT' : message.id === currentSystemId ? 'CURRENT_SYSTEM_PROMPT' : 'PROTECTED_PROTOCOL_MESSAGE')
     }
     if (changed) output.push(changed)
     decision.afterHash = changed ? historyHash(changed) : null

@@ -144,3 +144,43 @@ test('backend switch restores standard tombstones; rejected steps cannot change 
     assert.equal(hidden(h.agent.session).length, 2)
   }, { standardActive: () => standard })
 })
+
+for (const advanced of [false, true]) test(`${advanced ? 'core' : 'stock'}: runtime and system history switches keep only current contributions across turns and restart`, { skip: !(advanced ? process.env.DSH_ASSEMBLER_CORE_ROOT : root) }, async () => {
+  const directory = mkdtempSync(join(tmpdir(), 'history-refresh-')); let h
+  const options = { root: advanced ? process.env.DSH_ASSEMBLER_CORE_ROOT : root, directory, advanced, standard: !advanced }
+  try {
+    h = await historyHost(options)
+    h.store.save('history', clean(), 0)
+    h.ctx.systemPrompt.context({ name: 'refresh-fixture', order: 100, text: 'UNCHANGED CONTEXT' })
+    await h.turn('ONE')
+    const first = h.requests.at(-1).find(m => m.source.kind === 'runtime-context')
+    assert.ok(first)
+    const preview = await h.service.preview('history')
+    assert.equal(preview.preview.find(row => row.messageId === first.id).action, 'exclude')
+    assert.ok(preview.preview.some(row => row.sourceKind === 'system-prompt' && row.action === 'exclude'))
+    // Simulate an older surviving system revision; the next request must reconcile it.
+    h.agent.session.append('system/message', { turn: 1, step: 1, message: h.llm.createSystemMessage('OBSOLETE SYSTEM') }, { surfaceOp: 'append' })
+    for (const input of ['TWO', 'THREE']) {
+      await h.turn(input)
+      const req = h.requests.at(-1), contexts = req.filter(m => m.source.kind === 'runtime-context')
+      assert.equal(contexts.length, 1)
+      assert.notEqual(contexts[0].id, first.id)
+      assert.ok(text(contexts[0]).endsWith('UNCHANGED CONTEXT'))
+      assert.ok(req.findIndex(m => m.id === contexts[0].id) > req.findIndex(m => text(m) === input))
+      assert.equal(req.filter(m => m.role === 'system').length, 1)
+      assert.ok(!req.some(m => text(m) === 'OBSOLETE SYSTEM'))
+    }
+    const seed = structuredClone(h.agent.session.snapshotEvents())
+    assert.ok(seed.some(e => e.type === 'user/message' && e.data.id === first.id), 'original log remains traceable')
+    await h.dispose(); h = await historyHost({ ...options, seed })
+    h.ctx.systemPrompt.context({ name: 'refresh-fixture', order: 100, text: 'UNCHANGED CONTEXT' })
+    await h.turn('AFTER RESTART')
+    assert.equal(h.requests.at(-1).filter(m => m.source.kind === 'runtime-context').length, 1)
+    const keep = { ...clean(), sources: clean().sources.map(r => ['system-prompt', 'runtime-context'].includes(r.kind) ? { ...r, include: true } : r) }
+    h.service.save('history', keep, 1)
+    const kept = await h.service.preview('history')
+    assert.ok(kept.preview.filter(row => row.sourceKind === 'runtime-context').every(row => ['keep', 'restore'].includes(row.action)))
+    await h.turn('KEEP OLD COPIES')
+    assert.ok(h.requests.at(-1).filter(m => m.source.kind === 'runtime-context').length > 1)
+  } finally { await h?.dispose(); rmSync(directory, { recursive: true, force: true }) }
+})

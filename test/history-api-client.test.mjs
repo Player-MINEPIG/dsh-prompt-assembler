@@ -26,6 +26,8 @@ for (const mode of ['advanced', 'standard']) test(`${mode}: HTTP and embedded ed
     assert.equal(Boolean(document.querySelector('[aria-label="片段规则 JSON"]').disabled), mode === 'standard')
     assert.equal(Boolean(document.querySelector('[aria-label="保留来源 user"]').disabled), mode === 'standard')
     assert.equal(Boolean(document.querySelector('[aria-label="保留来源 dsh-prompt-assembler"]').disabled), false)
+    assert.equal(document.querySelector('[aria-label="保留来源 system-prompt"]').checked, false)
+    assert.equal(Boolean(document.querySelector('[aria-label="保留来源 system-prompt"]').disabled), false)
     document.querySelector('[aria-label="启用历史筛选"]').checked = true
     const buttons = [...document.querySelectorAll('button')]
     await buttons.find(b => b.textContent === '匹配预览').onclick()

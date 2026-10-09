@@ -1,3 +1,4 @@
+import { excludesSource, refreshRuntimeContext } from './refresh.js'
 import { historyHash, normalizeHistoryPolicy } from './policy.js'
 
 const OWNER = 'dsh-prompt-assembler/history-policy'
@@ -41,7 +42,6 @@ export function planStandardHistory({ events, nodes, messages, policy: input, pe
     const message = hidden ? raw : byId.get(raw?.id)
     return { event, hidden, message, originalSeq: hidden?.originalSeq ?? (event?.type === 'user/message' ? origin(event, bySeq) : null) }
   }).filter(row => row.message)
-  const activeRuntime = [...rows.map(row => row.message), ...pendingMessages].findLast(m => m.source?.kind === 'runtime-context')?.id
   const sources = new Map(policy.sources.map(rule => [rule.kind, rule.include]))
   const known = new Set([...protectedKinds, 'tool', 'runtime-context', 'dsh-prompt-assembler', 'ptc-mode', ...sources.keys()])
   const operations = [], warnings = [], preview = [], output = []
@@ -52,20 +52,20 @@ export function planStandardHistory({ events, nodes, messages, policy: input, pe
     const protectedMessage = message.role !== 'user' || protectedKinds.has(kind) || message.source?.replayState !== undefined || message.content.some(b => ['tool-call', 'tool-result', 'reasoning'].includes(b.type))
     let exclude = false
     if (!policy.enabled) reasons.push('POLICY_DISABLED')
+    else if (message.role === 'system' && kind === 'system-prompt' && event.seq <= cutoff && sources.get(kind) === false) { exclude = true; reasons.push('SYSTEM_REASSEMBLED') }
     else if (protectedMessage) reasons.push('PROTECTED_PROTOCOL_MESSAGE')
     else if (!known.has(kind)) warn('UNKNOWN_SOURCE_RETAINED')
     else if (originalSeq === null) reasons.push('NATIVE_REPLACEMENT_RETAINED')
     else if (originalSeq > cutoff) reasons.push('CURRENT_OR_ASSEMBLED_CONTENT')
-    else if (message.id === activeRuntime) reasons.push('CURRENT_RUNTIME_CONTEXT')
     else if (sources.get(kind) === false) { exclude = true; reasons.push('SOURCE_EXCLUDED') }
     const action = exclude ? 'exclude' : hidden ? 'restore' : 'keep'
-    if (exclude && !hidden) operations.push({ action: 'hide', targetSeq: event.seq, originalSeq, message: clone(message) })
+    if (exclude && !hidden && message.role !== 'system') operations.push({ action: 'hide', targetSeq: event.seq, originalSeq, message: clone(message) })
     if (!exclude && hidden) operations.push({ action: 'restore', targetSeq: event.seq, originalSeq, message: clone(message) })
     if (!exclude) output.push(clone(message))
     preview.push({ messageId: message.id, seq: event.seq, originalSeq, sourceKind: kind, role: message.role, action, blocks: [], reasons,
       original: clone(message), effective: exclude ? null : clone(message), beforeHash: hidden ? null : historyHash(message), afterHash: exclude ? null : historyHash(message) })
   }
-  return { messages: output, preview, operations, audit: { version: 1, mode: 'standard', applied: policy.enabled, revision, policy, policyHash: historyHash(policy), cutoffSeq: cutoff,
+  return { messages: output, preview, operations, reconcileSystem: excludesSource(policy, 'system-prompt'), audit: { version: 1, mode: 'standard', applied: policy.enabled, revision, policy, policyHash: historyHash(policy), cutoffSeq: cutoff,
     scope: 'current-native-surface', decisions: preview.map(({ original, effective, ...decision }) => decision), warnings } }
 }
 
@@ -94,12 +94,13 @@ export function registerStandardHistoryPolicy(ctx, { store, readEvents, createDe
     if (!active(payload.agent)) saved.policy.enabled = false
     const initial = await readEvents(payload.agent.session)
     const cutoffSeq = initial.findLast(e => e.type === 'step/end')?.seq ?? -1
-    const decision = await next()
+    let decision = await next()
     if (decision?.kind !== 'enter') return decision
     payload.signal?.throwIfAborted()
     const events = await readEvents(payload.agent.session)
     payload.signal?.throwIfAborted()
+    decision = refreshRuntimeContext(decision, payload.agent.session, saved.policy, cutoffSeq)
     const result = applyStandardHistory(payload.agent.session, { ...saved, events, cutoffSeq, pendingMessages: decision.messages, turn: payload.turn, step: payload.step }, { createDeveloperMessage })
-    return result.committed.length ? { ...decision, startsRequestSeries: true } : decision
+    return result.committed.length || result.reconcileSystem ? { ...decision, startsRequestSeries: true } : decision
   }, { prepend: true })
 }

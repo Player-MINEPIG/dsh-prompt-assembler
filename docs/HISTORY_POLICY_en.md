@@ -19,20 +19,19 @@ History and assembly APIs share the existing security router and browser/desktop
 
 Actual requests use the recorded final messages. Advanced result cards reconcile history text using `metadata.historyPolicy`, while original layout and event audit remain intact. Standard provenance uses built-in replacement events and `data.historyPolicy/sourceEventSeqs`. Layout assembly precedes history filtering.
 
-All preview messages start collapsed; expand a row to read its text. Preview reads the native effective message list, not just human/assistant chat text: DSH records `system/message`, and still-effective system snapshots appear and remain protected. Unchecking `runtime-context` excludes obsolete copies, while the latest effective snapshot remains available for DSH reuse. Preview has not created a next-step snapshot, so it retains the current latest one.
+All preview rows start collapsed. The effective native message list includes saved `system/message` events. Separate `system-prompt` (system history) and `runtime-context` (runtime context history) controls select retention. Unchecking marks old copies red, including the latest old runtime snapshot: required runtime context is supplied once as a current-step message, and DSH reconciles old system revisions into the current effective prompt. Preview excludes future step contributions; red history rows do not mean current instructions/context stop being sent. Tool transactions and developer instructions remain protected. Older policies without a system-prompt rule retain their behavior; new default policies include this exclusion but filtering itself defaults off.
 
 ## Standard: source cleanup
 
 `registerStandardHistoryPolicy` automatically cleans consumed plugin `user/message` events, using exact
 `source.kind` and native event positions. Identical human text stays intact. New session IDs default to disabled;
 source rules share the advanced policy store. Standard mode always preserves human inputs, whole assistants
-(including reasoning and MVU), tool transactions, system instructions and replay data. Only append-origin users
+(including reasoning and MVU), tool transactions, current system instructions and replay data. Only append-origin users
 and this feature's own restored copies are eligible; other replacements and compaction summaries remain opaque.
 Unknown sources stay with a warning; an exact selector explicitly opts that producer into the source policy.
 
 At pre-step entry, capture the previous `step/end` sequence. Unsent tail appends, downstream pre-step injections
-and this decision's messages remain. The latest reused runtime-context stays; when a new snapshot is pending,
-its predecessor can be cleaned. Each target is replaced in position by an empty **developer/message**, which
+and this decision's messages remain. When runtime-context is excluded and DSH would reuse an unchanged old snapshot, copy it into a current-step message before removing the old copy. Each target is replaced in position by an empty **developer/message**, which
 derives to no model message. Empty system placeholders are unsuitable: if an injection precedes the first
 system message, native system-prompt projection can take over that placeholder and break restoration.
 
@@ -47,8 +46,8 @@ system message, native system-prompt projection can take over that placeholder a
 - Unloading stops automation and **leaves committed cleanup in place**. Stock sessions remain readable and can
   continue with no plugin interpreter. To restore first, disable and run one step, or let an authorized caller
   invoke `applyStandardHistory` with `enabled:false` while idle. That primitive sends no model request.
-- Empty developer placeholders do not participate in system-prompt routing. Only actual replacements start a
-  new request series. System prompt updates continue through the native projection.
+- Empty developer placeholders do not participate in system-prompt routing. Replacements or an excluded system-prompt source start a
+  new request series. Native projection reconciles old system revisions into the current prompt. Original events remain in the log; re-enabling retention does not revive system versions already reconciled by DSH.
 
 For two rounds of `preset, preset, human, preset, assistant`, request three keeps
 `human, complete assistant, human, complete assistant`, followed by all required current presets and input.
@@ -72,11 +71,12 @@ finishes before planning. `applyStandardHistory(session, context, {createDevelop
 `planStandardHistory(context)` are composable primitives. The mutating primitive requires caller-owned write
 access and serialized surface mutation. Context contains complete `events`, `policy`, optional
 `revision/cutoffSeq/pendingMessages/turn/step`; pure planning also requires `nodes/messages`.
+When a plan returns `reconcileSystem:true`, the caller must start a new request series so DSH reconciles system prompts; `applyStandardHistory` itself only writes user cleanup replacements.
 Production reads use public controller inspect; fixtures use complete in-memory Sessions.
 
 Create the standard service with `mode:'standard'`, advanced with `mode:'advanced'` (default). Dispatch GET/PUT according to the applied backend. Read-only previews may select a draft backend without granting execution capability. Standard previews require native
 `nodes:[...session.surface.nodes]`, effective `messages` and complete `events`. They include hidden originals
-and `restore` actions, but omit not-yet-generated next-step injections, so retain the latest context for now.
+and `restore` actions, but omit future step injections. Excluded latest old context is red; a required current copy is added at pre-step.
 GET/PUT/preview return `capabilities`. Standard UI enables source controls, locks human/model retention, and
 explicitly disables content/fragment controls. Existing advanced rules stay stored but are inactive in standard.
 Changing those fields through the standard API returns `HISTORY_ADVANCED_REQUIRED` rather than pretending to apply them.
@@ -97,8 +97,8 @@ with `UNKNOWN_SOURCE_RETAINED`; users can explicitly add exact source selectors.
 Protected content includes:
 
 - Current-step messages and new assembly contributions, including current preset/worldbook/PHI.
-- The latest effective runtime-context snapshot, which DSH reuses when unchanged. Age does not make it obsolete.
-- System/developer messages, complete assistant tool-call messages, tool results and messages containing unknown `source.replayState` formats.
+- The runtime-context message refreshed into this step; all excluded old snapshots, including the previously latest one, can be removed.
+- The current effective system prompt, developer messages, complete assistant tool-call messages, tool results and messages containing unknown `source.replayState` formats. Old system-prompt copies follow the source switch.
 - Reasoning without a verified omission contract. Source exclusion cannot remove a whole message containing required reasoning.
 
 Source controls affect old copies. Existing assembly controls still own current runtime-context contributions.

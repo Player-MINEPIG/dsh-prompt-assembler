@@ -2,6 +2,7 @@ export const DEFAULT_HISTORY_POLICY = Object.freeze({
   version: 1, enabled: false, sources: [
     { kind: 'dsh-prompt-assembler', include: false },
     { kind: 'runtime-context', include: false },
+    { kind: 'system-prompt', include: false },
     { kind: 'ptc-mode', include: false },
     { kind: 'tool', include: false },
   ], contentTypes: { text: true, image: true, reasoning: false }, fragments: [],

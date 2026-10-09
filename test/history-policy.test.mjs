@@ -25,11 +25,11 @@ test('unknown source and compacted summaries are retained with a visible fallbac
   assert.deepEqual(result.audit.warnings.map(w => w.code), ['UNKNOWN_SOURCE_RETAINED', 'UNKNOWN_SOURCE_RETAINED'])
 })
 
-test('unchanged active native context is retained while obsolete snapshots and injected tool user copies are excluded', () => {
+test('all historical runtime snapshots are excluded; the pre-step hook supplies current context', () => {
   const messages = [message('old', 'user', 'runtime-context', 'OLD CONTEXT'), message('active', 'user', 'runtime-context', 'ACTIVE CONTEXT'), message('injected', 'user', 'tool', 'OLD INJECTED COPY'), message('u', 'user', 'user', 'HI')]
   const result = run(messages)
-  assert.deepEqual(result.messages.map(m => m.id), ['active', 'u'])
-  assert.deepEqual(result.audit.decisions[1].reasons, ['CURRENT_RUNTIME_CONTEXT'])
+  assert.deepEqual(result.messages.map(m => m.id), ['u'])
+  assert.deepEqual(result.audit.decisions[1].reasons, ['SOURCE_EXCLUDED'])
 })
 
 const rule = { id: 'mvu', sourceKind: 'model', start: '<UpdateVariable>', end: '</UpdateVariable>', mode: 'lines', enabled: true }

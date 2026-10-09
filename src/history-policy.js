@@ -1,6 +1,7 @@
 export { DEFAULT_HISTORY_POLICY, normalizeHistoryPolicy, matchHistoryFragments, filterHistory } from './history/policy.js'
 export { HistoryPolicyStore } from './history/store.js'
 export { createHistoryPolicyApi, createHistoryPolicyHandler, HISTORY_API_ROOT } from './history/server.js'
+import { refreshRuntimeContext } from './history/refresh.js'
 import { isDeepStrictEqual } from 'node:util'
 import { filterHistory, normalizeHistoryPolicy } from './history/policy.js'
 import { planStandardHistory } from './history/standard.js'
@@ -43,9 +44,10 @@ export function registerHistoryPolicy(ctx, { store, runtime, readEvents, reasoni
     const saved = store.get(payload.agent.id); steps.set(payload.agent, { key, saved }); return saved
   }
   const stopStep = ctx.on('agent/pre-step', async (payload, next) => {
-    const decision = await next()
+    let decision = await next()
     if (!active(payload.agent) || decision?.kind === 'reject') return decision
     const saved = settings(payload), events = await readEvents(payload.agent.session)
+    decision = refreshRuntimeContext(decision, payload.agent.session, saved.policy, events.findLast(e => e.type === 'step/end')?.seq ?? -1)
     const previous = events.findLast(e => e.type === 'request/assembly')?.data.metadata?.historyPolicy
     // Filtering may change an earlier request prefix even though the native surface is unchanged.
     return saved.policy.enabled || previous?.applied ? { ...decision, startsRequestSeries: true } : decision
@@ -58,7 +60,7 @@ export function registerHistoryPolicy(ctx, { store, runtime, readEvents, reasoni
     const currentStepSeq = events.findLast(e => e.type === 'step/start')?.seq ?? 0
     const contract = await reasoningSafety(payload)
     const result = await next()
-    const filtered = filterHistory({ messages: result.messages, events, policy: saved.policy, currentStepSeq,
+    const filtered = filterHistory({ messages: result.messages, events, policy: saved.policy, currentStepSeq, retainCurrentSystem: true,
       reasoningSafety: { ...contract, toolsPresent: Boolean(payload.tools?.length) } })
     return { ...result, messages: filtered.messages, metadata: { ...result.metadata, historyPolicy: { ...filtered.audit, revision: saved.revision } } }
   }, { prepend: true })
