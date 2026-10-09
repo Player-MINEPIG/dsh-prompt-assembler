@@ -68,6 +68,22 @@ test('multiple owner spines preserve authored order and anchor independent modul
   assert.equal(result.nodes.find(n => n.source.module === 'vendor.middle').slotOwner, undefined)
 })
 
+test('repeated rules of one slot owner keep independent modules between their distinct rule anchors', () => {
+  const registry = createDshRegistry()
+  registry.register(source('vendor.prompt', [], { ownsSlots: true, multiple: true, dependencies: ['history', 'input'], resolve: (_ctx, rule) => ({
+    blocks: rule.id === 'first' ? [reference('history', 'history'), text('a', 'A', 'user')]
+      : [text('b', 'B', 'user'), reference('input', 'input')],
+  }) }))
+  registry.register(source('vendor.middle', [text('m', 'MID', 'user')]))
+  const p = preset(['history', 'input'])
+  p.rules.unshift({ id: 'first', kind: 'vendor.prompt' }, { id: 'middle', kind: 'vendor.middle', delivery: 'pre-step' }, { id: 'second', kind: 'vendor.prompt' })
+  const result = assembleRequest({ registry, preset: p, nativeMessages: [native('OLD'), native('NOW')], inputIds: ['NOW'] })
+  assert.deepEqual(result.messages.map(textOf), ['OLD', 'A', 'MID', 'B', 'NOW'])
+  assert.ok(result.nodes.filter(n => n.slotOwner).every(n => n.slotOwner === 'vendor.prompt'))
+  assert.deepEqual(result.nodes.filter(n => n.slotOwner).map(n => n.slotOwnerRuleId), ['first', 'first', 'second', 'second'])
+  assert.equal(result.nodes.find(n => n.source.module === 'vendor.middle').slotOwnerRuleId, undefined)
+})
+
 test('ownsSlots validates explicit capability and preserves legacy preset defaults', () => {
   for (const invalid of [null, 1, 'true', {}]) {
     const registry = new RequestSourceRegistry()

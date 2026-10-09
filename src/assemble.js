@@ -153,6 +153,7 @@ function assembleResolved({ preset: suppliedPreset, previous = null, snapshots =
   function emit(entry, block, effectiveRule = entry.rule, reference = null, path = new Set()) {
     const identity = key(entry, block), owner = reference?.owner
     const slotOwner = reference?.slotOwner ?? (entry.descriptor.ownsSlots ? entry.descriptor.id : null)
+    const slotOwnerRuleId = reference?.slotOwnerRuleId ?? (entry.descriptor.ownsSlots ? entry.rule.id : null)
     if (!positionEnabled(entry, block)) return
     if ((claims.has(identity) && claims.get(identity) !== owner) || emitted.has(identity)) return
     if (path.has(identity)) throw new TypeError('Cyclic source block reference')
@@ -164,7 +165,7 @@ function assembleResolved({ preset: suppliedPreset, previous = null, snapshots =
       if (slots.at(-1).duplicate) diagnostics.push({ code: 'LAYOUT_DUPLICATE_SLOT', slotId: identity })
       for (const target of referenced) {
         const targetRule = block.useOwnerRule ? effectiveRule : target.entry.rule
-        emit(target.entry, target.block, targetRule, { slotId: reference?.slotId ?? identity, owner: identity, placementRule: reference?.placementRule ?? effectiveRule.id, locked: block.lock !== false, reason: `reference:${block.owner ?? block.id}`, sourceId: reference?.sourceId ?? entry.descriptor.id, slotOwner, authoredRole: reference?.authoredRole ?? (slotOwner ? block.role ?? 'system' : undefined) }, next)
+        emit(target.entry, target.block, targetRule, { slotId: reference?.slotId ?? identity, owner: identity, placementRule: reference?.placementRule ?? effectiveRule.id, locked: block.lock !== false, reason: `reference:${block.owner ?? block.id}`, sourceId: reference?.sourceId ?? entry.descriptor.id, slotOwner, slotOwnerRuleId, authoredRole: reference?.authoredRole ?? (slotOwner ? block.role ?? 'system' : undefined) }, next)
       }
       return
     }
@@ -210,7 +211,7 @@ function assembleResolved({ preset: suppliedPreset, previous = null, snapshots =
       depth = null
     }
     const node = { ...(positionOf(entry, block)?.anchor ? { resourceAnchor: positionOf(entry, block).anchor } : {}), positionId: positionOf(entry, block)?.id, positionDecision: block.type === 'native' ? 'runtime' : userPlaced(entry, block) ? 'user' : depth != null || nativeRequestedDepth != null ? 'resource-depth' : reference?.slotId ? 'preset' : 'source', originalRole: block.type === 'native' ? 'preserve' : block.role ?? (targetRule.inputMode === 'text' && targetRule.role !== 'preserve' ? targetRule.role : 'system'), messageRoles: messages.map(m => m.role), layoutGroup: block.group ?? null, slotId: reference?.slotId ?? null, id: identity, ruleId: targetRule.id, module: targetRule.kind, name: block.name || block.id, role, text: rendered, messages, source: origin(entry, block),
-      ...(slotOwner ? { slotOwner } : {}), ...(adaptive ? { placementSource: reference?.sourceId ?? null, nativeRequestedDepth } : {}),
+      ...(slotOwner ? { slotOwner, slotOwnerRuleId } : {}), ...(adaptive ? { placementSource: reference?.sourceId ?? null, nativeRequestedDepth } : {}),
       stability: block.stability ?? entry.descriptor.stability,
       lifetime, recorded: true, locked: reference?.locked ?? false, lockReason: reference?.locked ? reference.reason : null, children, hash: contentHash, depth, order: block.order ?? 100, changed: previous?.nodes?.find(n => n.id === identity)?.hash !== contentHash }
     if (depth != null) deferred.push(node)

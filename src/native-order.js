@@ -18,7 +18,7 @@ export function projectNativeOrder(nodes, preset, diagnostics) {
     const independent = nodes.filter(n => !presetOwned(n) && n !== history && n !== input)
     const spine = nodes.filter(n => !independent.includes(n))
     const anchors = preset.rules.flatMap(r => {
-      const node = r.kind === 'history' ? history : r.kind === 'input' ? input : spine.find(n => n.slotOwner === r.kind)
+      const node = r.kind === 'history' ? history : r.kind === 'input' ? input : spine.find(n => n.slotOwnerRuleId === r.id)
       return node ? [{ rule: r, node }] : []
     })
     for (const node of independent) {
