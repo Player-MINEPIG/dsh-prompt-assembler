@@ -11,7 +11,7 @@ export function createAssemblyApi({ store, runtime, agents, sessions, inspect, r
     try {
       const url = new URL(req.url, 'http://localhost'), part = decodeURIComponent(url.pathname.slice(root.length + 1)), method = req.method
       const sessionId = url.searchParams.get('sessionId') ?? ''
-      if (!part && method === 'GET') return send(res, 200, { ok: true, presets: store.list(), defaultPresetId: store.defaultPresetId, selection: runtime.selected(sessionId), capability: runtime.available(), capabilities: runtime.capabilities?.(), sourceProtocolVersion: runtime.registry.version, sources: runtime.sources(sessionId) })
+      if (!part && method === 'GET') return send(res, 200, { ok: true, presets: store.list(), defaultPresetId: store.defaultPresetId, selection: runtime.selected(sessionId), capability: runtime.available(), capabilities: runtime.capabilities?.(), sourceProtocolVersion: runtime.registry.version, strategyProtocolVersion: runtime.registry.strategies?.version, strategies: runtime.registry.strategies?.list(), sources: runtime.sources(sessionId) })
       if (part === 'actual' && method === 'GET') {
         const live = agents()?.get?.(sessionId)?.session ?? sessions()?.get?.(sessionId)
         const events = live?.snapshotEvents?.() ?? (sessionId && inspect ? (await inspect(sessionId)).events : [])

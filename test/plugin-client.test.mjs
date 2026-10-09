@@ -93,6 +93,16 @@ const preset = { historyPolicy: DEFAULT_HISTORY_POLICY, id: 'p', name: 'Strategy
 const library = { presets: [preset], defaultPresetId: 'p', selection: null, capability: true, sources: [] }
 const button = (document, label) => [...document.querySelectorAll('button')].find(node => node.textContent === label)
 
+test('withdrawn provider preset keeps its applied snapshot notice without a builtin ID prefix', async () => {
+  const ui = dom()
+  try {
+    await act(async () => ui.root.render(h(AssemblyPanel, { standalone: true, sessionId: 's', locale: 'en', close() {}, fetcher: async () => json({ ...library, selection: { ...preset, id: 'vendor-choice', name: 'Applied provider snapshot' } }) })))
+    assert.match(ui.document.body.textContent, /Applied provider snapshot/)
+    assert.match(ui.document.body.textContent, /strategy is no longer in the current catalog/)
+    assert.match(ui.document.body.textContent, /retains its applied configuration/)
+  } finally { await ui.close() }
+})
+
 test('mounted panel saves a new dirty draft before creating, with no active session', async () => {
   const ui = dom(), calls = []
   try {

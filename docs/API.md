@@ -7,7 +7,7 @@
 
 | Method | Path | Input / result |
 | --- | --- | --- |
-| GET | /?sessionId=… | presets/defaultPresetId/selection/capability/capabilities/sourceProtocolVersion/sources |
+| GET | /?sessionId=… | presets/defaultPresetId/selection/capability/capabilities/sourceProtocolVersion/sources/strategyProtocolVersion/strategies |
 | POST | / | 策略 JSON 或 {preset} → 201 {preset} |
 | GET | /:id | {preset} |
 | PUT | /:id | 策略 JSON → {preset} |

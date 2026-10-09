@@ -20,7 +20,7 @@ stop()
 
 ## 来源及解析器
 
-`register` 必填 `id/pluginId/name`，并至少实现 `resolve` 或 `parseText`。其他字段：`version`（默认 1）、`stability`、`dependencies`、`multiple`、`roles`、`lifetimes`、`depth`、`generationRequiresPlugin`。`list()` 返回 JSON 描述和 `acceptsText`，不返回可执行函数。来源身份是提供方声明，不是签名或权限隔离。
+`register` 必填 `id/pluginId/name`，并至少实现 `resolve` 或 `parseText`。其他字段：`version`（默认 1）、`stability`、`dependencies`、`multiple`、`roles`、`lifetimes`、`depth`、`ownsSlots`、`generationRequiresPlugin`。`list()` 返回 JSON 描述和 `acceptsText`，不返回可执行函数。来源身份是提供方声明，不是签名或权限隔离。
 
 `resolve(context,rule)` 获取来源内容，与 `parseText(context,rule)` 是独立能力，至少实现一个。来源只有分散内容而不能提供独立模块时，可只注册 `parseText`；也可显式设置 `supportsModule:false` 保留旧 resolver 的兼容用途。此类来源不进入模块添加菜单，但仍出现在文本解析器菜单。`moduleAvailable({sessionId})` 可选，是同步、只读的 metadata 布尔判断：当前会话没有独立内容时返回 false；不是使用权限，不执行检索或正文解析。`registry.list({sessionId})` 的 descriptor 同时返回 `supportsModule`、`moduleAvailable`、`acceptsText`。
 
@@ -58,7 +58,7 @@ Tavern 的存储模板仅在当前会话存在启用且支持的资源时可作�
 
 独立插件在 Host 中组合自己的 store、registry、runtime、HTTP 与浏览器界面。package `main` 为 `src/plugin.js`；`./plugin` 提供 Host 入口，`./client` 提供浏览器入口；根导出仍为库原语。`dsh.bundle` 指向 `cordis.patch.yml`，`dsh.client` 指向提交的 `dist/client.js`。共享来源服务是 `dshPromptSources`。
 
-`dshPromptAssembler` 提供 `{store,runtime,registry,attachTavern(options),migrateLegacy(root)}`。插件自有存储位于 Host 的 `dshHomePath('dsh-prompt-assembler')`，文件名为 `assembly-presets.json`。新独立会话没有隐式策略或全局默认；设置侧边栏的“提示词装配”入口在第一条消息之前也可用，策略库的“使用此策略新建会话”先绑定策略再打开会话。
+`dshPromptAssembler` 提供 `{store,runtime,registry,strategies,registerPresets(definition),attachTavern(options),migrateLegacy(root)}`。插件自有存储位于 Host 的 `dshHomePath('dsh-prompt-assembler')`，文件名为 `assembly-presets.json`。新独立会话没有隐式策略或全局默认；设置侧边栏的“提示词装配”入口在第一条消息之前也可用，策略库的“使用此策略新建会话”先绑定策略再打开会话。
 
 `attachTavern({resources,sessionReads,mode,builtins,defaultPresetId,afterAssembly})` 接收来源拥有的公开只读资源对象、读取租约及兼容配置，返回 disposer。Tavern 通过 `registerTavernSources` 将来源注册到共享 registry；注册与卸载跟随来源的 scoped context，不重复注册 DSH 内置来源。assembler 不依赖 Tavern/Manager 包，不读取其内部文件。来源内容、解析权限与资源编辑仍归来源。Tavern 要求独立安装并挂载的 assembler 服务，保留旧 service/HTTP 转发到同一 owned store/runtime；新接入使用 assembler 服务与 API。不要给同一请求同时安装两个独立策略 hook。
 
@@ -113,3 +113,5 @@ const view = actualAssemblyResult(verifiedRequest)
 // view.messages 是该次记录的完整消息；view.nodes 是来源展示证据。
 // 历史记录缺证据时明确返回不可用，不调用 /actual 或 /preview 补齐。
 ```
+
+排序算法与可撤销预设目录通过公开 registry 独立接入，第三方插槽来源使用 `ownsSlots`。详见[开发者指南](DEVELOPER_GUIDE.md#注册排序策略与预设目录)及[笔记末尾算法](examples/notes-last.js)。

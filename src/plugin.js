@@ -30,19 +30,21 @@ export function apply(ctx, config = {}) {
   runtime.validateResult = (...args) => provider?.validateResult?.(...args)
   const history = connectHistoryPolicy(ctx, { runtime, storageDir: config.storageDir })
   const face = {
-    registry, store, runtime, history,
+    registry, strategies: registry.strategies, store, runtime, history,
+    registerPresets: definition => store.registerPresets(definition),
     migrateLegacy: root => store.migrateLegacy(root),
     attachTavern(options) {
       if (provider) throw new Error('Tavern source provider is already attached')
       if (!options?.resources?.compile || !options.resources.assembledFor) throw new TypeError('Tavern requires read-only resource compilation')
+      const removePresets = store.registerPresets({ pluginId: 'dsh-tavern', presets: (options.builtins ?? []).filter(p => !BUILTINS.some(b => b.id === p.id)) })
       provider = options
-      const previous = { builtins: store.builtins, defaultPresetId: store.defaultPresetId }
-      store.builtins = [...BUILTINS, ...(options.builtins ?? []).filter(p => !BUILTINS.some(b => b.id === p.id))]
+      const previousDefault = store.defaultPresetId
       store.defaultPresetId = runtime.requestAssemblyAvailable() && options.coreDefaultPresetId ? options.coreDefaultPresetId : options.defaultPresetId ?? BUILTINS[0].id
-      return () => { if (provider !== options) return; provider = null; Object.assign(store, previous) }
+      return () => { if (provider !== options) return; provider = null; removePresets(); store.defaultPresetId = previousDefault }
     },
   }
   ctx.provide('dshPromptSources', registry)
+  ctx.provide('dshPromptStrategies', registry.strategies)
   ctx.provide('dshPromptAssembler', face)
   // Capture the complete result after all providers, without emitting events or
   // storing an extra history. This is the snapshot used by native DSH text.

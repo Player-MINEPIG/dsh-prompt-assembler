@@ -1,5 +1,16 @@
 # Changelog / 变更记录
 
+## 1.1.0
+
+- 排序改为公开策略 registry，按保存的数组依次执行内置与第三方算法；请求捕获注册快照，后续规则仅处理剩余节点。保留手动定位、原生历史及投递边界。
+- 编辑器支持添加、移除、重排第三方策略；冻结结果保留策略名称与阶段归属。缺失算法保留 ID 并明确拒绝执行。
+- 提供可撤销的第三方预设目录、来源 `ownsSlots` 能力及按 descriptor 合成隐式依赖配置，修复重复插槽容器规则与隐式 snapshot 依赖。
+- 标准包与可选 core addon 同步为 1.1.0；新增双语接入合同、笔记排序示例及两种后端的离线真实 Host 验证。
+- Public strategy registry executes built-in and third-party algorithms sequentially from the saved array, using request snapshots and remaining-node claims. Manual positions, native history and delivery constraints remain authoritative.
+- The editor adds, removes and reorders extension strategies; frozen results retain names and stage ownership. Missing algorithms retain their IDs and explicitly block execution.
+- Adds revocable provider preset catalogs, source `ownsSlots` and capability-compatible implicit dependency defaults; fixes repeated slot-owner rules and implicit snapshot dependencies.
+- Standard package and optional core addon are both 1.1.0, with bilingual contracts, a notes ordering example and offline real Host checks for both backends.
+
 ## 1.0.0
 
 - 首个稳定版本：独立提示词装配插件与可组合库，支持来源注册、模块与自定义文本、资源位置、角色与排序、策略库、预览及会话应用；Tavern 与 Memory Manager 为可选来源。

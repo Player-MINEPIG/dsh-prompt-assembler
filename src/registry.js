@@ -1,3 +1,4 @@
+import { createPositionStrategyRegistry } from './strategies.js'
 export const ASSEMBLY_SERVICE = 'dshPromptSources'
 export const SOURCE_PROTOCOL_VERSION = 1
 const idPattern = /^[a-zA-Z0-9][a-zA-Z0-9_.:/-]{0,159}$/
@@ -17,7 +18,7 @@ async function abortable(value, signal) {
 export class RequestSourceRegistry {
   get version() { return SOURCE_PROTOCOL_VERSION }
   #sources = new Map()
-  constructor({ renderText = ({ text }) => text } = {}) { this.renderText = renderText }
+  constructor({ renderText = ({ text }) => text, strategies = createPositionStrategyRegistry() } = {}) { this.renderText = renderText; this.strategies = strategies }
   register(source) {
     if (!source || !idPattern.test(source.id) || !idPattern.test(source.pluginId) || typeof source.name !== 'string' || !source.name || (typeof source.resolve !== 'function' && typeof source.parseText !== 'function')) throw new TypeError('Source requires id, pluginId, name and resolve or parseText')
     if (this.#sources.has(source.id)) throw new TypeError(`Duplicate assembly source: ${source.id}`)

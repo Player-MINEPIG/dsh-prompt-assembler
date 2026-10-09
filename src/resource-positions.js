@@ -1,4 +1,5 @@
 import { isContextControl } from './native-context.js'
+import { createPositionStrategyRegistry } from './strategies.js'
 /** Source-declared positions describe capabilities, not the current activated assets. */
 const idPattern = /^[a-zA-Z0-9][a-zA-Z0-9_.:/-]{0,159}$/
 export function normalizePositions(value) {
@@ -24,7 +25,7 @@ export function normalizePriority(priority) {
   // Legacy user/preset choices and four-item lists migrate to an unconditional
   // manual override plus the same relative order of automatic rules.
   if (priority === 'user' || priority === 'preset') return [...POSITION_PRIORITIES]
-  if (!Array.isArray(priority) || ![3, 4].includes(priority.length) || new Set(priority).size !== priority.length || priority.some(p => !['user', ...POSITION_PRIORITIES].includes(p)) || POSITION_PRIORITIES.some(p => !priority.includes(p))) throw new TypeError('Invalid position priority order')
+  if (!Array.isArray(priority) || priority.length < 3 || priority.length > 128 || new Set(priority).size !== priority.length || priority.some(p => typeof p !== 'string' || !idPattern.test(p)) || POSITION_PRIORITIES.some(p => !priority.includes(p))) throw new TypeError('Invalid position priority order')
   return priority.filter(p => p !== 'user')
 }
 export const positionWins = (preset, candidate, other) => candidate === 'user' || other !== 'user' && priorityOrder(preset).indexOf(candidate) < priorityOrder(preset).indexOf(other)
@@ -106,7 +107,7 @@ export function applyPositionOrder(nodes, preset, diagnostics, active = null, lo
     if (!setting.enabled || setting.placement !== 'list') continue
     const key = positionKey(setting.sourceId, setting.positionId)
     const all = nodes.filter(n => keyOf(n) === key)
-    const winner = node => fixed(node) ? 'runtime' : priority.find(rule => rule === 'user' || rule === 'default' || rule === 'preset' && (node.slotId || node.placementSource === 'preset') || rule === 'resource' && (node.depth != null || node.nativeRequestedDepth != null || node.positionDecision === 'resource'))
+    const winner = node => fixed(node) ? 'runtime' : priority.find(rule => rule === 'user' || rule === 'default' || rule === 'preset' && (node.slotId || node.slotOwner || node.placementSource === 'preset') || rule === 'resource' && (node.depth != null || node.nativeRequestedDepth != null || node.positionDecision === 'resource'))
     const movable = all.filter(n => active ? active.has(n) : winner(n) === 'user')
     for (const decision of new Set((active ? [] : all.filter(n => !movable.includes(n))).map(winner))) diagnostics.push({ code: 'POSITION_CONFLICT', sourceId: setting.sourceId, positionId: setting.positionId, winner: decision, requested: 'list' })
     for (const area of new Set(movable.map(region))) {
@@ -169,7 +170,7 @@ export function applyResourceAnchors(nodes, preset, diagnostics, active = null, 
 }
 
 /** Each pass consumes only unassigned nodes; later passes cannot move consumed nodes. */
-export function applyPositionStrategies(nodes, preset, diagnostics, logical = false) {
+export function applyPositionStrategies(nodes, preset, diagnostics, logical = false, strategies = createPositionStrategyRegistry().snapshot()) {
   if (!Array.isArray(preset.layout?.priority)) {
     applyPositionOrder(nodes, preset, diagnostics, null, logical)
     return []
@@ -180,15 +181,37 @@ export function applyPositionStrategies(nodes, preset, diagnostics, logical = fa
   const manual = new Set([...pending].filter(node => node.positionOverride || setting(node)?.enabled && setting(node)?.placement === 'list'))
   for (const node of manual) { pending.delete(node); node.positionDecision = 'user' }
   for (const strategy of priorityOrder(preset)) {
-    const active = new Set([...pending].filter(node => strategy === 'default'
-      || strategy === 'preset' && (node.slotId || node.placementSource === 'preset')
-      || strategy === 'resource' && (node.resourceAnchor || node.depth != null || node.nativeRequestedDepth != null)))
-    if (strategy === 'resource') applyResourceAnchors(nodes, preset, diagnostics, active, logical)
-    const consumed = [...active].filter(n => strategy !== 'resource' || n.positionDecision === 'resource' || n.depth != null || n.nativeRequestedDepth != null)
+    const result = strategies.execute(strategy, { nodes, remainingNodeIds: [...pending].map(n => n.id), preset, logical })
+    const invalid = () => { throw Object.assign(new TypeError(`Invalid position strategy result: ${strategy}`), { code: 'POSITION_STRATEGY_INVALID', status: 409 }) }
+    const ids = nodes.map(n => n.id), idSet = new Set(ids), eligible = new Set([...pending].map(n => n.id))
+    const claimed = result?.claimedNodeIds
+    if (!Array.isArray(claimed) || new Set(claimed).size !== claimed.length || claimed.some(id => !eligible.has(id))) invalid()
+    const claimedSet = new Set(claimed), order = result.order ?? ids
+    if (!Array.isArray(order) || order.length !== ids.length || new Set(order).size !== ids.length || order.some(id => !idSet.has(id))) invalid()
+    if (JSON.stringify(order.filter(id => !claimedSet.has(id))) !== JSON.stringify(ids.filter(id => !claimedSet.has(id)))) invalid()
+    const detach = result.detachSlotNodeIds ?? [], depth = result.depthNodeIds ?? []
+    if (![detach, depth].every(list => Array.isArray(list) && new Set(list).size === list.length && list.every(id => claimedSet.has(id)))) invalid()
+    if (depth.some(id => { const n = nodes.find(n => n.id === id); return n.depth == null && n.nativeRequestedDepth == null })) invalid()
+    const byId = new Map(nodes.map(n => [n.id, n])), reordered = order.map(id => byId.get(id))
+    // Preserve native delivery regions unless position adaptation happens next.
+    if (!logical && preset.backend === 'native') {
+      const region = n => n.role === 'system' ? 'system' : `${n.nativePlacement}:${n.nativeDelivery}`
+      if (JSON.stringify(reordered.map(region)) !== JSON.stringify(nodes.map(region))) invalid()
+    }
+    if (result.diagnostics !== undefined && !Array.isArray(result.diagnostics)) invalid()
+    if (result.adaptPosition !== undefined && typeof result.adaptPosition !== 'boolean') invalid()
+    let reported
+    try { reported = JSON.parse(JSON.stringify(result.diagnostics ?? [])) } catch { invalid() }
+    // Validation completes before applying any callback output to live nodes.
+    nodes.splice(0, nodes.length, ...reordered)
+    const consumed = claimed.map(id => byId.get(id))
     for (const node of consumed) {
       pending.delete(node)
-      node.positionDecision = strategy === 'resource' && (node.depth != null || node.nativeRequestedDepth != null) ? 'resource-depth' : strategy
+      node.positionDecision = depth.includes(node.id) ? `${strategy}-depth` : strategy
+      if (result.order !== undefined && result.adaptPosition !== false) node.strategyPlaced = true
+      if (detach.includes(node.id) && node.slotId) { node.originalSlotId = node.slotId; node.slotId = null; node.locked = false; node.lockReason = null }
     }
+    diagnostics.push(...reported)
     stages.push({ strategy, nodeIds: consumed.map(n => n.id) })
   }
   // Apply explicit overrides after automatic anchors settle, so a custom

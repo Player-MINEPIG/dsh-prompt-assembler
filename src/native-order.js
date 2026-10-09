@@ -4,7 +4,7 @@ const kind = node => node.source?.module
 const presetOwned = node => typeof node.slotOwner === 'string'
 
 /** Project source order onto public native delivery regions, retaining empty anchors. */
-export function projectNativeOrder(nodes, preset, diagnostics) {
+export function projectNativeOrder(nodes, preset, diagnostics, strategies) {
   const history = nodes.find(n => kind(n) === 'history'), input = nodes.find(n => kind(n) === 'input')
   if (!history || !input) fail('Native ordering requires both history and current-input anchors.')
   const requestedSlots = preset.placement === 'native-slots'
@@ -53,14 +53,14 @@ export function projectNativeOrder(nodes, preset, diagnostics) {
   // Position-adapted layouts must resolve semantic positions before roles and
   // native delivery regions become fixed. Preserve-role layouts sort in regions.
   const sortingStages = preset.layout?.identity === 'position'
-    ? applyPositionStrategies(nodes, preset, diagnostics, true) : null
+    ? applyPositionStrategies(nodes, preset, diagnostics, true, strategies) : null
   const historyIndex = nodes.indexOf(history), inputIndex = nodes.indexOf(input)
   const groups = [[], [history], [], [input], [], []]
   for (const node of nodes) {
     if (node === history || node === input) continue
     if (kind(node) === 'native-system') { groups[0].push(node); continue }
     const index = nodes.indexOf(node), rule = preset.rules.find(r => r.id === node.ruleId)
-    const manual = sortingStages !== null && node.positionDecision === 'user'
+    const manual = sortingStages !== null && (node.positionDecision === 'user' || node.strategyPlaced)
     if (slots && presetOwned(node) || node.nativeDepthAnchor || manual) {
       // A history slot fixes the system/user boundary. With only an input slot,
       // authored system prefixes remain system and user prefixes follow history.

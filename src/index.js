@@ -1,4 +1,5 @@
 export { ASSEMBLY_SERVICE, SOURCE_PROTOCOL_VERSION, RequestSourceRegistry } from './registry.js'
+export { STRATEGY_SERVICE, STRATEGY_PROTOCOL_VERSION, PositionStrategyRegistry, createPositionStrategyRegistry } from './strategies.js'
 export { assembleRequest, assembleRequestAsync, textOf } from './assemble.js'
 export { FORMAT, BUILTINS, normalizePreset, moveRule } from './model.js'
 export { createDshRegistry, registerDshSources, parseDshText } from '../adapters/dsh.js'

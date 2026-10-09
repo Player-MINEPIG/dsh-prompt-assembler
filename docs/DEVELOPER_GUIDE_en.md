@@ -40,3 +40,34 @@ Call runtime.requireAvailable(preset) before applying; capabilities() distinguis
 Run `npm run check` and a library smoke using the notes example, then test source failure, parser failure, concurrent read-only preview, each step, cancellation, disabled/unloaded source, role/depth, module availability and expired leases. Where a prepared Host is available, run the explicit external fixture commands in [installation](INSTALLATION_en.md#verification), using temporary sessions and a synthetic provider. Confirm one request/assembly per request and verify frozen messages against llm/stream. Browser acceptance separately checks source selection, saving versus applying, session changes and disposal. Submit adapter changes to this repository without importing private provider files.
 
 For native placement and retention, see [backend rules](BACKENDS_en.md). Source descriptors advertise library capabilities; the selected backend may restrict them further.
+
+## Register ordering strategies and preset catalogs
+
+The ordering executor is a public registry independent of Tavern. `RequestSourceRegistry.strategies`, Host `dshPromptStrategies` and `dshPromptAssembler.strategies` share one instance. Its `version` is 1. `register({id,pluginId,name:[Chinese,English],execute})` returns an idempotent disposer and rejects duplicate IDs. Built-in `preset/resource/default` algorithms use the same contract. Library callers can supply `new RequestSourceRegistry({strategies})`; `createPositionStrategyRegistry()` includes built-ins, while an empty `new PositionStrategyRegistry()` allows explicit composition.
+
+The [notes-last example](examples/notes-last.js) provides an independent algorithm. Bind its registration to the public Host service lifecycle:
+
+```js
+import { registerNotesLast } from './notes-last.js'
+export function apply(ctx) {
+  return ctx.inject(['dshPromptStrategies'], scope => {
+    const strategies = scope.get('dshPromptStrategies')
+    if (strategies.version !== 1) throw new Error('Unsupported strategy protocol')
+    scope.effect(() => registerNotesLast(strategies))
+  })
+}
+```
+
+Registration does not edit existing presets. Add and order the algorithm in Resource positions, or save `layout.priority:['example.notes-last','preset','resource','default']` and explicitly apply it. The array retains all three unique built-in IDs and accepts namespaced IDs, with at most 128 items. Legacy `user` input is removed during normalization because manual positions always win. `default` consumes all remaining nodes, so algorithms placed after it receive no content.
+
+`execute({nodes,remainingNodeIds,preset,logical})` is synchronous and read-only, with detached, deeply frozen input. Return `{claimedNodeIds,order?,adaptPosition?,detachSlotNodeIds?,depthNodeIds?,diagnostics?}`. Claims must be remaining nodes. An optional `order` must permute every node and preserve the relative order of unclaimed nodes. Later algorithms cannot claim already assigned nodes. `detachSlotNodeIds` only unlocks slots of claimed nodes; `depthNodeIds` only labels existing source depth and cannot change it. Callbacks cannot edit text, roles or messages, invent/drop nodes, or claim manual positions, native history, retained snapshots or depth boundaries. Embedded macro children remain part of their host node. Explicit `order` defaults to position adaptation when enabled by the layout; `adaptPosition:false` retains source role/delivery projection, as used by the built-in resource algorithm. Standard mode preserves delivery regions when preserving identity; native role adaptation requires explicit permission. Complete system projection and tool transaction checks still follow ordering.
+
+Source and strategy registrations are captured at request start. Unloading during asynchronous resolution affects subsequent requests, not the captured execution. `resourceLayout.strategies/sortingStages` retain captured descriptors and each stage's claimed IDs. Missing algorithms fail with `409 POSITION_STRATEGY_UNAVAILABLE`; invalid output fails with `409 POSITION_STRATEGY_INVALID`. Missing algorithms never silently use the source fallback policy. Thrown errors or Promise callbacks also reject assembly. The editor retains unavailable IDs for removal or provider reinstallation; frozen results use captured names. After plugin hot loading, use the existing `dsh-prompt-assembler:refresh` event or reopen the panel to refresh catalogs.
+
+`dshPromptAssembler.registerPresets({pluginId,presets})` and `store.registerPresets` provide independent catalogs without `attachTavern`. Each preset needs a stable ID under the existing letters/digits/underscore/hyphen contract (up to 200 characters); source and strategy IDs also allow namespace punctuation. Registration normalizes and clones the whole array, rejects global ID collisions and returns a disposer. Entries carry `builtin:true` and `pluginId`, and must be copied before editing. Unloading withdraws the catalog while retaining applied session snapshots and leaving default selection unchanged. Callers compose sources, algorithms, presets and their disposers without another request hook or HTTP endpoint.
+
+## Third-party slots and implicit dependencies
+
+Declaring `ownsSlots:true` allows a source's text and nested references to form the native slot spine without the special source ID `preset`. Reference blocks may declare `role:'system'|'user'|'assistant'`. Node `slotOwner` retains the real source ID, while `slotOwnerRuleId` distinguishes repeated rules from one source. Standard mode still requires history, current input and legal role order; this capability cannot bypass runtime boundaries. Legacy `preset` sources default to slot ownership, others do not; either can explicitly opt out.
+
+An unlisted dependency's synthetic rule selects a legal role (preferring `preserve`) and lifetime (preferring `request`) from its descriptor. Explicit rules, including disabled rules, remain authoritative. Dependency permissions, resolution and snapshot retention follow the existing source contract.

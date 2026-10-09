@@ -7,7 +7,7 @@ The prefix is `/dsh-prompt-assembler/api/v1/assembly-presets`; paths below are r
 
 | Method | Path | Input / result |
 | --- | --- | --- |
-| GET | /?sessionId=… | presets/defaultPresetId/selection/capability/capabilities/sourceProtocolVersion/sources |
+| GET | /?sessionId=… | presets/defaultPresetId/selection/capability/capabilities/sourceProtocolVersion/sources/strategyProtocolVersion/strategies |
 | POST | / | Preset JSON or {preset} → 201 {preset} |
 | GET | /:id | {preset} |
 | PUT | /:id | Preset JSON → {preset} |

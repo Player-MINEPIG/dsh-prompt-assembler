@@ -7,19 +7,19 @@
 ## 标准安装
 
 ```sh
-dsh plugin --profile web add github:Player-MINEPIG/dsh-prompt-assembler#v1.0.0
+dsh plugin --profile web add github:Player-MINEPIG/dsh-prompt-assembler#v1.1.0
 ```
 
-`#v1.0.0` 固定本版本；`#main` 跟随开发主线。复验其他候选时可改用其已审查的完整 commit，并在调用方 lockfile 固定同一修订。标准包与可选 addon 的版本均为 `1.0.0`，addon 的 peer 精确要求标准 `1.0.0`；具体源码修订仍须一起核对。
+`#v1.1.0` 固定本版本；`#main` 跟随开发主线。复验其他候选时可改用其已审查的完整 commit，并在调用方 lockfile 固定同一修订。标准包与可选 addon 的版本均为 `1.1.0`，addon 的 peer 精确要求标准 `1.1.0`；具体源码修订仍须一起核对。
 
 仓库是 public。标准包拥有 `main:src/plugin.js`、`dsh.bundle:cordis.patch.yml` 和预构建 `dist/client.js`，无需改动 stock rc.2 核心。停止并重启目标 Host 后打开“设置 → 提示词装配”；“保存规则”仅保存资源，“保存并应用到当前会话”先保存修改再应用，新会话先绑定再打开。独立运行没有全局默认，Tavern 不必安装。GitHub 源码、npm 包与插件目录是不同分发途径，不由仓库可见性推断发布状态。
 
 ## 可选进阶扩展
 
-先按上方命令安装标准 `1.0.0`，再取得同一标签的源码及准备工具依赖：
+先按上方命令安装标准 `1.1.0`，再取得同一标签的源码及准备工具依赖：
 
 ```sh
-git clone --branch v1.0.0 --depth 1 https://github.com/Player-MINEPIG/dsh-prompt-assembler.git
+git clone --branch v1.1.0 --depth 1 https://github.com/Player-MINEPIG/dsh-prompt-assembler.git
 cd dsh-prompt-assembler
 npm ci
 node core-extension/scripts/prepare-request-assembly.mjs /path/to/dsh-rc2-source /path/to/prepared-core
@@ -35,7 +35,7 @@ node core-extension/scripts/prepare-request-assembly.mjs /path/to/dsh-rc2-source
 node core-extension/scripts/switch-runtime.mjs install --runtime /path/to/runtime --home /path/to/dsh-home --profile web --prepared /path/to/prepared-core --stock-runtime /path/to/stock-runtime
 ```
 
-`stock-runtime` 含 `node_modules/@deepseek-ai/dsh-session` 和 `dsh-agent-loop`。目标 runtime、标准参照和准备产物均须为 0.2.0-rc.2，标准插件须为 1.0.0。工具通过公开 `dsh-plugin-manager/operations` 安装和启用插件，默认调用 npm，可用 `--npm /path/to/npm` 指定命令。切换工具拒绝未知构建、损坏备份和版本不匹配。
+`stock-runtime` 含 `node_modules/@deepseek-ai/dsh-session` 和 `dsh-agent-loop`。目标 runtime、标准参照和准备产物均须为 0.2.0-rc.2，标准插件须为 1.1.0。工具通过公开 `dsh-plugin-manager/operations` 安装和启用插件，默认调用 npm，可用 `--npm /path/to/npm` 指定命令。切换工具拒绝未知构建、损坏备份和版本不匹配。
 
 重新启动 Host，在“设置 → 提示词装配”选择“进阶版 · 核心扩展”，检查装配结果，再保存并应用到当前会话；安装 addon 不会自动切换已有策略。
 

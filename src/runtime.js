@@ -3,6 +3,7 @@ import { assembleRequestAsync } from './assemble.js'
 import { createDshRegistry as createDefaultRegistry } from '../adapters/dsh.js'
 import { normalizePreset } from './model.js'
 import { projectSystemSnapshots } from './system-snapshots.js'
+import { priorityOrder } from './resource-positions.js'
 
 function previewAgent(ctx, agent) {
   if (!agent || agent.options !== undefined) return agent
@@ -35,6 +36,10 @@ export class RequestAssembler {
     return () => { if (this.backend === backend) { this.backend = null; this.ctx.emit?.('system-prompt/change') } }
   }
   requireAvailable(preset) {
+    if (preset) {
+      const ids = new Set(this.registry.strategies.list().map(s => s.id))
+      for (const id of priorityOrder(preset)) if (!ids.has(id)) throw Object.assign(new Error(`Position strategy unavailable: ${id}`), { status: 409, code: 'POSITION_STRATEGY_UNAVAILABLE' })
+    }
     if (preset && presetBackend(preset) === 'native') {
       if (!this.capabilities().native) throw Object.assign(new Error('Native system prompt assembly is unavailable'), { status: 409, code: 'ASSEMBLY_NATIVE_UNAVAILABLE' })
       validateNativePreset(preset); return

@@ -8,13 +8,14 @@ export interface LayoutOverride { target: string; anchor: string; side: 'before'
 export interface ResourcePosition { sourceId: string; positionId: string; enabled: boolean; placement: 'source' | 'list'; anchor?: 'end' | { sourceId: string; positionId: string; side: 'before' | 'after' } }
 export interface PositionDescriptor { configurable?: boolean; note?: [string, string]; id: string; name: [string, string]; match?: { field?: string; group?: string; depth?: boolean }; anchor?: { sourceId: string; fields?: string[]; side: 'before' | 'after' }; macros?: string[] }
 /** Legacy four-item priority lists are accepted; normalization removes user, since manual positions always override automatic rules. */
-export interface ResourceLayoutPolicy { priority?: Array<'user' | 'preset' | 'resource' | 'default'> | 'user' | 'preset'; positions?: ResourcePosition[]; version: 1; source: 'manual' | 'preset-slots'; identity: 'preserve' | 'position'; fallback: 'source-order' | 'error'; overrides: LayoutOverride[] }
-export interface ResourceLayout { sortingStages?: Array<{ strategy: 'user' | 'preset' | 'resource' | 'default'; nodeIds: string[] }>; priorityOrder?: string[]; positionDecisions?: Array<Record<string, any>>; version: 1; legacy: boolean; policy: ResourceLayoutPolicy | null; slots: Array<Record<string, any>>; blocks: Array<Record<string, any>> }
+export interface ResourceLayoutPolicy { priority?: string[] | 'user' | 'preset'; positions?: ResourcePosition[]; version: 1; source: 'manual' | 'preset-slots'; identity: 'preserve' | 'position'; fallback: 'source-order' | 'error'; overrides: LayoutOverride[] }
+export interface ResourceLayout { strategies?: StrategyDescriptor[]; sortingStages?: Array<{ strategy: string; nodeIds: string[] }>; priorityOrder?: string[]; positionDecisions?: Array<Record<string, any>>; version: 1; legacy: boolean; policy: ResourceLayoutPolicy | null; slots: Array<Record<string, any>>; blocks: Array<Record<string, any>> }
 export function normalizeLayout(value: unknown): ResourceLayoutPolicy | undefined
 export function describeResourceLayout(nodes: Array<Record<string, any>>, preset: Preset, slots?: Array<Record<string, any>>): ResourceLayout
 export function withBlockMove(preset: Preset, layout: ResourceLayout, target: string, anchor: string, side?: 'before' | 'after', detach?: boolean): Preset
 export interface HistoryPolicy { version: 1; enabled: boolean; sources: Array<{ kind: string; include: boolean }>; contentTypes: { text: boolean; image: boolean; reasoning: boolean }; fragments: Array<{ id: string; sourceKind: string; start: string; end: string; mode: 'lines' | 'literal'; enabled: boolean }> }
 export interface Preset { historyPolicy?: HistoryPolicy; layout?: ResourceLayoutPolicy; backend?: 'native' | 'core'; format: 'dsh-tavern-request-assembly'; version: 1; name: string; placement: 'st' | 'modules' | 'native-roles' | 'native-slots'; rules: Rule[]; id?: string }
+export interface CatalogPreset extends Preset { id: string; builtin?: true; pluginId?: string }
 export type PresetInput = Omit<Preset, 'rules' | 'placement'> & { placement?: Preset['placement']; rules: RuleInput[] }
 export interface NativeMessage { id: string; role: string; content: Array<{ type: string; [key: string]: unknown }>; source?: { kind?: string; [key: string]: unknown }; [key: string]: unknown }
 /** Detached and deeply frozen at runtime. Resolvers must be read-only in both modes. */
@@ -26,7 +27,7 @@ export interface SourceContext {
 }
 export interface ContentGuide { contains: [string, string]; origin: [string, string]; editable: [string, string]; editAt: [string, string] }
 export interface Descriptor {
-  positions?: PositionDescriptor[]; textParserAliasFor?: string; contentGuide?: ContentGuide;
+  ownsSlots: boolean; positions?: PositionDescriptor[]; textParserAliasFor?: string; contentGuide?: ContentGuide;
   id: string; pluginId: string; name: string; version: number; stability: Stability;
   dependencies: string[]; multiple: boolean; roles: Role[]; lifetimes: Lifetime[]; depth: boolean;
   generationRequiresPlugin: boolean; recordedContentSurvivesRemoval: true; acceptsText: boolean; supportsModule: boolean; moduleAvailable: boolean;
@@ -45,7 +46,7 @@ export interface TextBlock extends BlockBase {
 }
 export interface NativeBlock extends BlockBase { type: 'native'; messageIds: string[] }
 export interface ReferenceBlock extends BlockBase {
-  type: 'reference'; sourceId: string; blockIds?: string[];
+  type: 'reference'; sourceId: string; blockIds?: string[]; role?: Exclude<Role, 'preserve'>;
   honorEnabled?: boolean; useOwnerRule?: boolean; lock?: boolean; owner?: string;
 }
 export interface SourceOutput { blocks: Array<TextBlock | NativeBlock | ReferenceBlock>; macros?: Record<string, string>; diagnostics?: Json[] }
@@ -59,8 +60,35 @@ export type SourceDefinition = Pick<Descriptor, 'id' | 'pluginId' | 'name'> & Pa
 }
 export const ASSEMBLY_SERVICE: 'dshPromptSources'
 export const SOURCE_PROTOCOL_VERSION: 1
+export interface StrategyDescriptor { id: string; pluginId: string; name: [string, string] }
+/** Detached and deeply frozen at runtime. IDs address whole resolved nodes, not embedded macro children. */
+export interface StrategyContext {
+  readonly nodes: ReadonlyArray<Readonly<Record<string, any>>>;
+  readonly remainingNodeIds: readonly string[];
+  readonly preset: Readonly<Preset>; readonly logical: boolean;
+}
+export interface StrategyResult {
+  claimedNodeIds: string[];
+  /** Full node permutation; unclaimed nodes retain relative order. */
+  order?: string[];
+  /** Defaults to true for explicit order; false retains native role/delivery projection. */
+  adaptPosition?: boolean;
+  detachSlotNodeIds?: string[]; depthNodeIds?: string[];
+  diagnostics?: Json[];
+}
+export interface StrategyDefinition extends StrategyDescriptor { execute(context: StrategyContext): StrategyResult }
+export interface StrategySnapshot { list(): StrategyDescriptor[]; execute(id: string, context: StrategyContext): StrategyResult }
+export const STRATEGY_SERVICE: 'dshPromptStrategies'
+export const STRATEGY_PROTOCOL_VERSION: 1
+export class PositionStrategyRegistry {
+  readonly version: 1;
+  register(definition: StrategyDefinition): () => void;
+  list(): StrategyDescriptor[]; snapshot(): StrategySnapshot;
+}
+export function createPositionStrategyRegistry(): PositionStrategyRegistry
 export class RequestSourceRegistry {
-  constructor(options?: { renderText?: SourceDefinition['renderText'] });
+  constructor(options?: { renderText?: SourceDefinition['renderText']; strategies?: PositionStrategyRegistry });
+  readonly strategies: PositionStrategyRegistry;
   readonly version: 1;
   register(source: SourceDefinition): () => void;
   list(context?: { sessionId?: string }): Descriptor[];
@@ -89,7 +117,8 @@ export function normalizePreset(value: unknown): Preset
 export function moveRule(rules: Rule[], id: string, targetId: string): Rule[]
 export class AssemblyPresetStore {
   constructor(root: string, options?: { mode?: () => string | null; builtins?: readonly Preset[]; defaultPresetId?: string; unified?: boolean });
-  list(): Preset[]; get(id: string): Preset; save(value: PresetInput, id?: string): Preset; remove(id: string): void;
+  registerPresets(definition: { pluginId: string; presets: Array<PresetInput & { id: string }> }): () => void;
+  list(): CatalogPreset[]; get(id: string): CatalogPreset; save(value: PresetInput, id?: string): Preset; remove(id: string): void;
   migrateLegacy(root: string): boolean; hasSelection(sessionId: string): boolean;
   selection(id: string): Preset | null; apply(sessionId: string, id: string | null): Preset | null; applySnapshot(sessionId: string, preset: Preset | null): Preset | null; copySelection(from: string, to: string): void;
 }
@@ -102,7 +131,7 @@ export function projectSystemSnapshots(logical: AssemblyResult, nativeMessages: 
 
 export const name: "dsh-prompt-assembler"
 export const inject: string[]
-export function apply(ctx: any, config: { storageDir: string; security?: Record<string, unknown> }): { registry: RequestSourceRegistry; store: AssemblyPresetStore; runtime: RequestAssembler; history: { store: { get(sessionId: string): { revision: number; policy: Json }; save(sessionId: string, policy: Json, expectedRevision: number): { revision: number; policy: Json } }; readEvents(session: { id: string }): Promise<any[]>; readContext(sessionId: string): Promise<Record<string, any>> }; migrateLegacy(root: string): boolean; attachTavern(options: Record<string, unknown>): () => void }
+export function apply(ctx: any, config: { storageDir: string; security?: Record<string, unknown> }): { registry: RequestSourceRegistry; strategies: PositionStrategyRegistry; registerPresets(definition: { pluginId: string; presets: Array<PresetInput & { id: string }> }): () => void; store: AssemblyPresetStore; runtime: RequestAssembler; history: { store: { get(sessionId: string): { revision: number; policy: Json }; save(sessionId: string, policy: Json, expectedRevision: number): { revision: number; policy: Json } }; readEvents(session: { id: string }): Promise<any[]>; readContext(sessionId: string): Promise<Record<string, any>> }; migrateLegacy(root: string): boolean; attachTavern(options: Record<string, unknown>): () => void }
 declare const plugin: { name: typeof name; inject: typeof inject; apply: typeof apply }
 export default plugin
 

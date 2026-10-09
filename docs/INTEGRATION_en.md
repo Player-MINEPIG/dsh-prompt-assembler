@@ -20,7 +20,7 @@ Implement `myNotesStore.read({sessionId,signal})` to return `{id,text}[]`. Regis
 
 ## Sources and parsers
 
-`register` requires `id/pluginId/name` and at least one of `resolve` or `parseText`. Optional fields include `version` (default 1), `stability`, `dependencies`, `multiple`, `roles`, `lifetimes`, `depth` and `generationRequiresPlugin`. `list()` returns JSON descriptors and `acceptsText`, without executable functions. Source identity is provider-declared, not a signature or permission boundary.
+`register` requires `id/pluginId/name` and at least one of `resolve` or `parseText`. Optional fields include `version` (default 1), `stability`, `dependencies`, `multiple`, `roles`, `lifetimes`, `depth`, `ownsSlots` and `generationRequiresPlugin`. `list()` returns JSON descriptors and `acceptsText`, without executable functions. Source identity is provider-declared, not a signature or permission boundary.
 
 `resolve(context,rule)` supplies source content. Optional `parseText(context,rule)` interprets user-authored `rule.text`. `rule.inputMode:'text'` calls only `parseText`; the default calls `resolve`. A missing parser explicitly rejects text mode. Both return `{blocks,macros?,diagnostics?}` and share placement, role, depth and retention controls. The UI separates Add module from Add custom text with a source parser. Sources own their syntax: third-party text does not implicitly execute ST, EJS or JavaScript. Optional `renderText({text,context,variables,block,diagnostics,identity})` must synchronously return a string; the default preserves text. Rendering runs after declared source macro references expand.
 
@@ -60,7 +60,7 @@ In advanced assembly, `role:'preserve'` retains the source role, defaulting to s
 
 The standalone plugin composes its own store, registry, runtime, HTTP API and browser UI. Package `main` is `src/plugin.js`; `./plugin` exports the Host entry and `./client` exports the browser entry. Root exports remain library primitives. `dsh.bundle` points to `cordis.patch.yml`, and `dsh.client` points to committed `dist/client.js`. Shared registration uses `dshPromptSources`.
 
-`dshPromptAssembler` exposes `{store,runtime,registry,attachTavern(options),migrateLegacy(root)}`. Its store uses Host `dshHomePath('dsh-prompt-assembler')` and filename `assembly-presets.json`. New standalone sessions have no implicit strategy or global default. Current-session assembly is available from Settings → Prompt assembly before the first message; the strategy library's “Create session with this strategy” binds before opening the session.
+`dshPromptAssembler` exposes `{store,runtime,registry,strategies,registerPresets(definition),attachTavern(options),migrateLegacy(root)}`. Its store uses Host `dshHomePath('dsh-prompt-assembler')` and filename `assembly-presets.json`. New standalone sessions have no implicit strategy or global default. Current-session assembly is available from Settings → Prompt assembly before the first message; the strategy library's “Create session with this strategy” binds before opening the session.
 
 `attachTavern({resources,sessionReads,mode,builtins,defaultPresetId,afterAssembly})` receives source-owned public read resources, read leases and compatibility configuration, and returns a disposer. Tavern registers through `registerTavernSources` on the shared registry. Source registration/removal follows its scoped context and does not re-register native DSH sources. The assembler has no Tavern/Manager package dependencies or internal-file imports. Sources retain content, parser permissions and resource editing. Tavern requires the independently mounted assembler service and retains legacy service/HTTP forwarding to the same owned store and runtime; new integrations should use the assembler service and API. Do not install two independent strategy hooks on the same request.
 
@@ -115,3 +115,5 @@ const view = actualAssemblyResult(verifiedRequest)
 // view.messages is the complete recorded request; view.nodes is source display evidence.
 // Report unavailable historical evidence; never fill it from /actual or /preview.
 ```
+
+Ordering algorithms and revocable preset catalogs integrate through public registries; third-party slot sources use `ownsSlots`. See the [developer guide](DEVELOPER_GUIDE_en.md#register-ordering-strategies-and-preset-catalogs) and [notes-last algorithm](examples/notes-last.js).

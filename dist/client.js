@@ -45,9 +45,10 @@ var import_react = require("react");
 function AssemblyError({ message, locale = 0, context, ...attributes }) {
   const zh = locale === 0;
   const priority = String(message).includes("Invalid position priority order");
+  const strategy = String(message).includes("Position strategy unavailable:");
   const network = /Failed to fetch|fetch failed|NetworkError|HTTP 50[234]/i.test(String(message));
-  const title = priority ? zh ? "\u81EA\u52A8\u5B9A\u4F4D\u4F18\u5148\u7EA7\u683C\u5F0F\u4E0D\u517C\u5BB9\u6216\u4E0D\u5B8C\u6574" : "Automatic placement priorities are incompatible or incomplete" : network ? zh ? "\u65E0\u6CD5\u8FDE\u63A5\u88C5\u914D\u670D\u52A1" : "Could not reach the assembly service" : zh ? "\u88C5\u914D\u64CD\u4F5C\u672A\u5B8C\u6210" : "Assembly operation could not be completed";
-  const remedy = priority ? zh ? "\u8BF7\u5237\u65B0\u9875\u9762\u540E\u91CD\u65B0\u9009\u62E9\u5185\u7F6E\u7B56\u7565\u3002\u82E5\u5185\u7F6E\u7B56\u7565\u4ECD\u62A5\u9519\uFF0C\u8BF7\u540C\u6B65\u66F4\u65B0 Tavern \u4E0E Assembler \u5E76\u91CD\u542F\u540E\u7AEF\uFF0C\u518D\u5237\u65B0\u9875\u9762\uFF1B\u82E5\u4EC5\u81EA\u5B9A\u4E49\u7B56\u7565\u62A5\u9519\uFF0C\u8BF7\u4ECE\u6B63\u5E38\u7684\u5185\u7F6E\u7B56\u7565\u53E6\u5B58\u4E3A\u526F\u672C\uFF0C\u518D\u91CD\u65B0\u8BBE\u7F6E\u4F4D\u7F6E\u3002" : "Refresh the page and select a built-in strategy again. If built-ins still fail, update both Tavern and Assembler, restart the backend, and refresh. If only a custom strategy fails, save a copy of a working built-in and configure its positions again." : network ? zh ? "\u8BF7\u786E\u8BA4\u6D4B\u8BD5\u73AF\u5883\u540E\u7AEF\u6B63\u5728\u8FD0\u884C\uFF0C\u5237\u65B0\u9875\u9762\u540E\u91CD\u8BD5\u3002" : "Check that the backend is running, then refresh the page and retry." : zh ? "\u8BF7\u5C55\u5F00\u9519\u8BEF\u8BE6\u60C5\uFF0C\u68C0\u67E5\u5BF9\u5E94\u7684\u7B56\u7565\u6216\u8D44\u6E90\u8BBE\u7F6E\uFF1B\u4FEE\u6539\u540E\u70B9\u51FB\u201C\u88C5\u914D\u7ED3\u679C\u201D\u91CD\u65B0\u6821\u9A8C\uFF0C\u901A\u8FC7\u540E\u518D\u5E94\u7528\u3002\u82E5\u5185\u7F6E\u7B56\u7565\u4E5F\u5931\u8D25\uFF0C\u8BF7\u53CD\u9988\u6240\u9009\u7B56\u7565\u540D\u79F0\u548C\u9519\u8BEF\u8BE6\u60C5\u3002" : "Expand the error details and check the relevant strategy or resource settings. After editing, click \u201CAssembly result\u201D to validate before applying. If a built-in also fails, report its name and the error details.";
+  const title = strategy ? zh ? "\u6240\u9700\u6392\u5E8F\u7B56\u7565\u672A\u6CE8\u518C" : "A required ordering strategy is unavailable" : priority ? zh ? "\u81EA\u52A8\u5B9A\u4F4D\u4F18\u5148\u7EA7\u683C\u5F0F\u4E0D\u517C\u5BB9\u6216\u4E0D\u5B8C\u6574" : "Automatic placement priorities are incompatible or incomplete" : network ? zh ? "\u65E0\u6CD5\u8FDE\u63A5\u88C5\u914D\u670D\u52A1" : "Could not reach the assembly service" : zh ? "\u88C5\u914D\u64CD\u4F5C\u672A\u5B8C\u6210" : "Assembly operation could not be completed";
+  const remedy = strategy ? zh ? "\u8BF7\u91CD\u65B0\u542F\u7528\u63D0\u4F9B\u6B64\u6392\u5E8F\u7B56\u7565\u7684\u63D2\u4EF6\uFF0C\u6216\u5728\u8D44\u6E90\u4F4D\u7F6E\u9875\u79FB\u9664\u6807\u4E3A\u201C\u672A\u6CE8\u518C\u201D\u7684\u7B56\u7565\uFF1B\u7136\u540E\u91CD\u65B0\u9884\u89C8\u5E76\u5E94\u7528\u3002\u5DF2\u4FDD\u5B58\u7684\u89C4\u5219\u548C\u4F1A\u8BDD\u9009\u62E9\u4ECD\u7136\u4FDD\u7559\u3002" : "Enable the plugin that provides this algorithm, or remove the unavailable strategy in Resource positions. Then preview and apply again. Saved rules and session selections are retained." : priority ? zh ? "\u8BF7\u5237\u65B0\u9875\u9762\u540E\u91CD\u65B0\u9009\u62E9\u5185\u7F6E\u7B56\u7565\u3002\u82E5\u5185\u7F6E\u7B56\u7565\u4ECD\u62A5\u9519\uFF0C\u8BF7\u540C\u6B65\u66F4\u65B0 Tavern \u4E0E Assembler \u5E76\u91CD\u542F\u540E\u7AEF\uFF0C\u518D\u5237\u65B0\u9875\u9762\uFF1B\u82E5\u4EC5\u81EA\u5B9A\u4E49\u7B56\u7565\u62A5\u9519\uFF0C\u8BF7\u4ECE\u6B63\u5E38\u7684\u5185\u7F6E\u7B56\u7565\u53E6\u5B58\u4E3A\u526F\u672C\uFF0C\u518D\u91CD\u65B0\u8BBE\u7F6E\u4F4D\u7F6E\u3002" : "Refresh the page and select a built-in strategy again. If built-ins still fail, update both Tavern and Assembler, restart the backend, and refresh. If only a custom strategy fails, save a copy of a working built-in and configure its positions again." : network ? zh ? "\u8BF7\u786E\u8BA4\u6D4B\u8BD5\u73AF\u5883\u540E\u7AEF\u6B63\u5728\u8FD0\u884C\uFF0C\u5237\u65B0\u9875\u9762\u540E\u91CD\u8BD5\u3002" : "Check that the backend is running, then refresh the page and retry." : zh ? "\u8BF7\u5C55\u5F00\u9519\u8BEF\u8BE6\u60C5\uFF0C\u68C0\u67E5\u5BF9\u5E94\u7684\u7B56\u7565\u6216\u8D44\u6E90\u8BBE\u7F6E\uFF1B\u4FEE\u6539\u540E\u70B9\u51FB\u201C\u88C5\u914D\u7ED3\u679C\u201D\u91CD\u65B0\u6821\u9A8C\uFF0C\u901A\u8FC7\u540E\u518D\u5E94\u7528\u3002\u82E5\u5185\u7F6E\u7B56\u7565\u4E5F\u5931\u8D25\uFF0C\u8BF7\u53CD\u9988\u6240\u9009\u7B56\u7565\u540D\u79F0\u548C\u9519\u8BEF\u8BE6\u60C5\u3002" : "Expand the error details and check the relevant strategy or resource settings. After editing, click \u201CAssembly result\u201D to validate before applying. If a built-in also fails, report its name and the error details.";
   return (0, import_react.createElement)(
     "div",
     { ...attributes, role: "alert", className: "dta-notice", "data-error": true },
@@ -466,18 +467,86 @@ function contextControlRows(rules, available = CONTEXT_CONTROLS.map((c) => c.kin
   })];
 }
 
-// src/resource-positions.js
+// src/strategies.js
+var STRATEGY_PROTOCOL_VERSION = 1;
 var idPattern = /^[a-zA-Z0-9][a-zA-Z0-9_.:/-]{0,159}$/;
+var freeze = (value) => {
+  if (value && typeof value === "object" && !Object.isFrozen(value)) {
+    Object.freeze(value);
+    for (const child of Object.values(value)) freeze(child);
+  }
+  return value;
+};
+var PositionStrategyRegistry = class {
+  #entries = /* @__PURE__ */ new Map();
+  get version() {
+    return STRATEGY_PROTOCOL_VERSION;
+  }
+  register(definition) {
+    if (!definition || typeof definition.id !== "string" || !idPattern.test(definition.id) || definition.id === "user" || typeof definition.pluginId !== "string" || !idPattern.test(definition.pluginId) || !Array.isArray(definition.name) || definition.name.length !== 2 || definition.name.some((s) => typeof s !== "string" || !s) || typeof definition.execute !== "function") throw new TypeError("Strategy requires id, pluginId, bilingual name and execute");
+    if (this.#entries.has(definition.id)) throw new TypeError(`Duplicate position strategy: ${definition.id}`);
+    const descriptor = freeze(structuredClone({ id: definition.id, pluginId: definition.pluginId, name: definition.name }));
+    const entry = Object.freeze({ descriptor, execute: definition.execute });
+    this.#entries.set(definition.id, entry);
+    return () => {
+      if (this.#entries.get(definition.id) === entry) this.#entries.delete(definition.id);
+    };
+  }
+  list() {
+    return structuredClone([...this.#entries.values()].map((e) => e.descriptor));
+  }
+  /** A request captures callbacks once; unloading affects only subsequent requests. */
+  snapshot() {
+    const entries = new Map(this.#entries);
+    return Object.freeze({
+      list: () => structuredClone([...entries.values()].map((e) => e.descriptor)),
+      execute(id, context) {
+        const entry = entries.get(id);
+        if (!entry) throw Object.assign(new Error(`Position strategy unavailable: ${id}`), { code: "POSITION_STRATEGY_UNAVAILABLE", status: 409 });
+        const result = entry.execute(freeze(structuredClone(context)));
+        if (result?.then) {
+          result.catch?.(() => {
+          });
+          throw new TypeError("Position strategies must execute synchronously");
+        }
+        try {
+          return structuredClone(result);
+        } catch {
+          throw Object.assign(new TypeError(`Invalid position strategy result: ${id}`), { code: "POSITION_STRATEGY_INVALID", status: 409 });
+        }
+      }
+    });
+  }
+};
+function createPositionStrategyRegistry() {
+  const registry = new PositionStrategyRegistry(), pluginId = "dsh-prompt-assembler";
+  registry.register({ id: "preset", pluginId, name: ["\u9884\u8BBE\u63D2\u69FD\u4E0E\u5B8F\u5F15\u7528", "Preset slots and macro references"], execute: ({ nodes, remainingNodeIds }) => {
+    const remaining = new Set(remainingNodeIds);
+    return { claimedNodeIds: nodes.filter((n) => remaining.has(n.id) && (n.slotId || n.slotOwner || n.placementSource === "preset")).map((n) => n.id) };
+  } });
+  registry.register({ id: "resource", pluginId, name: ["\u8D44\u6E90\u81EA\u5E26\u4F4D\u7F6E\u4E0E\u6DF1\u5EA6", "Resource position and depth"], execute: (context) => {
+    const nodes = structuredClone(context.nodes), diagnostics = [], remaining = new Set(context.remainingNodeIds);
+    const active = new Set(nodes.filter((n) => remaining.has(n.id) && (n.resourceAnchor || n.depth != null || n.nativeRequestedDepth != null)));
+    applyResourceAnchors(nodes, context.preset, diagnostics, active, context.logical);
+    const claimed = [...active].filter((n) => n.positionDecision === "resource" || n.depth != null || n.nativeRequestedDepth != null);
+    return { claimedNodeIds: claimed.map((n) => n.id), order: nodes.map((n) => n.id), adaptPosition: false, detachSlotNodeIds: claimed.filter((n) => n.originalSlotId && !n.slotId).map((n) => n.id), depthNodeIds: claimed.filter((n) => n.depth != null || n.nativeRequestedDepth != null).map((n) => n.id), diagnostics };
+  } });
+  registry.register({ id: "default", pluginId, name: ["\u6765\u6E90\u9ED8\u8BA4\u987A\u5E8F", "Default source order"], execute: ({ remainingNodeIds }) => ({ claimedNodeIds: remainingNodeIds }) });
+  return registry;
+}
+
+// src/resource-positions.js
+var idPattern2 = /^[a-zA-Z0-9][a-zA-Z0-9_.:/-]{0,159}$/;
 function normalizePositions(value) {
   if (value === void 0) return void 0;
   if (!Array.isArray(value) || value.length > 512) throw new TypeError("Expected at most 512 resource positions");
   const seen = /* @__PURE__ */ new Set();
   return value.map((p) => {
     const key = positionKey(p?.sourceId, p?.positionId);
-    if (!p || typeof p.sourceId !== "string" || typeof p.positionId !== "string" || !idPattern.test(p.sourceId) || !idPattern.test(p.positionId) || seen.has(key) || typeof p.enabled !== "boolean" || !["source", "list"].includes(p.placement)) throw new TypeError("Invalid resource position");
+    if (!p || typeof p.sourceId !== "string" || typeof p.positionId !== "string" || !idPattern2.test(p.sourceId) || !idPattern2.test(p.positionId) || seen.has(key) || typeof p.enabled !== "boolean" || !["source", "list"].includes(p.placement)) throw new TypeError("Invalid resource position");
     seen.add(key);
     const anchor = p.anchor;
-    if (anchor !== void 0 && anchor !== "end" && (!anchor || typeof anchor.sourceId !== "string" || typeof anchor.positionId !== "string" || !idPattern.test(anchor.sourceId) || !idPattern.test(anchor.positionId) || !["before", "after"].includes(anchor.side) || positionKey(anchor.sourceId, anchor.positionId) === key)) throw new TypeError("Invalid position anchor");
+    if (anchor !== void 0 && anchor !== "end" && (!anchor || typeof anchor.sourceId !== "string" || typeof anchor.positionId !== "string" || !idPattern2.test(anchor.sourceId) || !idPattern2.test(anchor.positionId) || !["before", "after"].includes(anchor.side) || positionKey(anchor.sourceId, anchor.positionId) === key)) throw new TypeError("Invalid position anchor");
     return { sourceId: p.sourceId, positionId: p.positionId, enabled: p.enabled, placement: p.placement, ...anchor !== void 0 ? { anchor: anchor === "end" ? anchor : { sourceId: anchor.sourceId, positionId: anchor.positionId, side: anchor.side } } : {} };
   });
 }
@@ -489,7 +558,7 @@ function priorityOrder(preset) {
 function normalizePriority(priority) {
   if (priority === void 0) return void 0;
   if (priority === "user" || priority === "preset") return [...POSITION_PRIORITIES];
-  if (!Array.isArray(priority) || ![3, 4].includes(priority.length) || new Set(priority).size !== priority.length || priority.some((p) => !["user", ...POSITION_PRIORITIES].includes(p)) || POSITION_PRIORITIES.some((p) => !priority.includes(p))) throw new TypeError("Invalid position priority order");
+  if (!Array.isArray(priority) || priority.length < 3 || priority.length > 128 || new Set(priority).size !== priority.length || priority.some((p) => typeof p !== "string" || !idPattern2.test(p)) || POSITION_PRIORITIES.some((p) => !priority.includes(p))) throw new TypeError("Invalid position priority order");
   return priority.filter((p) => p !== "user");
 }
 var positionPriority = (preset) => priorityOrder(preset);
@@ -545,6 +614,43 @@ function configurePosition(preset, sources, key, patch, beforeKey, displayOrder)
   }
   const layout = preset.layout ?? { version: 1, source: "preset-slots", priority: ["preset", "resource", "default"], identity: "preserve", fallback: "source-order", overrides: [] };
   return { ...preset, rules, layout: { ...layout, source: "preset-slots", priority: positionPriority({ layout }), positions: next.map(({ sourceId, positionId, enabled, placement, anchor }) => ({ sourceId, positionId, enabled, placement, ...placement === "list" && anchor !== void 0 ? { anchor } : {} })) } };
+}
+function applyResourceAnchors(nodes, preset, diagnostics, active = null, logical = false) {
+  if (!Array.isArray(preset.layout?.priority)) return;
+  const priority = ["user", ...priorityOrder(preset)], groups = /* @__PURE__ */ new Map();
+  const area = (n) => logical || preset.backend !== "native" ? "core" : n.role === "system" ? "system" : `${n.nativePlacement}:${n.nativeDelivery}`;
+  for (const node of nodes) {
+    if (!node.resourceAnchor || node.lifetime === "native" || node.lifetime === "snapshot" || node.nativeDepthAnchor) continue;
+    const setting = preset.layout.positions?.find((p) => p.sourceId === node.source.module && p.positionId === node.positionId);
+    const winner = priority.find((p) => p === "resource" || p === "default" || p === "preset" && node.slotId || p === "user" && setting?.placement === "list");
+    if (active ? !active.has(node) : winner !== "resource") continue;
+    const key = positionKey(node.source.module, node.positionId) + ":" + area(node);
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(node);
+  }
+  for (const group of groups.values()) {
+    const first = group[0], anchor = first.resourceAnchor;
+    const matches = nodes.filter((n) => !group.includes(n) && n.source?.module === anchor.sourceId && (!anchor.fields || anchor.fields.includes(n.source.field)));
+    const compatible = matches.filter((n) => area(n) === area(first) && !n.nativeDepthAnchor && n.depth == null);
+    if (!compatible.length) {
+      diagnostics.push({ code: "POSITION_ANCHOR_MISSING", sourceId: first.source.module, positionId: first.positionId, winner: matches.length ? "runtime" : "default", anchor });
+      if (!matches.length && preset.layout.fallback === "error") throw Object.assign(new Error(`Resource anchor unavailable: ${anchor.sourceId}`), { code: "POSITION_ANCHOR_MISSING", status: 409 });
+      continue;
+    }
+    const target = anchor.side === "before" ? compatible[0] : compatible.at(-1);
+    const rest = nodes.filter((n) => !group.includes(n)), index = rest.indexOf(target) + (anchor.side === "after" ? 1 : 0);
+    rest.splice(index, 0, ...group);
+    nodes.splice(0, nodes.length, ...rest);
+    for (const node of group) {
+      node.positionDecision = "resource";
+      if (node.slotId) {
+        node.originalSlotId = node.slotId;
+        node.slotId = null;
+        node.locked = false;
+        node.lockReason = null;
+      }
+    }
+  }
 }
 function resolvedPositionRows(preset, sources, preview) {
   const rows = positionRows(preset, sources);
@@ -649,16 +755,18 @@ function SortableList({ items, itemKey, itemName, canMove = () => true, onMove, 
 }
 
 // src/resource-layout-client.js
+var strategyName = (id, strategies, locale = 0) => strategies?.find((s) => s.id === id)?.name?.[locale] ?? id;
 function SummaryMetadata({ items, className = "" }) {
   return (0, import_react4.createElement)("dl", { className: `dta-summary-meta ${className}`, style: { "--dta-meta-columns": items.length } }, ...items.map((item) => (0, import_react4.createElement)("div", { key: item.label }, (0, import_react4.createElement)("dt", null, item.label), (0, import_react4.createElement)("dd", { className: item.className }, item.content))));
 }
-function ResourcePositionEditor({ preset, sources, preview, resolving, resolutionError, locale = 0, busy, onChange, sourceColor: sourceColor2, originName, sourceName = (id) => sources.find((s) => s.id === id)?.name ?? id }) {
+function ResourcePositionEditor({ preset, sources, strategies = createPositionStrategyRegistry().list(), preview, resolving, resolutionError, locale = 0, busy, onChange, sourceColor: sourceColor2, originName, sourceName = (id) => sources.find((s) => s.id === id)?.name ?? id }) {
   const t = (zh, en) => locale === 0 ? zh : en;
   const rows = resolvedPositionRows(preset, sources, preview);
   const policy = preset.layout ?? { version: 1, source: "preset-slots", priority: ["preset", "resource", "default"], identity: "preserve", fallback: "source-order", overrides: [] };
   const changePolicy = (patch) => onChange({ ...preset, layout: { ...policy, ...patch, ...patch.priority ? { source: "preset-slots" } : {} } });
   const priorities = priorityOrder({ layout: policy });
-  const priorityNames = { preset: t("\u9884\u8BBE\u63D2\u69FD\u4E0E\u5B8F\u5F15\u7528", "Preset slots and macro references"), resource: t("\u8D44\u6E90\u81EA\u5E26\u4F4D\u7F6E\u4E0E\u6DF1\u5EA6", "Resource position and depth"), default: t("\u6765\u6E90\u9ED8\u8BA4\u987A\u5E8F", "Default source order") };
+  const priorityNames = Object.fromEntries(priorities.map((id) => [id, strategyName(id, strategies, locale) + (strategies.some((s) => s.id === id) ? "" : t("\uFF08\u672A\u6CE8\u518C\uFF09", " (unavailable)"))]));
+  const available = strategies.filter((s) => !priorities.includes(s.id));
   const movePriority = (id, before) => {
     if (id === before) return;
     const next = priorities.filter((p) => p !== id), at = before == null ? next.length : next.indexOf(before);
@@ -686,8 +794,11 @@ function ResourcePositionEditor({ preset, sources, preview, resolving, resolutio
       busy,
       locale,
       onMove: movePriority,
-      renderItem: (id, index, handle) => (0, import_react4.createElement)("div", { className: "dta-priority-row", "data-priority": id }, handle, (0, import_react4.createElement)("span", null, `${index + 1}. ${priorityNames[id]}`))
+      renderItem: (id, index, handle) => (0, import_react4.createElement)("div", { className: "dta-priority-row", "data-priority": id }, handle, (0, import_react4.createElement)("span", null, `${index + 1}. ${priorityNames[id]}`), !["preset", "resource", "default"].includes(id) && (0, import_react4.createElement)("button", { disabled: busy, onClick: () => changePolicy({ priority: priorities.filter((p) => p !== id) }) }, t("\u79FB\u9664", "Remove")))
     }),
+    available.length > 0 && (0, import_react4.createElement)("label", null, t("\u6DFB\u52A0\u6392\u5E8F\u7B56\u7565", "Add position strategy"), (0, import_react4.createElement)("select", { disabled: busy, value: "", onChange: (e) => {
+      if (e.target.value) changePolicy({ priority: [e.target.value, ...priorities] });
+    } }, (0, import_react4.createElement)("option", { value: "" }, t("\u9009\u62E9\u5DF2\u6CE8\u518C\u7684\u7B56\u7565\u2026", "Choose a registered strategy\u2026")), ...available.map((s) => (0, import_react4.createElement)("option", { key: s.id, value: s.id }, strategyName(s.id, strategies, locale))))),
     (0, import_react4.createElement)(
       "div",
       { className: "dta-resource-policy" },
@@ -726,14 +837,16 @@ function ResourcePositionEditor({ preset, sources, preview, resolving, resolutio
     })
   );
 }
-function PositionDecisions({ preview, sources, locale = 0, sourceName = (id) => sources.find((s) => s.id === id)?.name ?? id }) {
+function PositionDecisions({ preview, sources, strategies = createPositionStrategyRegistry().list(), locale = 0, sourceName = (id) => sources.find((s) => s.id === id)?.name ?? id }) {
   const t = (zh, en) => locale === 0 ? zh : en;
   const names = { user: t("\u91C7\u7528\u624B\u52A8\u6392\u5217", "Manual order applied"), preset: t("\u91C7\u7528\u9884\u8BBE\u63D2\u69FD", "Preset slot applied"), runtime: t("\u670D\u4ECE DSH \u8FD0\u884C\u65F6\u7EA6\u675F", "DSH runtime constraint wins"), "resource-depth": t("\u91C7\u7528\u8D44\u6E90\u6DF1\u5EA6", "Resource depth applied"), source: t("\u91C7\u7528\u8D44\u6E90\u9ED8\u8BA4\u4F4D\u7F6E", "Source position applied"), default: t("\u7531\u6765\u6E90\u9ED8\u8BA4\u987A\u5E8F\u6392\u5217", "Default source order applied"), resource: t("\u7531\u8D44\u6E90\u81EA\u5E26\u4F4D\u7F6E\u6392\u5217", "Resource position applied"), unavailable: t("\u6765\u6E90\u6216\u4F4D\u7F6E\u672A\u6CE8\u518C\uFF0C\u5DF2\u56DE\u9000", "Provider/position unavailable; fallback applied"), disabled: t("\u5DF2\u5173\u95ED\uFF0C\u4E0D\u8FDB\u5165\u7ED3\u679C", "Disabled; excluded") };
   const decisions = preview?.resourceLayout?.positionDecisions ?? [];
+  const descriptors = preview?.resourceLayout?.strategies ?? strategies;
+  const name2 = (id) => id === "user" ? t("\u81EA\u5B9A\u4E49\u4F4D\u7F6E", "Custom position") : strategyName(id, descriptors, locale);
   const unique = [...new Map(decisions.map((d) => [`${d.sourceId}/${d.positionId}/${d.decision}`, d])).values()];
-  return unique.length > 0 && (0, import_react4.createElement)("details", { className: "dta-position-decisions", open: true }, (0, import_react4.createElement)("summary", null, t("\u6392\u5E8F\u5904\u7406\u7ED3\u679C", "Sorting decisions")), preview.resourceLayout.priorityOrder && (0, import_react4.createElement)("p", { className: "dta-help" }, `${t("\u672C\u6B21\u81EA\u52A8\u5B9A\u4F4D\u4F18\u5148\u7EA7", "Priority used")}: ${preview.resourceLayout.priorityOrder.map((p) => ({ user: t("\u624B\u52A8\u6392\u5217", "User"), preset: t("\u9884\u8BBE\u63D2\u69FD", "Preset"), resource: t("\u8D44\u6E90\u4F4D\u7F6E", "Resource"), default: t("\u6765\u6E90\u9ED8\u8BA4", "Default") })[p]).join(" \u2192 ")}`), preview.resourceLayout.sortingStages?.length > 0 && (0, import_react4.createElement)("ol", { className: "dta-sorting-stages" }, ...preview.resourceLayout.sortingStages.map((stage) => (0, import_react4.createElement)("li", { key: stage.strategy }, `${{ user: t("\u81EA\u5B9A\u4E49\u4F4D\u7F6E", "Custom position"), preset: t("\u9884\u8BBE\u63D2\u69FD", "Preset slots"), resource: t("\u8D44\u6E90\u4F4D\u7F6E", "Resource positions"), default: t("\u6765\u6E90\u9ED8\u8BA4", "Default order") }[stage.strategy]}: ${t("\u5B9A\u4F4D", "Placed")} ${stage.nodeIds.length} ${t("\u9879\uFF0C\u4F4E\u4F18\u5148\u7EA7\u89C4\u5219\u4E0D\u8986\u76D6", "items; lower priorities do not override")}`))), (0, import_react4.createElement)("ul", null, ...unique.map((d, i) => {
+  return unique.length > 0 && (0, import_react4.createElement)("details", { className: "dta-position-decisions", open: true }, (0, import_react4.createElement)("summary", null, t("\u6392\u5E8F\u5904\u7406\u7ED3\u679C", "Sorting decisions")), preview.resourceLayout.priorityOrder && (0, import_react4.createElement)("p", { className: "dta-help" }, `${t("\u672C\u6B21\u81EA\u52A8\u5B9A\u4F4D\u4F18\u5148\u7EA7", "Priority used")}: ${preview.resourceLayout.priorityOrder.map((p) => name2(p)).join(" \u2192 ")}`), preview.resourceLayout.sortingStages?.length > 0 && (0, import_react4.createElement)("ol", { className: "dta-sorting-stages" }, ...preview.resourceLayout.sortingStages.map((stage) => (0, import_react4.createElement)("li", { key: stage.strategy }, `${name2(stage.strategy)}: ${t("\u5B9A\u4F4D", "Placed")} ${stage.nodeIds.length} ${t("\u9879\uFF0C\u4F4E\u4F18\u5148\u7EA7\u89C4\u5219\u4E0D\u8986\u76D6", "items; lower priorities do not override")}`))), (0, import_react4.createElement)("ul", null, ...unique.map((d, i) => {
     const source = sources.find((s) => s.id === d.sourceId), position = source?.positions?.find((p) => p.id === d.positionId);
-    return (0, import_react4.createElement)("li", { key: i }, `${position?.name?.[locale] ?? sourceName(d.sourceId)}: ${names[d.decision] ?? d.decision}${d.code === "POSITION_ANCHOR_MISSING" ? t("\uFF08\u8D44\u6E90\u951A\u70B9\u4E0D\u53EF\u7528\uFF09", " (resource anchor unavailable)") : d.requested ? t("\uFF08\u8BE5\u8D44\u6E90\u5DF2\u7531\u6B64\u524D\u7B56\u7565\u6216\u8FD0\u884C\u65F6\u5B9A\u4F4D\uFF09", " (already placed by an earlier strategy or runtime)") : ""}`);
+    return (0, import_react4.createElement)("li", { key: i }, `${position?.name?.[locale] ?? sourceName(d.sourceId)}: ${names[d.decision] ?? name2(d.decision)}${d.code === "POSITION_ANCHOR_MISSING" ? t("\uFF08\u8D44\u6E90\u951A\u70B9\u4E0D\u53EF\u7528\uFF09", " (resource anchor unavailable)") : d.requested ? t("\uFF08\u8BE5\u8D44\u6E90\u5DF2\u7531\u6B64\u524D\u7B56\u7565\u6216\u8FD0\u884C\u65F6\u5B9A\u4F4D\uFF09", " (already placed by an earlier strategy or runtime)") : ""}`);
   })));
 }
 
@@ -883,7 +996,7 @@ var labels = {
   retry: ["\u91CD\u8BD5", "Retry"],
   cancel: ["\u53D6\u6D88", "Cancel"],
   confirm: ["\u786E\u8BA4", "Confirm"],
-  withdrawnPreset: ["\u8BE5\u5185\u7F6E\u7B56\u7565\u5DF2\u4E0D\u5728\u5F53\u524D\u76EE\u5F55\u4E2D\u3002\u6B64\u4F1A\u8BDD\u5DF2\u5E94\u7528\u7684\u65E7\u914D\u7F6E\u4ECD\u4FDD\u7559\uFF1B\u66F4\u6539\u65F6\u8BF7\u9009\u62E9\u5F53\u524D\u53EF\u7528\u7B56\u7565\u3002", "This built-in strategy is no longer in the current catalog. This session retains its applied configuration; choose an available strategy to change it."],
+  withdrawnPreset: ["\u8BE5\u7B56\u7565\u5DF2\u4E0D\u5728\u5F53\u524D\u76EE\u5F55\u4E2D\u3002\u6B64\u4F1A\u8BDD\u5DF2\u5E94\u7528\u7684\u65E7\u914D\u7F6E\u4ECD\u4FDD\u7559\uFF1B\u66F4\u6539\u65F6\u8BF7\u9009\u62E9\u5F53\u524D\u53EF\u7528\u7B56\u7565\u3002", "This strategy is no longer in the current catalog. This session retains its applied configuration; choose an available strategy to change it."],
   placementTip: ["\u5C0F\u8D34\u58EB\uFF1A\u5982\u679C\u6A21\u578B\u51FA\u73B0\u6389\u683C\u5F0F\u3001\u4E0D\u9075\u5FAA\u6307\u4EE4\u7B49\u95EE\u9898\uFF0C\u53EF\u4EE5\u5C1D\u8BD5\u5C06\u76F8\u5173\u7684\u683C\u5F0F\u8981\u6C42\u6216\u884C\u4E3A\u6307\u4EE4\u540E\u7F6E\uFF0C\u5E76\u901A\u8FC7\u88C5\u914D\u7ED3\u679C\u786E\u8BA4\u5B9E\u9645\u4F4D\u7F6E\u3002", "Tip: If the model drops formatting or misses instructions, try placing the relevant format requirements or behavior instructions later, then check their actual position in the assembly result."],
   librarySection: ["\u7B56\u7565\u5E93", "Strategy library"],
   applicationSection: ["\u4F1A\u8BDD\u5E94\u7528", "Session application"],
@@ -1038,7 +1151,7 @@ var assemblyCss = `
 .dta-row[data-dragging=true],.dta-sort-item[data-dragging=true]{height:4px;min-height:4px;margin:5px 10px;border:0;border-radius:999px;background:var(--dsw-alias-state-business-primary,#4d6bfe);box-shadow:0 0 0 1px color-mix(in srgb,var(--dsw-alias-state-business-primary) 25%,transparent)}.dta-row[data-dragging=true]>*,.dta-sort-item[data-dragging=true]>*{opacity:0}.dta-drop-placeholder{min-height:42px;border:2px dashed var(--dsw-alias-state-business-primary,#4d6bfe);border-radius:8px;background:color-mix(in srgb,var(--dsw-alias-state-business-primary,#4d6bfe) 7%,transparent);display:flex;align-items:center;justify-content:center;color:var(--dsw-alias-state-business-primary,#4d6bfe);pointer-events:none}.dtv-assembly-screen .dta-handle{touch-action:none;user-select:none;background:transparent;border:0;padding:2px}.dta-origin{font-size:11px;color:var(--dsw-alias-label-secondary);margin-top:2px}.dta-legend{display:flex;gap:12px;flex-wrap:wrap;margin:12px 0}.dta-legend span{border-left:4px solid var(--assembly-color);padding-left:6px;font-size:12px}
 .dta-resource-layout{display:flex;flex-direction:column;gap:16px;min-width:0}.dta-resource-layout h3,.dta-resource-layout p{margin:0}.dta-resource-layout>h3:not(:first-child){padding-top:8px}.dta-resource-layout>button{align-self:flex-start}.dta-resource-policy{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px 16px}.dta-resource-policy label,.dta-resource-body>label,.dta-position-menu label{display:grid;gap:8px;min-width:0}.dta-resource-blocks{display:grid;gap:12px;min-width:0}.dta-resource-blocks>.dta-row{margin:0}.dta-resource-layout .dta-summary{display:grid;grid-template-columns:24px minmax(0,1fr);gap:4px 12px;padding:16px 18px;min-height:0}.dta-resource-layout .dta-summary>.dta-handle{grid-row:1 / span 3}.dta-resource-layout .dta-summary>small{grid-column:2}.dta-resource-body{display:grid;gap:12px;padding:0 18px 18px;min-width:0}.dta-resource-body .dta-notice{margin:0;padding:10px 12px}.dta-resource-body details[open]>summary{margin-bottom:10px}.dta-resource-body .dta-child+.dta-child{margin-top:10px}.dta-resource-layout summary{cursor:pointer;overflow-wrap:anywhere}.dta-resource-body .dta-child{margin:0;padding:12px 14px}.dta-resource-body pre{margin:8px 0 0}.dta-resource-layout>.dta-notice{margin:0}.dta-resource-layout>.dta-notice>button{margin-top:12px}.dta-layout-override{display:flex;flex-wrap:wrap;align-items:center;gap:12px 16px;margin-top:12px}.dta-layout-override>code{flex:0 1 auto;min-width:0;max-width:100%;overflow-wrap:anywhere}.dta-layout-override>button{flex:0 0 auto}
 .dta-sort-item{min-width:0}.dta-sort-item[data-dragging=true]{overflow:hidden;pointer-events:none}.dtv-assembly-screen .dta-sort-handle{display:flex;align-items:center;justify-content:center;width:28px;min-height:32px;padding:2px;border:0;border-radius:0;background:transparent;color:var(--dsw-alias-label-secondary,#424957);cursor:grab}.dta-sort-handle .dta-grip-icon{font-size:22px;line-height:1}.dtv-assembly-screen .dta-sort-handle:not(:disabled):hover{color:var(--dsw-alias-state-business-primary,#4386dc)}.dta-sort-handle:active{cursor:grabbing}.dta-drop-placeholder{padding:10px 14px;text-align:center;overflow-wrap:anywhere;font-weight:600}.dta-sort-item[data-dragging=true]>*{pointer-events:none}
-.dta-priorities{display:grid;gap:8px}.dta-priority-row{display:grid;grid-template-columns:28px minmax(0,1fr);align-items:center;gap:12px;padding:10px 12px;border:1px solid var(--dta-border);border-radius:10px}.dta-priority-row button{padding:4px 9px}.dta-priority-row[data-drop-side=before]{box-shadow:0 -3px #4386dc}.dta-priority-row[data-drop-side=after]{box-shadow:0 3px #4386dc}.dta-result-tools{display:flex;justify-content:flex-end;margin:-4px 0 14px}.dta-position-list{display:grid;gap:12px}.dta-position-row{margin:0}.dta-position-summary{display:grid;grid-template-columns:28px 20px minmax(150px,1fr) minmax(0,1.65fr);gap:12px;align-items:center;padding:14px 16px}.dta-position-summary input{width:18px;height:18px;margin:0}.dta-position-name{min-width:0;overflow-wrap:anywhere}.dta-position-name strong{font-size:17px}.dta-position-meta{min-width:0}.dta-resource-layout .dta-position-note{margin-top:8px}.dta-position-meta .dta-position-actions{margin-top:10px}.dta-preview-meta{flex:0 1 65%;min-width:0}.dta-position-actions{display:flex;gap:8px;flex-wrap:wrap}.dta-position-actions button{padding:5px 10px}.dta-source-settings{margin-top:24px}.dta-position-decisions{margin:16px 0;padding:14px 16px;border:1px solid var(--dta-border);border-radius:10px}.dta-position-decisions li{margin:7px 0}.dta-position-row[data-drop-side=before]{box-shadow:0 -3px #4386dc}.dta-position-row[data-drop-side=after]{box-shadow:0 3px #4386dc}.dta-position-row[data-resource-dragging=true]{opacity:.55}.dta-resource-origins{grid-column:2;display:flex;flex-wrap:wrap;gap:6px 12px;margin:4px 0;font-size:12px;color:var(--dsw-alias-label-secondary)}.dta-resource-origin{border-left:3px solid var(--assembly-color);padding-left:7px;overflow-wrap:anywhere}.dta-position-menu>p{margin-bottom:12px}.dta-resource-blocks>.dta-row[data-drop-side=before]{box-shadow:0 -3px #4386dc}.dta-resource-blocks>.dta-row[data-drop-side=after]{box-shadow:0 3px #4386dc}.dta-resource-blocks>.dta-row[data-resource-dragging=true]{opacity:.55}.dta-resource-layout .dta-handle:active{cursor:grabbing}
+.dta-priorities{display:grid;gap:8px}.dta-priority-row{display:grid;grid-template-columns:28px minmax(0,1fr) auto;align-items:center;gap:12px;padding:10px 12px;border:1px solid var(--dta-border);border-radius:10px}.dta-priority-row button{padding:4px 9px}.dta-priority-row[data-drop-side=before]{box-shadow:0 -3px #4386dc}.dta-priority-row[data-drop-side=after]{box-shadow:0 3px #4386dc}.dta-result-tools{display:flex;justify-content:flex-end;margin:-4px 0 14px}.dta-position-list{display:grid;gap:12px}.dta-position-row{margin:0}.dta-position-summary{display:grid;grid-template-columns:28px 20px minmax(150px,1fr) minmax(0,1.65fr);gap:12px;align-items:center;padding:14px 16px}.dta-position-summary input{width:18px;height:18px;margin:0}.dta-position-name{min-width:0;overflow-wrap:anywhere}.dta-position-name strong{font-size:17px}.dta-position-meta{min-width:0}.dta-resource-layout .dta-position-note{margin-top:8px}.dta-position-meta .dta-position-actions{margin-top:10px}.dta-preview-meta{flex:0 1 65%;min-width:0}.dta-position-actions{display:flex;gap:8px;flex-wrap:wrap}.dta-position-actions button{padding:5px 10px}.dta-source-settings{margin-top:24px}.dta-position-decisions{margin:16px 0;padding:14px 16px;border:1px solid var(--dta-border);border-radius:10px}.dta-position-decisions li{margin:7px 0}.dta-position-row[data-drop-side=before]{box-shadow:0 -3px #4386dc}.dta-position-row[data-drop-side=after]{box-shadow:0 3px #4386dc}.dta-position-row[data-resource-dragging=true]{opacity:.55}.dta-resource-origins{grid-column:2;display:flex;flex-wrap:wrap;gap:6px 12px;margin:4px 0;font-size:12px;color:var(--dsw-alias-label-secondary)}.dta-resource-origin{border-left:3px solid var(--assembly-color);padding-left:7px;overflow-wrap:anywhere}.dta-position-menu>p{margin-bottom:12px}.dta-resource-blocks>.dta-row[data-drop-side=before]{box-shadow:0 -3px #4386dc}.dta-resource-blocks>.dta-row[data-drop-side=after]{box-shadow:0 3px #4386dc}.dta-resource-blocks>.dta-row[data-resource-dragging=true]{opacity:.55}.dta-resource-layout .dta-handle:active{cursor:grabbing}
 @container(max-width:600px){.dta-resource-layout .dta-summary{padding:12px;gap:4px 8px}.dta-resource-body{padding:0 12px 12px}.dta-resource-policy{grid-template-columns:1fr}}
 
 @container(max-width:600px){.dta-summary{flex-wrap:wrap}.dta-summary-meta{display:grid;flex:1 1 100%;grid-template-columns:repeat(2,minmax(0,1fr));row-gap:14px}.dta-summary-meta>div:nth-child(odd){border-left:0;padding-left:0}.dta-position-summary{grid-template-columns:28px 20px minmax(0,1fr)}.dta-position-meta{grid-column:1/-1}.dta-grid,.dta-properties{grid-template-columns:1fr}.dta-properties>*+*{border-left:0;border-top:1px solid var(--dsw-alias-state-business-primary,#4d6bfe);padding:12px 0 0}.dta-head,.dta-body{padding:15px}.dta-summary{gap:8px;padding:12px 10px}.dta-fields .dta-field-name{max-width:100%}}
@@ -1066,7 +1179,8 @@ function AssemblyPanelContent({ selectionTarget, sessionId, sessionLabel: sessio
   (0, import_react5.useEffect)(() => {
     if (confirmation) dialog.current?.querySelector(".dta-confirm button")?.focus();
   }, [confirmation]);
-  const [sources, setSources] = (0, import_react5.useState)([]), [addParser, setAddParser] = (0, import_react5.useState)("custom"), [addKind, setAddKind] = (0, import_react5.useState)(""), [defaultId, setDefaultId] = (0, import_react5.useState)(BUILTINS[0].id);
+  const [sources, setSources] = (0, import_react5.useState)([]);
+  const [strategies, setStrategies] = (0, import_react5.useState)(void 0), [addParser, setAddParser] = (0, import_react5.useState)("custom"), [addKind, setAddKind] = (0, import_react5.useState)(""), [defaultId, setDefaultId] = (0, import_react5.useState)(BUILTINS[0].id);
   const [items, setItems] = (0, import_react5.useState)([]), [draft, setDraftState] = (0, import_react5.useState)(null), [selection, setSelection] = (0, import_react5.useState)(null), [capable, setCapable] = (0, import_react5.useState)(false), [capabilities, setCapabilities] = (0, import_react5.useState)(null);
   const [status, setStatus] = (0, import_react5.useState)(""), [error, setError] = (0, import_react5.useState)(false), [busy, setBusy] = (0, import_react5.useState)(false), [tab, setTab] = (0, import_react5.useState)("rules"), [preview, setPreview] = (0, import_react5.useState)(null), [dirty, setDirty] = (0, import_react5.useState)(false), [expanded, setExpanded] = (0, import_react5.useState)({});
   const [historyDirty, setHistoryDirty] = (0, import_react5.useState)(false);
@@ -1143,6 +1257,7 @@ function AssemblyPanelContent({ selectionTarget, sessionId, sessionLabel: sessio
       setCapable(data.capability);
       setCapabilities(data.capabilities ?? null);
       setSources(data.sources ?? []);
+      setStrategies(data.strategies);
       setDefaultId(data.defaultPresetId ?? data.presets[0]?.id);
       setAddParser(data.sources?.some((s) => s.id === "tavern.text") ? "tavern.text" : data.sources?.find((s) => s.acceptsText && !s.textParserAliasFor)?.id ?? "");
       setAddKind(data.sources?.find((s) => s.supportsModule !== false && s.moduleAvailable !== false && !data.presets[0]?.rules.some((r) => r.kind === s.id))?.id ?? "");
@@ -1166,6 +1281,7 @@ function AssemblyPanelContent({ selectionTarget, sessionId, sessionLabel: sessio
       setCapable(data.capability);
       setCapabilities(data.capabilities ?? null);
       setSources(data.sources ?? []);
+      setStrategies(data.strategies);
     });
     window.addEventListener(refreshEvent, refresh);
     return () => window.removeEventListener(refreshEvent, refresh);
@@ -1245,7 +1361,7 @@ function AssemblyPanelContent({ selectionTarget, sessionId, sessionLabel: sessio
     if (node.name?.startsWith("preset:") || node.name?.startsWith("worldbook:")) return labels[node.source?.field] ? t(node.source.field) : `${t(node.name.startsWith("preset:") ? "preset" : "worldbook")} \xB7 ${Math.max(0, preview?.nodes?.indexOf(node) ?? -1) + 1}`;
     return node.name;
   };
-  const positionReason = (decision) => ({ user: locale === 0 ? "\u81EA\u5B9A\u4E49\u4F4D\u7F6E" : "Custom position", preset: locale === 0 ? "\u9884\u8BBE\u63D2\u69FD" : "Preset slot", runtime: locale === 0 ? "\u8FD0\u884C\u65F6\u7EA6\u675F" : "Runtime constraint", "resource-depth": locale === 0 ? "\u8D44\u6E90\u6DF1\u5EA6" : "Resource depth", resource: locale === 0 ? "\u8D44\u6E90\u81EA\u5E26\u4F4D\u7F6E" : "Resource position", default: locale === 0 ? "\u6765\u6E90\u9ED8\u8BA4\u987A\u5E8F" : "Default source order", source: locale === 0 ? "\u8D44\u6E90\u9ED8\u8BA4\u4F4D\u7F6E" : "Source position" })[decision];
+  const positionReason = (decision) => ({ user: locale === 0 ? "\u81EA\u5B9A\u4E49\u4F4D\u7F6E" : "Custom position", preset: locale === 0 ? "\u9884\u8BBE\u63D2\u69FD" : "Preset slot", runtime: locale === 0 ? "\u8FD0\u884C\u65F6\u7EA6\u675F" : "Runtime constraint", "resource-depth": locale === 0 ? "\u8D44\u6E90\u6DF1\u5EA6" : "Resource depth", resource: locale === 0 ? "\u8D44\u6E90\u81EA\u5E26\u4F4D\u7F6E" : "Resource position", default: locale === 0 ? "\u6765\u6E90\u9ED8\u8BA4\u987A\u5E8F" : "Default source order", source: locale === 0 ? "\u8D44\u6E90\u9ED8\u8BA4\u4F4D\u7F6E" : "Source position" })[decision] ?? (decision ? strategyName(decision, preview?.resourceLayout?.strategies ?? strategies, locale) : void 0);
   const originName = (plugin) => plugin === "DSH" ? "DSH" : plugin === "pmp-dsh-tavern" || plugin?.startsWith("pmp-dsh-tavern/") ? "DSH Tavern" : plugin ?? (locale === 0 ? "\u6765\u6E90\u672A\u77E5" : "Unknown source");
   const sourceDescriptor = (kind) => sources.find((s) => s.id === kind);
   const sourcePlugin = (kind) => sourceDescriptor(kind)?.pluginId ?? null;
@@ -1381,7 +1497,7 @@ function AssemblyPanelContent({ selectionTarget, sessionId, sessionLabel: sessio
       ),
       expanded[rule.id] && (0, import_react5.createElement)("div", { className: "dta-detail" }, (0, import_react5.createElement)("small", null, t("contextControlled")), (0, import_react5.createElement)("small", null, t(rule.kind === "dsh.runtime-context" ? "contextMasterHint" : "contextControlHint")))
     );
-    const roleLabel = draft.layout?.identity === "preserve" && rule.inputMode !== "text" && !["custom", "dsh.text", "native-system", "history", "input"].includes(rule.kind) ? "sourceIdentity" : adaptiveNative && rule.kind === "worldbook" && !slotMode ? "nativeWorldRole" : slotMode && controlFor(rule) === "preset" ? "nativeSlotRole" : adaptiveNative && rule.kind === "preset" ? "nativePresetRole" : null;
+    const roleLabel = draft.layout?.identity === "preserve" && rule.inputMode !== "text" && !["custom", "dsh.text", "native-system", "history", "input"].includes(rule.kind) ? "sourceIdentity" : adaptiveNative && rule.kind === "worldbook" && !slotMode ? "nativeWorldRole" : slotMode && controlFor(rule) === "preset" ? "nativeSlotRole" : adaptiveNative && sourceDescriptor(rule.kind)?.ownsSlots ? "nativePresetRole" : null;
     const textInput = rule.inputMode === "text" || ["custom", "dsh.text"].includes(rule.kind);
     return (0, import_react5.createElement)(
       "article",
@@ -1403,7 +1519,7 @@ function AssemblyPanelContent({ selectionTarget, sessionId, sessionLabel: sessio
         "div",
         { className: "dta-detail" },
         (0, import_react5.createElement)("div", { className: "dta-properties" }, (0, import_react5.createElement)("div", null, t("source"), (0, import_react5.createElement)("small", null, originName(sourcePlugin(rule.kind))), (0, import_react5.createElement)("small", null, sourceInfo(rule.kind))), (0, import_react5.createElement)("div", null, t("stability"), (0, import_react5.createElement)("small", null, t(ruleStability(rule)))), (0, import_react5.createElement)("label", null, t("lifetime"), ["native-system", "history", "input"].includes(rule.kind) ? (0, import_react5.createElement)("small", null, t("nativeRetention")) : nativeDraft && rule.role === "user" ? (0, import_react5.createElement)("small", null, t(rule.delivery ?? "context")) : select(rule.lifetime, nativeDraft ? ["request"] : sourceDescriptor(rule.kind)?.lifetimes ?? ["request", "snapshot"], (v) => editRule(rule.id, { lifetime: v }), sourceDescriptor(rule.kind)?.lifetimes.length === 1))),
-        nativeDraft && (rule.role === "user" || adaptiveNative && ["preset", "worldbook"].includes(rule.kind)) && (0, import_react5.createElement)("label", null, t("delivery"), select(rule.delivery ?? "context", ["context", "pre-step"], (delivery) => editRule(rule.id, { delivery }))),
+        nativeDraft && (rule.role === "user" || adaptiveNative && (sourceDescriptor(rule.kind)?.ownsSlots || rule.kind === "worldbook")) && (0, import_react5.createElement)("label", null, t("delivery"), select(rule.delivery ?? "context", ["context", "pre-step"], (delivery) => editRule(rule.id, { delivery }))),
         (0, import_react5.createElement)("div", { className: "dta-grid" }, (0, import_react5.createElement)("label", null, t("role"), roleLabel ? (0, import_react5.createElement)("small", null, t(roleLabel)) : select(rule.role, (sourceDescriptor(rule.kind)?.roles ?? ["preserve", "system", "user", "assistant"]).filter((role) => !nativeDraft || role !== "assistant"), (v) => editRule(rule.id, { role: v }), sourceDescriptor(rule.kind)?.roles.length === 1)), sourceDescriptor(rule.kind)?.depth !== false && (0, import_react5.createElement)("label", null, t("depth"), (0, import_react5.createElement)("input", { type: "number", min: 0, max: 1e4, value: rule.depth ?? "", disabled: busy || nativeDraft, onChange: (e) => editRule(rule.id, { depth: e.target.value === "" ? null : Number(e.target.value) }) }))),
         textInput ? (0, import_react5.createElement)(
           "div",
@@ -1531,7 +1647,7 @@ function AssemblyPanelContent({ selectionTarget, sessionId, sessionLabel: sessio
           }), Boolean(selectionTarget && (typeof selectionTarget.previewAssembly !== "function" || selectionTarget.editable === false)), void 0, tab === "expanded" && !preview?.actual)),
           (0, import_react5.createElement)("div", { className: "dta-result-tools" }, button("actual", () => run(actualRequest), !sessionId)),
           (0, import_react5.createElement)("div", { className: "dta-legend" }, ...[...new Set(sources.map((s) => s.pluginId))].map((plugin) => (0, import_react5.createElement)("span", { key: plugin, style: { "--assembly-color": sourceColor(plugin) } }, originName(plugin)))),
-          tab === "rules" ? (0, import_react5.createElement)("div", null, (0, import_react5.createElement)(ResourcePositionEditor, { preset: draft, sources, preview: analysis?.preview, resolving: !!draft.layout && !!(sessionId || selectionTarget) && !analysis, resolutionError: analysis?.error, locale, busy, sourceColor, originName, sourceName, onChange: editLayout }), (0, import_react5.createElement)(
+          tab === "rules" ? (0, import_react5.createElement)("div", null, (0, import_react5.createElement)(ResourcePositionEditor, { strategies, preset: draft, sources, preview: analysis?.preview, resolving: !!draft.layout && !!(sessionId || selectionTarget) && !analysis, resolutionError: analysis?.error, locale, busy, sourceColor, originName, sourceName, onChange: editLayout }), (0, import_react5.createElement)(
             "details",
             { className: "dta-source-settings" },
             (0, import_react5.createElement)("summary", null, locale === 0 ? "\u6765\u6E90\u3001\u6587\u672C\u4E0E\u6295\u9012\u8BBE\u7F6E" : "Source, text and delivery settings"),
@@ -1541,7 +1657,7 @@ function AssemblyPanelContent({ selectionTarget, sessionId, sessionLabel: sessio
             modules.length > 0 && (0, import_react5.createElement)("div", { className: "dta-toolbar" }, (0, import_react5.createElement)("label", { htmlFor: "dta-add-source" }, t("addSource")), (0, import_react5.createElement)("select", { id: "dta-add-source", value: modules.some((s) => s.id === addKind) ? addKind : modules[0].id, onChange: (e) => setAddKind(e.target.value) }, ...modules.map((s) => (0, import_react5.createElement)("option", { key: s.id, value: s.id }, `${originName(s.pluginId)} \xB7 ${sourceName(s.id)}`))), button("add", () => addRule(modules.some((s) => s.id === addKind) ? addKind : modules[0].id))),
             parsers.length > 0 && (0, import_react5.createElement)("div", { className: "dta-toolbar" }, (0, import_react5.createElement)("label", { htmlFor: "dta-add-parser" }, t("parser")), (0, import_react5.createElement)("select", { id: "dta-add-parser", value: addParser, onChange: (e) => setAddParser(e.target.value) }, ...parsers.map((s) => (0, import_react5.createElement)("option", { key: s.id, value: s.id }, `${originName(s.pluginId)} \xB7 ${sourceName(s.id)}`))), button("addText", () => addRule(addParser, "text"))),
             (0, import_react5.createElement)("small", null, t("sourceHelp"))
-          )) : (0, import_react5.createElement)("div", null, (0, import_react5.createElement)("div", { className: "dta-notice dta-help" }, t(preview?.actual ? "actualNotice" : preview?.scope === "opening-draft" ? "draftPreviewScope" : preview?.backend === "native" ? "nativePreviewScope" : "previewScope")), !preview ? (0, import_react5.createElement)("p", null, t("empty")) : (0, import_react5.createElement)("div", null, (0, import_react5.createElement)(PositionDecisions, { preview, sources, locale, sourceName }), ...preview.diagnostics.filter((d) => ["ASSEMBLY_EMPTY", "ASSEMBLY_SYSTEM_ONLY"].includes(d.code) && !(preview.scope === "opening-draft" && d.code === "ASSEMBLY_SYSTEM_ONLY")).map((d) => (0, import_react5.createElement)("div", { key: d.code, className: "dta-notice", role: "alert" }, t(d.code === "ASSEMBLY_EMPTY" ? "emptyRequest" : "systemOnly"))), preview.diagnostics.some((d) => d.code === "NATIVE_PLACEMENT_ADJUSTED") && (0, import_react5.createElement)("div", { className: "dta-notice" }, t("nativeOrderChanged")), ...preview.diagnostics.filter((d) => ["NATIVE_ROLE_ADJUSTED", "NATIVE_DELIVERY_ADJUSTED", "NATIVE_SLOTS_ABSENT", "NATIVE_DEPTH_APPROXIMATED", "NATIVE_DEPTH_BOUNDARY", "WORLD_BOOK_SLOT_MISSING"].includes(d.code)).map((d, i) => (0, import_react5.createElement)("div", { key: `native-adjustment:${i}`, className: "dta-notice" }, d.code === "NATIVE_SLOTS_ABSENT" ? t("nativeSlotsAbsent") : d.code === "WORLD_BOOK_SLOT_MISSING" ? `${d.name} \xB7 ${t("worldSlotMissing")}: ${d.anchor}` : d.code === "NATIVE_DEPTH_BOUNDARY" ? `${d.name} \xB7 ${t("nativeDepthBoundary")}: ${d.depth} \u2192 ${t(d.placement)}` : d.code === "NATIVE_DEPTH_APPROXIMATED" ? `${d.name} \xB7 ${t("nativeDepthApproximated")} (${d.depth})` : `${d.name} \xB7 ${t(d.code === "NATIVE_ROLE_ADJUSTED" ? "nativeRoleChanged" : "nativeDeliveryChanged")}: ${d.from} \u2192 ${d.to}`)), ...preview.nodes.map(nodeRow), preview.runtimeContextControls?.length > 0 && (0, import_react5.createElement)("div", { className: "dta-notice" }, (0, import_react5.createElement)("strong", null, t("contextPreview")), ...preview.runtimeContextControls.map((c) => (0, import_react5.createElement)("div", { key: c.name }, `${c.name} \xB7 ${t(c.enabled ? "contextIncluded" : "contextExcluded")}`))), (0, import_react5.createElement)("details", null, (0, import_react5.createElement)("summary", null, `${t(preview.backend === "native" && !preview.actual ? "logicalMessages" : "result")} (${preview.messages.length})`), ...preview.messages.map((m, i) => (0, import_react5.createElement)("div", { key: `${m.id}:${i}`, className: "dta-child" }, `${i + 1} \xB7 ${m.role}`, (0, import_react5.createElement)("pre", null, (m.content ?? []).map((b) => b.type === "text" ? b.text : `[${b.type}]`).join("\n"))))), preview.diagnostics.length > 0 && (0, import_react5.createElement)("details", null, (0, import_react5.createElement)("summary", null, t("diagnostics")), (0, import_react5.createElement)("pre", null, JSON.stringify(preview.diagnostics, null, 2))))),
+          )) : (0, import_react5.createElement)("div", null, (0, import_react5.createElement)("div", { className: "dta-notice dta-help" }, t(preview?.actual ? "actualNotice" : preview?.scope === "opening-draft" ? "draftPreviewScope" : preview?.backend === "native" ? "nativePreviewScope" : "previewScope")), !preview ? (0, import_react5.createElement)("p", null, t("empty")) : (0, import_react5.createElement)("div", null, (0, import_react5.createElement)(PositionDecisions, { strategies, preview, sources, locale, sourceName }), ...preview.diagnostics.filter((d) => ["ASSEMBLY_EMPTY", "ASSEMBLY_SYSTEM_ONLY"].includes(d.code) && !(preview.scope === "opening-draft" && d.code === "ASSEMBLY_SYSTEM_ONLY")).map((d) => (0, import_react5.createElement)("div", { key: d.code, className: "dta-notice", role: "alert" }, t(d.code === "ASSEMBLY_EMPTY" ? "emptyRequest" : "systemOnly"))), preview.diagnostics.some((d) => d.code === "NATIVE_PLACEMENT_ADJUSTED") && (0, import_react5.createElement)("div", { className: "dta-notice" }, t("nativeOrderChanged")), ...preview.diagnostics.filter((d) => ["NATIVE_ROLE_ADJUSTED", "NATIVE_DELIVERY_ADJUSTED", "NATIVE_SLOTS_ABSENT", "NATIVE_DEPTH_APPROXIMATED", "NATIVE_DEPTH_BOUNDARY", "WORLD_BOOK_SLOT_MISSING"].includes(d.code)).map((d, i) => (0, import_react5.createElement)("div", { key: `native-adjustment:${i}`, className: "dta-notice" }, d.code === "NATIVE_SLOTS_ABSENT" ? t("nativeSlotsAbsent") : d.code === "WORLD_BOOK_SLOT_MISSING" ? `${d.name} \xB7 ${t("worldSlotMissing")}: ${d.anchor}` : d.code === "NATIVE_DEPTH_BOUNDARY" ? `${d.name} \xB7 ${t("nativeDepthBoundary")}: ${d.depth} \u2192 ${t(d.placement)}` : d.code === "NATIVE_DEPTH_APPROXIMATED" ? `${d.name} \xB7 ${t("nativeDepthApproximated")} (${d.depth})` : `${d.name} \xB7 ${t(d.code === "NATIVE_ROLE_ADJUSTED" ? "nativeRoleChanged" : "nativeDeliveryChanged")}: ${d.from} \u2192 ${d.to}`)), ...preview.nodes.map(nodeRow), preview.runtimeContextControls?.length > 0 && (0, import_react5.createElement)("div", { className: "dta-notice" }, (0, import_react5.createElement)("strong", null, t("contextPreview")), ...preview.runtimeContextControls.map((c) => (0, import_react5.createElement)("div", { key: c.name }, `${c.name} \xB7 ${t(c.enabled ? "contextIncluded" : "contextExcluded")}`))), (0, import_react5.createElement)("details", null, (0, import_react5.createElement)("summary", null, `${t(preview.backend === "native" && !preview.actual ? "logicalMessages" : "result")} (${preview.messages.length})`), ...preview.messages.map((m, i) => (0, import_react5.createElement)("div", { key: `${m.id}:${i}`, className: "dta-child" }, `${i + 1} \xB7 ${m.role}`, (0, import_react5.createElement)("pre", null, (m.content ?? []).map((b) => b.type === "text" ? b.text : `[${b.type}]`).join("\n"))))), preview.diagnostics.length > 0 && (0, import_react5.createElement)("details", null, (0, import_react5.createElement)("summary", null, t("diagnostics")), (0, import_react5.createElement)("pre", null, JSON.stringify(preview.diagnostics, null, 2))))),
           (0, import_react5.createElement)("small", { style: { marginTop: 20 } }, t("tools"))
         )),
         (0, import_react5.createElement)(HistoryPanel, { key: draft.id ?? "new", presetId: `${draft.id}:${historyEpoch}`, sessionId: selectionTarget ? void 0 : sessionId, value: draft.historyPolicy, backend: draft.backend ?? "core", fetcher, root: historyApiRoot, editorRef: historyEditor, fragmentPresets: historyFragmentPresets, onChange: (historyPolicy) => {
@@ -1551,7 +1667,7 @@ function AssemblyPanelContent({ selectionTarget, sessionId, sessionLabel: sessio
           if (error2) setHistoryDirty(true);
         }, locale }),
         (0, import_react5.createElement)("h3", { className: "dta-section-title" }, t("applicationSection")),
-        (0, import_react5.createElement)("div", { className: "dta-notice" }, `${t("applied")}: ${selection?.name ?? t("legacy")}`, selection?.id?.startsWith("builtin-") && !items.some((p) => p.id === selection.id) && (0, import_react5.createElement)("small", null, t("withdrawnPreset")), !capable && (0, import_react5.createElement)("small", null, t("unavailable"))),
+        (0, import_react5.createElement)("div", { className: "dta-notice" }, `${t("applied")}: ${selection?.name ?? t("legacy")}`, selection?.id && !items.some((p) => p.id === selection.id) && (0, import_react5.createElement)("small", null, t("withdrawnPreset")), !capable && (0, import_react5.createElement)("small", null, t("unavailable"))),
         onCreateSession && (0, import_react5.createElement)("div", null, createSessionControls, (0, import_react5.createElement)("div", { className: "dta-toolbar" }, button("createSession", () => run(async () => {
           const preset = dirty || historyDirty || !draft.id ? await save() : draft;
           if (!mounted.current) return;

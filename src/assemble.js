@@ -40,13 +40,15 @@ function requestContext(options) {
 /** Synchronous helper for synchronous sources; the Host uses the async counterpart. */
 export function assembleRequest(options) {
   const registry = options.registry ?? createDefaultRegistry(), context = requestContext(options)
+  const strategies = registry.strategies.snapshot()
   const resolution = registry.resolveSync(context)
-  return assembleResolved(options, resolution.context, resolution)
+  return assembleResolved(options, resolution.context, { ...resolution, strategies })
 }
 export async function assembleRequestAsync(options) {
   const registry = options.registry ?? createDefaultRegistry(), context = requestContext(options)
+  const strategies = registry.strategies.snapshot()
   const resolution = await registry.resolve(context)
-  return assembleResolved(options, resolution.context, resolution)
+  return assembleResolved(options, resolution.context, { ...resolution, strategies })
 }
 function assembleResolved({ preset: suppliedPreset, previous = null, snapshots = [], maxBytes = 2 * 1024 * 1024, afterAssembly }, request, resolution) {
   const { preset, assets, nativeMessages, inputIds, preview } = request
@@ -222,7 +224,7 @@ function assembleResolved({ preset: suppliedPreset, previous = null, snapshots =
   for (const rule of rules) nodes.push(...plans.get(rule.id))
   let sortingStages = null
   if (adaptive) {
-    sortingStages = projectNativeOrder(nodes, preset, diagnostics)
+    sortingStages = projectNativeOrder(nodes, preset, diagnostics, resolution.strategies)
     for (const control of placementControls) {
       if (byRule.get(control.ruleId)?.descriptor.ownsSlots || ['history', 'input'].includes(preset.rules.find(r => r.id === control.ruleId)?.kind)) continue
       const fixed = nodes.filter(n => n.ruleId === control.ruleId && n.nativeDepthAnchor)
@@ -259,7 +261,7 @@ function assembleResolved({ preset: suppliedPreset, previous = null, snapshots =
     if (!inserted) nodes.push(node)
   }
   applyLayoutOverrides(nodes, preset, diagnostics)
-  sortingStages ??= applyPositionStrategies(nodes, preset, diagnostics)
+  sortingStages ??= applyPositionStrategies(nodes, preset, diagnostics, false, resolution.strategies)
   // Native markers are nested in the preset output, not dropped from the request.
   let messages = [], expanded = []
   const snapshotRules = entries.map(e => e.rule).filter(r => r.lifetime === 'snapshot' && (r.enabled || !listed.has(r.id)))
@@ -341,6 +343,7 @@ function assembleResolved({ preset: suppliedPreset, previous = null, snapshots =
   result.resourceLayout = describeResourceLayout(result.nodes, preset, slots)
   result.resourceLayout.priorityOrder = priorityOrder(preset)
   result.resourceLayout.sortingStages = sortingStages
+  result.resourceLayout.strategies = resolution.strategies.list()
   result.resourceLayout.positionDecisions = [
     ...new Map(positionEvents.map(e => [positionKey(e.sourceId, e.positionId), e])).values(),
     ...result.nodes.map(n => ({ sourceId: n.source?.module, positionId: n.positionId, nodeId: n.id, decision: n.positionDecision ?? (n.lifetime === 'native' || n.lifetime === 'snapshot' ? 'runtime' : 'source'), slotId: n.slotId ?? null })),

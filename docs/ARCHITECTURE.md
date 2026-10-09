@@ -9,3 +9,5 @@ src/plugin.js 入口拥有唯一 registry/store/runtime，提供 dshPromptSource
 adapters/dsh 提供原生输入，adapters/tavern 与 adapters/memory-manager 调用可选公开来源服务；包的生产依赖不包含它们。提供方拥有身份、正文、权限、parser 与编辑。卸载撤销后续贡献和提供方内置预设，保留应用快照与历史正文，缺来源有明确诊断。Tavern 兼容别名共享运行时，不添加请求钩子。
 
 block/context、迁移、request/snapshot 保留与 preview 合同见 [INTEGRATION](INTEGRATION.md)、[HTTP API](API.md) 与[安装](INSTALLATION.md)。图的可编辑 Archify JSON 在同目录。
+
+排序通过 `PositionStrategyRegistry` 的请求快照执行 `layout.priority`，内置与第三方算法共用注册合同。手动位置和原生锚点不参与自动认领。`AssemblyPresetStore.registerPresets` 管理提供方目录生命周期，已应用快照独立留存；来源 descriptor 的 `ownsSlots` 取代固定来源 ID 的插槽判断。详见[第三方扩展](DEVELOPER_GUIDE.md#注册排序策略与预设目录)。
