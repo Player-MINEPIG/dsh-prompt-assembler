@@ -574,3 +574,31 @@ test('settings navigation hands off to the guarded editor and closes the native 
     assert.equal(closes, 1)
   } finally { await ui.close(); controller.dispose() }
 })
+
+
+test('standard host explains disabled core apply below the actions and clears the reason on switching back', async () => {
+  const { NATIVE_BUILTINS } = await import('../adapters/tavern.js')
+  const { Simulate } = await import('react-dom/test-utils')
+  const ui = dom(), draft = { ...NATIVE_BUILTINS[0], builtin: false }
+  try {
+    const fetcher = async url => url.endsWith('/preview')
+      ? json({ preview: { nodes: [], messages: [], diagnostics: [] } })
+      : json({ ...library, presets: [draft], defaultPresetId: draft.id, capabilities: { native: true, core: false } })
+    await act(async () => ui.root.render(h(AssemblyPanel, { sessionId: 'test', standalone: true, locale: 'zh-CN', fetcher })))
+    const apply = button(ui.document, '保存并应用到当前会话')
+    assert.equal(apply.disabled, false)
+    const backend = ui.document.querySelector('select[aria-label="接入方式"]')
+    await act(async () => Simulate.change(backend, { target: { value: 'core' } }))
+    assert.equal(apply.disabled, true)
+    const reason = ui.document.getElementById(apply.getAttribute('aria-describedby'))
+    assert.equal(apply.parentElement.nextElementSibling, reason)
+    assert.equal(reason.getAttribute('data-error'), 'true')
+    assert.equal(reason.getAttribute('role'), 'alert')
+    assert.match(reason.textContent, /未启用进阶版核心扩展/)
+    assert.match(reason.textContent, /标准版 · 官方接口/)
+    assert.match(reason.textContent, /重启后端/)
+    await act(async () => Simulate.change(backend, { target: { value: 'native' } }))
+    assert.equal(apply.disabled, false)
+    assert.equal(ui.document.getElementById('dta-apply-blocked'), null)
+  } finally { await ui.close() }
+})
