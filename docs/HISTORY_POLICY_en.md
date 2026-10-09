@@ -85,6 +85,23 @@ rule snapshot/revision and hashes. Native `sourceEventSeqs` links the provenance
 user message and reference both hidden and original events. These are inert JSON annotations on built-in events,
 not interpreter-dependent event types. Actual standard requests derive from the surface at request time.
 
+### Official trajectory display limitation
+
+Known display defect: the official DSH `0.2.0-rc.2` trajectory renders each empty developer placeholder
+written by standard cleanup as `CONTEXT —`, with source `dsh-prompt-assembler/history-policy`.
+Cleaning many old injections can therefore fill the list with audit rows. These rows derive to no model
+message and do not indicate lost original content; original events and cleanup evidence remain in the durable log.
+
+As a temporary workaround, click `⊟ Turns` in the trajectory toolbar (tooltip: “Collapse turns”),
+or double-click a turn's first content row to collapse that turn. This also collapses other content in the turn;
+“Collapse calls” only folds tool calls. Search results bypass folding, so clear the search field before using it.
+
+This version has no public interface to hide or fold these rows by source alone. Handling this limitation
+is deferred until the official trajectory provides a suitable display interface; standard cleanup and audit
+behavior remain in place. Disabling cleanup or switching to advanced mode does not delete existing audit rows.
+Switching first restores live standard placeholders; subsequent advanced filtering only changes request copies
+and does not create new standard cleanup placeholders.
+
 ## Advanced behavior
 
 Policies are disabled for new session IDs. Enabling the default clean policy keeps human input and assistant

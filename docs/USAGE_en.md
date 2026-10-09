@@ -7,6 +7,8 @@ See [resource layout](RESOURCE_LAYOUT_en.md) for current blocks, slots, stable p
 
 Choose Standard for public DSH interfaces, or Advanced for the optional addon and prepared core. Legacy strategies remain advanced. Standard history/input cannot be disabled or moved out of order; no arbitrary depth or assistant contributions. User context and pre-step both persist in the original log; [history filtering](HISTORY_POLICY_en.md) can clean old injections and system/context copies from later requests. Standard mode offers two Tavern references: preset slots first (RP default) and roles first. See [backend rules](BACKENDS_en.md).
 
+Standard history cleanup can produce many `CONTEXT —` audit rows in the official trajectory. Collapsing whole turns is a temporary workaround; folding by source awaits an official interface. See the [known display defect and workaround](HISTORY_POLICY_en.md#official-trajectory-display-limitation).
+
 ## Entry and interface
 
 The Settings sidebar contains Prompt assembly; selecting it closes Settings and opens the guarded strategy editor. The entry is available, including before a session’s first message. Sections appear in this order: Strategy library → Assembly rules and preview → History filtering rules and preview → Session application → Interface settings, separated by headings and dividers. Language changes UI labels; it is not prompt content or session strategy configuration.
