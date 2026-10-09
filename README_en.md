@@ -14,7 +14,7 @@ dsh plugin --profile web add github:Player-MINEPIG/dsh-prompt-assembler#main
 
 The repository is public. This command does not imply a public listing or an npm publication. `dsh.bundle` loads `cordis.patch.yml`; `dsh.client` loads the committed `dist/client.js`. Installation does not compile client source.
 
-Open current-session assembly from the sidebar, including a blank session before its first message. The strategy library is also always available from the sidebar. Apply a strategy to an existing session, or create a session using a library strategy: creation binds the strategy before opening the session. There is no global default strategy; installing the plugin or registering a source does not implicitly apply one.
+Open the strategy library and current-session assembly from Settings → Prompt assembly, including a blank session before its first message. Apply a strategy to an existing session, or create a session using a library strategy: creation binds the strategy before opening the session. There is no global default strategy; installing the plugin or registering a source does not implicitly apply one.
 
 Standard strategies execute on stock rc.2 using public DSH interfaces. Advanced strategies explicitly require the optional addon and prepared protocol-1 core; missing either returns 409. See [backend behavior](docs/BACKENDS_en.md) and [installation](docs/INSTALLATION_en.md).
 

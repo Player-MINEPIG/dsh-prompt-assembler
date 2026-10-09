@@ -9,7 +9,7 @@ Standard mode uses the stock public pre-step and surface-replacement APIs to cle
 
 ## Installed entry points and usage
 
-Open “History filtering rules and preview” directly below “Assembly rules and preview”. Both sections share collapsible highlighted headings and rules/preview tabs. Select sources and inspect the preview, then use “Save rules” to save the complete preset. “Apply to this session” changes the active snapshot. Save as, import/export, opening drafts and applied snapshots carry the optional `historyPolicy` field. Saving a library preset does not change already-applied sessions.
+Open “History filtering rules and preview” directly below “Assembly rules and preview”. Both sections share collapsible highlighted headings and rules/preview tabs. Select sources and inspect the preview, then use “Save rules” to save the complete preset. “Save and apply to this session” changes the active snapshot. Save as, import/export, opening drafts and applied snapshots carry the optional `historyPolicy` field. Saving a library preset does not change already-applied sessions.
 
 Preview backgrounds are red for removed text, blue for retained text and green for additions (restoring messages previously hidden by this feature). Fragment edits mark retained and removed ranges in the original text. Green does not mean generated content. Preview does not mutate logs or sessions. Policies can be edited before a session exists; history previews become available after creation.
 

@@ -72,6 +72,12 @@ export function AssemblyLauncher({ assembler, wide = true, sessionId }) {
   return h('button', { type: 'button', className: 'dta-launcher', style: { font: 'inherit', color: 'inherit', border: '1px solid currentColor', borderRadius: 8, background: 'transparent', padding: '7px 10px', cursor: 'pointer' }, title: '提示词装配 / Prompt assembly', 'aria-label': '提示词装配', onClick: () => void assembler.open(sessionId) }, wide ? '提示词装配' : '⌘')
 }
 
+// Settings owns navigation; hand off to the existing guarded strategy editor.
+export function AssemblySettingsEntry({ assembler, close }) {
+  useEffect(() => { void assembler.open().then(opened => { if (opened) close() }) }, [assembler, close])
+  return null
+}
+
 export function AssemblyOverlay({ assembler, sessions, workspaces, uiWorkspace, fetcher = assemblerFetch }) {
   const state = useSyncExternalStore(assembler.subscribe, assembler.getSnapshot, assembler.getSnapshot)
   const workspaceState = useSyncExternalStore(workspaces.list.subscribe.bind(workspaces.list), workspaces.list.getSnapshot.bind(workspaces.list), workspaces.list.getSnapshot.bind(workspaces.list))
@@ -111,10 +117,11 @@ export function AssemblyOverlay({ assembler, sessions, workspaces, uiWorkspace, 
 export function apply(ctx) {
   const assembler = createAssemblyController(ctx.sessions)
   ctx.effect(() => () => assembler.dispose())
-  ctx.slots.inject('sidebar.footer.action', () => ctx.slots.register({
-    name: 'sidebar.footer.action', id: `${name}-launcher`, order: 80,
+  ctx.slots.inject('settings.section', () => ctx.slots.register({
+    name: 'settings.section', id: `${name}-settings`, order: 80,
+    label: () => globalThis.navigator?.language?.startsWith('zh') ? '提示词装配' : 'Prompt assembly',
     inject: () => ({ assembler }),
-  }, AssemblyLauncher))
+  }, AssemblySettingsEntry))
   ctx.slots.inject('shell.overlay', () => ctx.slots.register({
     name: 'shell.overlay', id: `${name}-editor`, order: 80,
     inject: () => ({ assembler, sessions: ctx.sessions, workspaces: ctx.workspaces, uiWorkspace: ctx.uiWorkspace, fetcher: assemblerFetch }),

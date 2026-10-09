@@ -2,7 +2,7 @@
 
 [English](ARCHITECTURE_en.md) · [交互架构图](assets/architecture/assembler.zh-CN.html) · [开发者指南](DEVELOPER_GUIDE.md)
 
-src/plugin.js 入口拥有唯一 registry/store/runtime，提供 dshPromptSources 与 dshPromptAssembler。浏览器入口挂载侧栏与策略库；HTTP factory 由 bundle 安全 wrapper 包裹。assembly-presets.json 保存用户预设和独立应用的会话快照，不保存来源正文或原生历史。
+src/plugin.js 入口拥有唯一 registry/store/runtime，提供 dshPromptSources 与 dshPromptAssembler。浏览器入口在 settings.section 注册设置导航项，并由 shell.overlay 挂载独立策略编辑器；HTTP factory 由 bundle 安全 wrapper 包裹。assembly-presets.json 保存用户预设和独立应用的会话快照，不保存来源正文或原生历史。
 
 标准路径：native 策略→只读来源→官方 sections/context→接受的 pre-step 消息→原生冻结、provider 与 durable history。可选进阶路径：共享来源→已验证完整 system 投影→协议 1 钩子→log-only request/assembly。只有 addon 注册进阶请求钩子，不静默回退；见[后端边界](BACKENDS.md)。
 

@@ -113,7 +113,7 @@ export function mountHistoryPolicyPanel(container, { sessionId, root = '/dsh-pro
       for (const input of advanced.querySelectorAll('input, textarea, button')) input.disabled = true
       el('p', '正文、图片、思考和 MVU 片段筛选仅在进阶版生效；标准版完整保留助手回复。', advanced)
     }
-    if (embedded) explanation.textContent = '历史筛选与资源装配一起保存在策略预设中。上方「保存规则」只保存预设；「应用到当前会话」后从下一步生效。原始日志与展示原文保留。'
+    if (embedded) explanation.textContent = '历史筛选与资源装配一起保存在策略预设中。上方「保存规则」只保存预设；「保存并应用到当前会话」后从下一步生效。原始日志与展示原文保留。'
     revision = result.revision; policy = normalizeHistoryPolicy(result.policy); enabled.checked = policy.enabled
     for (const [kind, input] of Object.entries(types)) input.checked = standard || policy.contentTypes[kind]
     fragments.value = JSON.stringify(policy.fragments, null, 2); renderSources(); loaded = true; previewButton.disabled = !sessionId; if (saveButton) saveButton.disabled = false; addSource.disabled = false; onReady(); status.textContent = embedded ? `${standard ? '标准版：来源清理；助手正文完整保留。' : '进阶版：可筛选来源、内容类型与正文片段。'}${sessionId ? '匹配预览不修改会话。' : '尚无会话历史，可先编辑和保存；创建会话后再预览。'}${value === undefined && sessionId ? '此旧预设尚无历史设置，当前显示会话设置，保存预设时会一并收录。' : ''}` : `已读取版本 ${revision}。未知来源、工具事务和 adapter replay 数据保留。`

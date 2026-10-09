@@ -6,4 +6,4 @@
 
 要求精确标准包 0.2.0，以及显式准备的 DSH 0.2.0-rc.2（`requestAssemblyVersion:1`）。stock 核心拒绝挂载；核心 marker 不会隐式启用扩展。选择 core 策略才执行进阶投影，native 策略继续官方路径。两种后端不会同时改写一个请求。
 
-一键安装或卸载使用 `node core-extension/scripts/switch-runtime.mjs install|uninstall --runtime <runtime> --home <DSH_HOME> --profile web`。首次安装还需 `--prepared <准备产物> --stock-runtime <标准runtime>`；安装会自动打包并启用 addon，卸载恢复标准构建并将进阶选择切回标准 ST。先停止目标 Host，执行后重启；完整步骤见上方安装说明。保留策略和日志，进阶版与标准版可以反复切换。
+一键安装或卸载使用 `node core-extension/scripts/switch-runtime.mjs install|uninstall --runtime <runtime> --home <DSH_HOME> --profile web`。首次安装还需 `--prepared <准备产物> --stock-runtime <标准runtime>`；安装会自动打包并启用 addon，卸载恢复标准构建并将进阶选择切回标准插槽优先。先停止目标 Host，执行后重启；完整步骤见上方安装说明。保留策略和日志，进阶版与标准版可以反复切换。

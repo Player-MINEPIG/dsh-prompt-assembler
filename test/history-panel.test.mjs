@@ -75,7 +75,7 @@ test('history is a collapsible strategy section between assembly and application
     assert.deepEqual(JSON.parse(save.options.body).historyPolicy.fragments, [fragmentPresets[0].rule])
     assert.equal(ui.calls.some(call => call.url.endsWith('/selection')), false)
     assert.equal(ui.unload(), false)
-    await ui.click('应用到当前会话')
+    await ui.click('保存并应用到当前会话')
     assert.ok(ui.calls.some(call => call.url.endsWith('/selection')))
     assert.equal(ui.calls.some(call => call.url.includes('/history-policy') && call.options.method === 'PUT'), false)
   } finally { await ui.close() }

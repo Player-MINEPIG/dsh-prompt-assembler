@@ -10,7 +10,7 @@ Target DSH `0.2.0-rc.2`, Node `^22.19.0 || >=24` for the Host; library-only use 
 dsh plugin --profile web add github:Player-MINEPIG/dsh-prompt-assembler#main
 ```
 
-The repository is public. Standard metadata provides `main:src/plugin.js`, `dsh.bundle:cordis.patch.yml` and prebuilt `dist/client.js`. Stock rc.2 needs no core changes. Stop/restart the intended Host, then use the sidebar. Saving and applying are separate; new sessions bind before opening. Standalone use has no global default and does not require Tavern. Repository visibility does not establish npm, tag/release or plugin-directory publication.
+The repository is public. Standard metadata provides `main:src/plugin.js`, `dsh.bundle:cordis.patch.yml` and prebuilt `dist/client.js`. Stock rc.2 needs no core changes. Stop/restart the intended Host, then open Settings → Prompt assembly. Save rules updates the library; Save and apply to this session saves edits before applying; new sessions bind before opening. Standalone use has no global default and does not require Tavern. Repository visibility does not establish npm, tag/release or plugin-directory publication.
 
 ## Optional advanced extension
 
@@ -35,7 +35,7 @@ Mounting requires `agentLoop.requestAssemblyVersion===1`. Prepared core alone do
 
 ## Storage and removal
 
-Strategies/session snapshots live in `dshHomePath('dsh-prompt-assembler')/assembly-presets.json`. Explicit `migrateLegacy(root)` merges absent IDs and retains old files and play/native scopes. Unified session selection, including null, wins over legacy mode fallback. Missing backend remains core, without automatic conversion. Standalone use has no default. Attached Tavern uses standard ST style for unbound play sessions and new openings; installing the addon does not change that default. Existing snapshots remain unchanged.
+Strategies/session snapshots live in `dshHomePath('dsh-prompt-assembler')/assembly-presets.json`. Explicit `migrateLegacy(root)` merges absent IDs and retains old files and play/native scopes. Unified session selection, including null, wins over legacy mode fallback. Missing backend remains core, without automatic conversion. Standalone use has no default. Attached Tavern uses standard preset-slots-first style for unbound play sessions and new openings; installing the addon does not change that default. Existing snapshots remain unchanged.
 
 Provider removal withdraws its sources/catalog entries while retaining applied snapshots/storage. Standard user contributions remain native history; advanced request-only contributions stop, while request/assembly remains readable. The switch command moves core selections to standard slots before returning to stock; removing the addon separately leaves retained core selections explicitly unavailable. Returning to stock uses retained standard builds. Migrations and real-profile writes require an authorized environment.
 

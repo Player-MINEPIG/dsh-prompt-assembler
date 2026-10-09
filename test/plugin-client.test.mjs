@@ -6,7 +6,7 @@ import { createRoot } from 'react-dom/client'
 import { parseHTML } from 'linkedom'
 import { build } from 'esbuild'
 import { AssemblyPanel, moveSlotRule } from '../src/client.js'
-import { AssemblyOverlay, apply, createAssemblyController, createSessionWithPreset, inject, mainSession, name, sessionLabel } from '../src/plugin-client.js'
+import { AssemblyOverlay, AssemblySettingsEntry, apply, createAssemblyController, createSessionWithPreset, inject, mainSession, name, sessionLabel } from '../src/plugin-client.js'
 
 const json = body => new Response(JSON.stringify(body), { headers: { 'Content-Type': 'application/json' } })
 const deferred = () => { let resolve; return { promise: new Promise(r => { resolve = r }), resolve: value => resolve(value) } }
@@ -17,7 +17,7 @@ function source(snapshot) {
 const catalog = (...rows) => ({ byId: Object.fromEntries(rows.map(row => [row.id, row])), ids: rows.map(r => r.id), phase: 'ready' })
 const row = (id, mainView = 1) => ({ id, title: `Session ${id}`, blank: false, retainedBy: { mainView } })
 
-test('entry registers owned root footer and overlay without a session header shortcut or Tavern', () => {
+test('entry registers a settings navigation entry and guarded overlay without a session header shortcut or Tavern', () => {
   assert.equal(name, 'dsh-prompt-assembler')
   assert.deepEqual(inject, ['slots', 'sessions', 'workspaces', 'uiWorkspace'])
   const entries = [], cleanups = []
@@ -25,7 +25,7 @@ test('entry registers owned root footer and overlay without a session header sho
     inject: (slot, fn) => { fn() }, register: (entry, component) => { entries.push({ ...entry, component }); return () => {} },
   } }
   apply(ctx)
-  assert.deepEqual(entries.map(e => e.name), ['sidebar.footer.action', 'shell.overlay'])
+  assert.deepEqual(entries.map(e => e.name), ['settings.section', 'shell.overlay'])
   assert.equal(entries[0].inject().assembler.getSnapshot().open, false)
   cleanups.forEach(fn => fn())
   assert.equal(ctx.sessions.list.listeners, 0)
@@ -102,7 +102,7 @@ test('mounted panel saves a new dirty draft before creating, with no active sess
     }
     await act(async () => ui.root.render(h(AssemblyPanel, { standalone: true, locale: 'en', sessionLabel: 'New Session', close() {}, fetcher, onCreateSession: async id => calls.push(['create', id]) })))
     assert.match(ui.document.querySelector('[data-assembly-session]').textContent, /New Session/)
-    assert.equal(button(ui.document, 'Apply to this session').disabled, true)
+    assert.equal(button(ui.document, 'Save and apply to this session').disabled, true)
     assert.equal(button(ui.document, 'Create a session with this strategy').disabled, false)
     await act(async () => button(ui.document, 'Create').click())
     await act(async () => button(ui.document, 'Create a session with this strategy').click())
@@ -140,7 +140,7 @@ test('mounted dirty editor prompts on native navigation and cancellation keeps w
     assert.ok(ui.document.querySelector('[role="alertdialog"]'))
     assert.equal(ui.document.querySelector('[data-assembly-session]').getAttribute('data-assembly-session'), 'a')
     await act(async () => (button(ui.document, 'Cancel') ?? button(ui.document, '取消')).click())
-    await act(async () => (button(ui.document, 'Apply to this session') ?? button(ui.document, '应用到当前会话')).click())
+    await act(async () => (button(ui.document, 'Save and apply to this session') ?? button(ui.document, '保存并应用到当前会话')).click())
     assert.deepEqual(selections, [{ sessionId: 'a', id: 'saved' }])
     assert.equal(ui.document.querySelector('[data-assembly-session]').getAttribute('data-assembly-session'), 'a')
     await act(async () => assembler.open())
@@ -480,11 +480,11 @@ for (const openingDraft of [false,true]) test(`failed validation survives edits/
   await act(()=>toggle.click())
   await act(()=>button(ui.document,'Save rules').click())
   assert.match(ui.document.querySelector('[data-assembly-validation-error]').textContent,/revalidation is required/)
-  await act(()=>button(ui.document,'Apply to this session').click())
+  await act(()=>button(ui.document,'Save and apply to this session').click())
   assert.equal(calls.filter(x=>x==='apply').length,0)
   assert(calls.filter(x=>x==='preview').length >= 2)
   rejected=false
-  await act(()=>button(ui.document,'Apply to this session').click())
+  await act(()=>button(ui.document,'Save and apply to this session').click())
   assert.equal(calls.filter(x => x === 'apply').length, 1)
   assert.equal(calls[calls.indexOf('apply') - 1], 'preview')
   assert.equal(ui.document.querySelector('[data-assembly-validation-error]'),null)
@@ -559,8 +559,18 @@ test('all built-in strategies render, preview and pass application preflight wit
       await act(async () => button(ui.document, 'Assembly result').click())
       assert.equal(ui.document.querySelector('[data-error=true]'), null, candidate.id)
       assert.ok(ui.document.querySelectorAll('.dta-row').length, candidate.id)
-      await act(async () => button(ui.document, 'Apply to this session').click())
+      await act(async () => button(ui.document, 'Save and apply to this session').click())
       assert.equal(applied.at(-1), candidate.id)
     }
   } finally { await ui.close(); rmSync(directory, { recursive: true, force: true }) }
+})
+
+test('settings navigation hands off to the guarded editor and closes the native settings panel', async () => {
+  const ui = dom(), controller = createAssemblyController({ list: source(catalog(row('settings-session'))) }); let closes = 0
+  try {
+    await act(async () => ui.root.render(h(AssemblySettingsEntry, { assembler: controller, close: () => { closes++ } })))
+    assert.equal(controller.getSnapshot().open, true)
+    assert.equal(controller.getSnapshot().session.id, 'settings-session')
+    assert.equal(closes, 1)
+  } finally { await ui.close(); controller.dispose() }
 })

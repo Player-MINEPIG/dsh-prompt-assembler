@@ -5,15 +5,17 @@
 See [resource layout](RESOURCE_LAYOUT_en.md) for current blocks, slots, stable positioning and legacy compatibility.
 ## Backend selection
 
-Choose Standard for public DSH interfaces, or Advanced for the optional addon and prepared core. Legacy strategies remain advanced. Standard history/input cannot be disabled or moved out of order; no arbitrary depth or assistant contributions. User context and pre-step both persist in history. Standard mode offers two Tavern references: preset slots first (RP default) and roles first. See [backend rules](BACKENDS_en.md).
+Choose Standard for public DSH interfaces, or Advanced for the optional addon and prepared core. Legacy strategies remain advanced. Standard history/input cannot be disabled or moved out of order; no arbitrary depth or assistant contributions. User context and pre-step both persist in the original log; [history filtering](HISTORY_POLICY_en.md) can clean old injections and system/context copies from later requests. Standard mode offers two Tavern references: preset slots first (RP default) and roles first. See [backend rules](BACKENDS_en.md).
 
 ## Entry and interface
 
-The sidebar Prompt assembly entry is always available, including before a session’s first message. Sections appear in this order: Strategy library → Assembly rules and preview → Session application → Interface settings, separated by headings and dividers. Language changes UI labels; it is not prompt content or session strategy configuration.
+The Settings sidebar contains Prompt assembly; selecting it closes Settings and opens the guarded strategy editor. The entry is available, including before a session’s first message. Sections appear in this order: Strategy library → Assembly rules and preview → History filtering rules and preview → Session application → Interface settings, separated by headings and dividers. Language changes UI labels; it is not prompt content or session strategy configuration.
 
 ## Saving and applying
 
 Create, import, export or select strategies in the library. Built-ins cannot be renamed or deleted; save modifications as a copy. User strategies are editable. Saving updates the library; applying captures the chosen configuration for the current session. Editing a library strategy does not silently update applied session snapshots. Reapply it to affect future requests.
+
+Save rules updates only the library. Save and apply to this session first saves pending assembly/history edits, then applies the saved strategy. A failed save prevents application; unchanged built-ins apply directly without creating a redundant copy.
 
 Create a session with this strategy requires an explicit workspace choice unless exactly one workspace exists. The plugin creates and binds the session before opening it, so its first request can use the strategy. There is no global default. Unselected or disabled strategies use DSH default assembly. Missing core support refuses advanced application; standard strategies apply on stock core.
 
@@ -43,7 +45,7 @@ Resource positions configures declared macro targets, worldbook positions and st
 
 Assembly result uses the editor draft, readable resources and durable history. It neither applies a strategy nor calls a model, and excludes unsent composer drafts. Random macros use a fixed sample. Uninitialized or damaged source state should return an explicit diagnostic.
 
-In advanced mode, View latest actual request reads the latest durable request/assembly from DSH, containing the request frozen at execution time. Editing strategies or removing providers cannot change that record; the record does not prove provider delivery.
+View latest actual request reads durable request/assembly in advanced mode. With Tavern installed, standard mode also reads recorded native request boundaries and source details. Older requests without those boundaries may be unavailable until the next send. Editing strategies or removing providers cannot change that record; the record does not prove provider delivery.
 
 ## Removing and reinstalling providers
 

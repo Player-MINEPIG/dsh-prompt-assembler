@@ -10,7 +10,7 @@
 dsh plugin --profile web add github:Player-MINEPIG/dsh-prompt-assembler#main
 ```
 
-仓库是 public。标准包拥有 `main:src/plugin.js`、`dsh.bundle:cordis.patch.yml` 和预构建 `dist/client.js`，无需改动 stock rc.2 核心。停止并重启目标 Host 后打开侧栏；保存与应用分开，新会话先绑定再打开。独立运行没有全局默认，Tavern 不必安装。GitHub 源码、npm 包与插件目录是不同分发途径，不由仓库可见性推断发布状态。
+仓库是 public。标准包拥有 `main:src/plugin.js`、`dsh.bundle:cordis.patch.yml` 和预构建 `dist/client.js`，无需改动 stock rc.2 核心。停止并重启目标 Host 后打开“设置 → 提示词装配”；“保存规则”仅保存资源，“保存并应用到当前会话”先保存修改再应用，新会话先绑定再打开。独立运行没有全局默认，Tavern 不必安装。GitHub 源码、npm 包与插件目录是不同分发途径，不由仓库可见性推断发布状态。
 
 ## 可选进阶扩展
 
