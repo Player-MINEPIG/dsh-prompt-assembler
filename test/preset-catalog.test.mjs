@@ -102,3 +102,47 @@ test('applied provider snapshots survive unregister, replacement and restart wit
   assert.deepEqual(reopened.selection('session'), applied)
   assert.deepEqual(reopened.list().map(p => p.id), BUILTINS.map(p => p.id))
 })
+
+test('legacy migration rejects provider or built-in catalog collisions atomically without changing either file', t => {
+  for (const kind of ['provider', 'builtin']) {
+    const legacy = fixture(t, { unified: true })
+    const ordinary = legacy.save(preset('unused', 'Ordinary legacy preset'))
+    const conflicting = legacy.save(preset('unused', 'Conflicting legacy preset'))
+    legacy.apply('legacy-session', ordinary.id)
+    const store = fixture(t, { unified: true, ...(kind === 'builtin' ? { builtins: [...BUILTINS, { ...conflicting, name: 'Registered catalog entry' }] } : {}) })
+    if (kind === 'provider') {
+      store.registerPresets({ pluginId: 'example', presets: [{ ...conflicting, name: 'Registered catalog entry' }] })
+      store.save(preset('unused', 'Existing local preset'))
+    }
+    const before = structuredClone(store.state), catalog = store.list(), sourceFile = readFileSync(legacy.path)
+    const ownFile = existsSync(store.path) ? readFileSync(store.path) : null
+    assert.throws(() => store.migrateLegacy(dirname(legacy.path)), { name: 'TypeError', message: `Duplicate assembly preset: ${conflicting.id}` })
+    assert.deepEqual(store.state, before); assert.deepEqual(store.list(), catalog)
+    assert.equal(store.hasSelection('legacy-session'), false)
+    assert.throws(() => store.get(ordinary.id), { status: 404 })
+    assert.equal(existsSync(store.path), ownFile !== null)
+    if (ownFile !== null) assert.deepEqual(readFileSync(store.path), ownFile)
+    assert.deepEqual(readFileSync(legacy.path), sourceFile)
+    assert.throws(() => store.save(conflicting, conflicting.id), /Copy a built-in/)
+    assert.throws(() => store.remove(conflicting.id), /Built-in presets/)
+  }
+})
+
+test('legacy selection snapshots can share registered IDs and existing local presets still take precedence', t => {
+  const legacy = fixture(t, { unified: true }), localPreset = legacy.save(preset('unused', 'Legacy version'))
+  const store = fixture(t, { unified: true })
+  store.migrateLegacy(dirname(legacy.path))
+  store.save({ ...localPreset, name: 'Local version' }, localPreset.id)
+  store.registerPresets({ pluginId: 'example', presets: [preset('provider-policy')] })
+  legacy.applySnapshot('provider-session', preset('provider-policy', 'Legacy provider snapshot'))
+  legacy.applySnapshot('builtin-session', preset('builtin-native', 'Legacy built-in snapshot'))
+  const additional = legacy.save(preset('unused', 'Additional legacy preset'))
+  const sourceFile = readFileSync(legacy.path)
+  assert.equal(store.migrateLegacy(dirname(legacy.path)), true)
+  assert.equal(store.get(localPreset.id).name, 'Local version')
+  assert.equal(store.get(additional.id).name, 'Additional legacy preset')
+  assert.equal(store.selection('provider-session').name, 'Legacy provider snapshot')
+  assert.equal(store.selection('builtin-session').name, 'Legacy built-in snapshot')
+  assert.equal(store.get('provider-policy').builtin, true)
+  assert.deepEqual(readFileSync(legacy.path), sourceFile)
+})

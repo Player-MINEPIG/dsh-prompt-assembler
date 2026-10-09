@@ -37,6 +37,10 @@ export class AssemblyPresetStore {
   migrateLegacy(root) {
     if (join(root, 'assembly-presets.json') === this.path || !existsSync(join(root, 'assembly-presets.json'))) return false
     const legacy = new AssemblyPresetStore(root) // Validate before changing owned state.
+    const builtinIds = new Set(this.builtins.map(p => p.id))
+    for (const id of Object.keys(legacy.state.presets)) {
+      if (!Object.hasOwn(this.state.presets, id) && (builtinIds.has(id) || this.#providerPresets.has(id))) throw new TypeError(`Duplicate assembly preset: ${id}`)
+    }
     const next = structuredClone(this.state); let changed = false
     for (const area of ['presets', 'selections']) for (const [id, value] of Object.entries(legacy.state[area])) {
       if (!Object.hasOwn(next[area], id)) { next[area][id] = value; changed = true }
