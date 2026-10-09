@@ -65,6 +65,7 @@ test('history preview colors removal, retained fragments and restored messages w
   try {
     await editor.ready
     await [...document.querySelectorAll('button')].find(b=>b.textContent==='匹配预览').onclick()
+    assert.equal(document.querySelectorAll('.history-results details[open]').length, 0, 'all preview messages start collapsed')
     const chunks = [...document.querySelectorAll('.history-diff span')].map(n=>[n.className,n.textContent])
     assert.deepEqual(chunks,[['history-diff-remove','remove all'],['history-diff-keep','before '],['history-diff-remove','[remove]'],['history-diff-keep',' after'],['history-diff-add','restore saved text']])
   } finally {editor.dispose()}

@@ -7,7 +7,7 @@ export function mountHistoryPolicyPanel(container, { sessionId, root = '/dsh-pro
   let loaded = false
   let revision = 0, policy, disposed = false, standard = false, dirty = false, editGeneration = 0
   const setDirty = value => { if (value) editGeneration++; dirty = value; onDirtyChange(value); if (value && embedded && loaded) { try { onChange(normalizeHistoryPolicy(draft())); onInvalid('') } catch (error) { onInvalid(error.message); status.textContent = `规则无效：${error.message}。请检查片段 JSON 或来源名称后再保存。` } } }
-  const el = (tag, text, parent = container) => { const node = doc.createElement(tag); if (text) node.textContent = text; parent.append(node); return node }
+  const el = (tag, text, parent = container) => { const node = doc.createElement(tag); if (text) node.textContent = text; if (tag === 'p') node.className = 'dta-help'; parent.append(node); return node }
   const panel = el('section'); panel.className = 'history-policy-panel'; panel.dataset.view = 'rules'
   const tabs = embedded ? el('div', '', panel) : null
   if (tabs) tabs.className = 'dta-tabs'
@@ -18,7 +18,7 @@ export function mountHistoryPolicyPanel(container, { sessionId, root = '/dsh-pro
   const label = el('label', '', panel), enabled = el('input', '', label); enabled.type = 'checkbox'; enabled.setAttribute('aria-label', '启用历史筛选'); el('span', ' 启用历史筛选', label)
   const sources = el('fieldset', '', panel); el('legend', '保留哪些历史来源', sources)
   const sourceRows = el('div', '', sources)
-  el('p', '来源开关只筛选旧消息。当前步注入、仍在使用的最新运行上下文，以及工具调用和结果始终保留。', sources)
+  el('p', '此处筛选已消费的旧消息。取消 runtime-context 只清理过期副本，最新有效快照仍保留；当前步注入、system/developer 指令和工具调用及结果不由来源开关删除。', sources)
   const addRow = el('div', '', sources), sourceName = el('input', '', addRow); sourceName.placeholder = '精确 source.kind'; sourceName.setAttribute('aria-label', '添加来源')
   const addSource = el('button', '添加来源', addRow)
   const content = el('fieldset', '', panel); el('legend', '保留哪些内容类型', content)
@@ -44,7 +44,7 @@ export function mountHistoryPolicyPanel(container, { sessionId, root = '/dsh-pro
   previewButton.disabled = true; if (saveButton) saveButton.disabled = true; addSource.disabled = true
   const status = el('p', '正在读取…', panel); status.setAttribute('role', 'status')
   const results = el('div', '', panel); results.className = 'history-results'; results.setAttribute('aria-label', '历史匹配预览')
-  const reasonLabels = { SOURCE_EXCLUDED: '按来源排除旧消息', UNKNOWN_SOURCE_RETAINED: '未知来源：保留原文', REASONING_REQUIRED_OR_UNVERIFIED: '模型协议要求保留思考，或尚未验证能安全省略', SOURCE_REQUIRED_REASONING_RETAINED: '此消息含必需思考，不能整条排除', CURRENT_OR_ASSEMBLED_CONTENT: '当前步或本次装配内容：保留', PROTECTED_PROTOCOL_MESSAGE: '工具事务、系统指令或 adapter replay 数据：保留', CURRENT_RUNTIME_CONTEXT: '当前仍在使用的运行上下文：保留', AMBIGUOUS_FRAGMENT: '片段标记有歧义：保留', UNCLOSED_FRAGMENT: '片段未闭合：保留', EMPTY_AFTER_FILTER: '筛选后无剩余内容' }
+  const reasonLabels = { SOURCE_EXCLUDED: '按来源排除旧消息', UNKNOWN_SOURCE_RETAINED: '未知来源：保留原文', REASONING_REQUIRED_OR_UNVERIFIED: '模型协议要求保留思考，或尚未验证能安全省略', SOURCE_REQUIRED_REASONING_RETAINED: '此消息含必需思考，不能整条排除', CURRENT_OR_ASSEMBLED_CONTENT: '当前步或本次装配内容：保留', PROTECTED_PROTOCOL_MESSAGE: '工具事务、系统指令或 adapter replay 数据：保留', CURRENT_RUNTIME_CONTEXT: '最新有效运行上下文：即使取消该来源，也会保留此快照供 DSH 复用', AMBIGUOUS_FRAGMENT: '片段标记有歧义：保留', UNCLOSED_FRAGMENT: '片段未闭合：保留', EMPTY_AFTER_FILTER: '筛选后无剩余内容' }
   const display = message => message.content.map(block => block.type === 'text' ? block.text : block.type === 'reasoning' ? `〔思考〕\n${block.text}` : `〔${block.type}〕`).join('\n\n')
   reasonLabels.POLICY_DISABLED = '已关闭：恢复仍由本功能隐藏的消息'
   reasonLabels.NATIVE_REPLACEMENT_RETAINED = '原生压缩或其他替换结果：保留'
@@ -80,7 +80,7 @@ export function mountHistoryPolicyPanel(container, { sessionId, root = '/dsh-pro
     for (const [kind, label] of [['remove', '− 去除'], ['keep', '= 保留'], ['add', '+ 新增（恢复）']]) { const badge = el('span', label, legend); badge.className = `history-diff-${kind}` }
     for (const row of result.preview) {
       const kind = row.action === 'exclude' ? 'remove' : row.action === 'restore' ? 'add' : 'keep'
-      const item = el('details', '', results); item.open = row.action !== 'keep'; item.className = `history-result history-result-${kind}`
+      const item = el('details', '', results); item.open = false; item.className = `history-result history-result-${kind}`
       const actionLabel = { exclude: '去除', keep: '保留', edit: '部分去除', restore: '新增（恢复）' }[row.action] ?? row.action
       el('summary', `${row.role} · ${row.sourceKind} · ${actionLabel} · seq ${row.seq ?? '本步装配'}`, item)
       if (row.reasons.length) el('p', row.reasons.map(reason => reasonLabels[reason] ?? reason).join(' · '), item)
