@@ -41,6 +41,18 @@ test('main-view identity excludes retained background sessions and preserves bla
   assert.equal(sessionLabel(row('active'), 'en'), 'Session active')
 })
 
+test('a composition host can own the configuration page without changing the assembler controller', () => {
+  const entries = [], cleanups = [], list = source(catalog(row('composed')))
+  const ctx = { sessions: { list }, workspaces: {}, uiWorkspace: {}, effect: fn => cleanups.push(fn()), slots: {
+    inject: (_slot, fn) => fn(), register: (options, component) => { entries.push({ ...options, component }); return () => {} },
+  } }
+  apply(ctx, { configurationPackage: 'example-composition-host' })
+  assert.equal(entries[0].key, 'example-composition-host')
+  assert.equal(entries[0].inject().assembler, entries[1].inject().assembler)
+  cleanups.forEach(fn => fn())
+  assert.equal(list.listeners, 0)
+})
+
 test('guarded native navigation retains the old binding until confirmation and rejects stale prompts', async () => {
   const list = source(catalog(row('a'))), controller = createAssemblyController({ list })
   await controller.open()

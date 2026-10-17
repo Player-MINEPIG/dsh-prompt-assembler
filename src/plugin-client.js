@@ -114,11 +114,11 @@ export function AssemblyOverlay({ assembler, sessions, workspaces, uiWorkspace, 
   })
 }
 
-export function apply(ctx) {
+export function apply(ctx, { configurationPackage = name } = {}) {
   const assembler = createAssemblyController(ctx.sessions)
   ctx.effect(() => () => assembler.dispose())
   ctx.slots.inject('plugins.bundle.config', () => ctx.slots.register({
-    name: 'plugins.bundle.config', key: name,
+    name: 'plugins.bundle.config', key: configurationPackage,
     inject: () => ({ assembler }),
   }, AssemblyPluginConfig))
   ctx.slots.inject('shell.overlay', () => ctx.slots.register({

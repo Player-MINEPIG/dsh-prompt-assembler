@@ -4,6 +4,8 @@
 
 src/plugin.js 入口拥有唯一 registry/store/runtime，提供 dshPromptSources 与 dshPromptAssembler。浏览器入口在 plugins.bundle.config 注册以包名为键的配置入口，并由 shell.overlay 挂载独立策略编辑器；HTTP factory 由 bundle 安全 wrapper 包裹。assembly-presets.json 保存用户预设和独立应用的会话快照，不保存来源正文或原生历史。
 
+浏览器 `apply(ctx, { configurationPackage })` 可将配置入口归属组合加载方的包详情页，省略时归属 `dsh-prompt-assembler`；入口和 overlay 共用同一个会话控制器。
+
 标准路径：native 策略→只读来源→官方 sections/context→接受的 pre-step 消息→原生冻结、provider 与 durable history。可选进阶路径：共享来源→已验证完整 system 投影→协议 1 钩子→log-only request/assembly。只有 addon 注册进阶请求钩子，不静默回退；见[后端边界](BACKENDS.md)。
 
 adapters/dsh 提供原生输入，adapters/tavern 与 adapters/memory-manager 调用可选公开来源服务；包的生产依赖不包含它们。提供方拥有身份、正文、权限、parser 与编辑。卸载撤销后续贡献和提供方内置预设，保留应用快照与历史正文，缺来源有明确诊断。Tavern 兼容别名共享运行时，不添加请求钩子。
