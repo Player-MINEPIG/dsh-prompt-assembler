@@ -13,7 +13,7 @@
 1. 停止目标 Host，安装插件；将 `web` 替换为实际使用的 profile：
 
    ```sh
-   dsh plugin --profile web add github:Player-MINEPIG/dsh-prompt-assembler#codex/dsh-021-compat
+   dsh plugin --profile web add dsh-prompt-assembler@1.1.1
    ```
 
 2. 重新启动 Host，打开一个会话，再进入 **插件 → 已安装插件 → dsh-prompt-assembler → 配置当前会话**。尚未发送第一条消息的空白会话也可使用。
@@ -23,7 +23,7 @@
 
 **保存规则** 只更新策略库；修改后须重新应用才影响后续请求。安装本身不应用策略，没有全局默认策略。完整操作见[使用说明](docs/USAGE.md)；标准历史清理的轨迹显示限制见[已知缺陷](docs/HISTORY_POLICY.md#官方轨迹显示限制)。
 
-`#codex/dsh-021-compat` 选择此兼容分支；跟随开发主线可改用 `#main`。标准安装及旧进阶版边界见[安装说明](docs/INSTALLATION.md)。仓库为 public；GitHub 源码、npm 与公开目录是独立分发途径。标准 bundle 使用已构建客户端，安装时不编译源码。进阶策略要求可选 addon 与准备后的协议 1 核心，缺任一返回 409，见[两种后端](docs/BACKENDS.md)。纯装配库需要 Node **`>=20`**。
+源码安装可使用 `github:Player-MINEPIG/dsh-prompt-assembler#v1.1.1`；跟随开发主线可改用 `#main`。标准安装及旧进阶版边界见[安装说明](docs/INSTALLATION.md)。仓库为 public；GitHub 源码、npm 与公开目录是独立分发途径。标准 bundle 使用已构建客户端，安装时不编译源码。进阶策略要求可选 addon 与准备后的协议 1 核心，缺任一返回 409，见[两种后端](docs/BACKENDS.md)。纯装配库需要 Node **`>=20`**。
 
 ## 来源与第三方扩展
 

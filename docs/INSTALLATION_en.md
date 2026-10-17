@@ -7,10 +7,10 @@ Target DSH `0.2.1-rc.2`, Node `^22.19.0 || >=24` for the Host; library-only use 
 ## Standard installation
 
 ```sh
-dsh plugin --profile web add github:Player-MINEPIG/dsh-prompt-assembler#codex/dsh-021-compat
+dsh plugin --profile web add dsh-prompt-assembler@1.1.1
 ```
 
-`#codex/dsh-021-compat` selects this compatibility branch; `#main` follows development. To reproduce another reviewed candidate, use its full reviewed commit and pin the same revision in the caller's lockfile. New versions distribute standard `1.1.1` only, without accompanying core changes.
+For source installation, use `github:Player-MINEPIG/dsh-prompt-assembler#v1.1.1`; `#main` follows development. To reproduce another reviewed candidate, use its full reviewed commit and pin the same revision in the caller's lockfile. New versions distribute standard `1.1.1` only, without accompanying core changes.
 
 The repository is public. Standard metadata provides `main:src/plugin.js`, `dsh.bundle:cordis.patch.yml` and prebuilt `dist/client.js`. Stock rc.2 needs no core changes. Stop/restart the intended Host, then open Plugins → Installed plugins → dsh-prompt-assembler → Configure current session. Save rules updates the library; Save and apply to this session saves edits before applying; new sessions bind before opening. Standalone use has no global default and does not require Tavern. Repository visibility does not establish npm, tag/release or plugin-directory publication.
 
