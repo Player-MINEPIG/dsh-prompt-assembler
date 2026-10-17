@@ -27,7 +27,7 @@ var plugin_client_exports = {};
 __export(plugin_client_exports, {
   AssemblyLauncher: () => AssemblyLauncher,
   AssemblyOverlay: () => AssemblyOverlay,
-  AssemblySettingsEntry: () => AssemblySettingsEntry,
+  AssemblyPluginConfig: () => AssemblyPluginConfig,
   REFRESH_EVENT: () => REFRESH_EVENT,
   apply: () => apply,
   createAssemblyController: () => createAssemblyController,
@@ -1843,15 +1843,12 @@ async function createSessionWithPreset({ sessions, uiWorkspace, fetcher = assemb
   return sessionId;
 }
 function AssemblyLauncher({ assembler, wide = true, sessionId }) {
-  return (0, import_react6.createElement)("button", { type: "button", className: "dta-launcher", style: { font: "inherit", color: "inherit", border: "1px solid currentColor", borderRadius: 8, background: "transparent", padding: "7px 10px", cursor: "pointer" }, title: "\u63D0\u793A\u8BCD\u88C5\u914D / Prompt assembly", "aria-label": "\u63D0\u793A\u8BCD\u88C5\u914D", onClick: () => void assembler.open(sessionId) }, wide ? "\u63D0\u793A\u8BCD\u88C5\u914D" : "\u2318");
+  const label = globalThis.navigator?.language?.startsWith("zh") ? "\u63D0\u793A\u8BCD\u88C5\u914D" : "Prompt assembly";
+  return (0, import_react6.createElement)("button", { type: "button", className: "dta-launcher", style: { font: "inherit", color: "inherit", border: "1px solid currentColor", borderRadius: 8, background: "transparent", padding: "7px 10px", cursor: "pointer" }, title: label, "aria-label": label, onClick: () => void assembler.open(sessionId) }, wide ? label : "\u2318");
 }
-function AssemblySettingsEntry({ assembler, close }) {
-  (0, import_react6.useEffect)(() => {
-    void assembler.open().then((opened) => {
-      if (opened) close();
-    });
-  }, [assembler, close]);
-  return null;
+function AssemblyPluginConfig({ assembler, view }) {
+  const description = globalThis.navigator?.language?.startsWith("zh") ? "\u7BA1\u7406\u88C5\u914D\u7B56\u7565\u3001\u5386\u53F2\u7B5B\u9009\uFF0C\u5E76\u5E94\u7528\u5230\u5F53\u524D\u4F1A\u8BDD\u3002" : "Manage assembly strategies and history filtering, then apply them to the current session.";
+  return view === "summary" ? description : (0, import_react6.createElement)("section", null, (0, import_react6.createElement)("p", null, description), (0, import_react6.createElement)(AssemblyLauncher, { assembler }));
 }
 function AssemblyOverlay({ assembler, sessions, workspaces, uiWorkspace, fetcher = assemblerFetch }) {
   const state = (0, import_react6.useSyncExternalStore)(assembler.subscribe, assembler.getSnapshot, assembler.getSnapshot);
@@ -1921,13 +1918,11 @@ function AssemblyOverlay({ assembler, sessions, workspaces, uiWorkspace, fetcher
 function apply(ctx) {
   const assembler = createAssemblyController(ctx.sessions);
   ctx.effect(() => () => assembler.dispose());
-  ctx.slots.inject("settings.section", () => ctx.slots.register({
-    name: "settings.section",
-    id: `${name}-settings`,
-    order: 80,
-    label: () => globalThis.navigator?.language?.startsWith("zh") ? "\u63D0\u793A\u8BCD\u88C5\u914D" : "Prompt assembly",
+  ctx.slots.inject("plugins.bundle.config", () => ctx.slots.register({
+    name: "plugins.bundle.config",
+    key: name,
     inject: () => ({ assembler })
-  }, AssemblySettingsEntry));
+  }, AssemblyPluginConfig));
   ctx.slots.inject("shell.overlay", () => ctx.slots.register({
     name: "shell.overlay",
     id: `${name}-editor`,

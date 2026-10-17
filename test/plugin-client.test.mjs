@@ -6,7 +6,7 @@ import { createRoot } from 'react-dom/client'
 import { parseHTML } from 'linkedom'
 import { build } from 'esbuild'
 import { AssemblyPanel, moveSlotRule } from '../src/client.js'
-import { AssemblyOverlay, AssemblySettingsEntry, apply, createAssemblyController, createSessionWithPreset, inject, mainSession, name, sessionLabel } from '../src/plugin-client.js'
+import { AssemblyOverlay, AssemblyPluginConfig, apply, createAssemblyController, createSessionWithPreset, inject, mainSession, name, sessionLabel } from '../src/plugin-client.js'
 
 const json = body => new Response(JSON.stringify(body), { headers: { 'Content-Type': 'application/json' } })
 const deferred = () => { let resolve; return { promise: new Promise(r => { resolve = r }), resolve: value => resolve(value) } }
@@ -17,7 +17,7 @@ function source(snapshot) {
 const catalog = (...rows) => ({ byId: Object.fromEntries(rows.map(row => [row.id, row])), ids: rows.map(r => r.id), phase: 'ready' })
 const row = (id, mainView = 1) => ({ id, title: `Session ${id}`, blank: false, retainedBy: { mainView } })
 
-test('entry registers a settings navigation entry and guarded overlay without a session header shortcut or Tavern', () => {
+test('entry registers package configuration and guarded overlay without a settings shortcut or Tavern', () => {
   assert.equal(name, 'dsh-prompt-assembler')
   assert.deepEqual(inject, ['slots', 'sessions', 'workspaces', 'uiWorkspace'])
   const entries = [], cleanups = []
@@ -25,7 +25,8 @@ test('entry registers a settings navigation entry and guarded overlay without a 
     inject: (slot, fn) => { fn() }, register: (entry, component) => { entries.push({ ...entry, component }); return () => {} },
   } }
   apply(ctx)
-  assert.deepEqual(entries.map(e => e.name), ['settings.section', 'shell.overlay'])
+  assert.deepEqual(entries.map(e => e.name), ['plugins.bundle.config', 'shell.overlay'])
+  assert.equal(entries[0].key, name)
   assert.equal(entries[0].inject().assembler.getSnapshot().open, false)
   cleanups.forEach(fn => fn())
   assert.equal(ctx.sessions.list.listeners, 0)
@@ -575,13 +576,20 @@ test('all built-in strategies render, preview and pass application preflight wit
   } finally { await ui.close(); rmSync(directory, { recursive: true, force: true }) }
 })
 
-test('settings navigation hands off to the guarded editor and closes the native settings panel', async () => {
-  const ui = dom(), controller = createAssemblyController({ list: source(catalog(row('settings-session'))) }); let closes = 0
+test('installed plugin configuration opens the existing guarded editor only on request', async () => {
+  const ui = dom(), controller = createAssemblyController({ list: source(catalog(row('plugin-session'))) })
   try {
-    await act(async () => ui.root.render(h(AssemblySettingsEntry, { assembler: controller, close: () => { closes++ } })))
+    await act(async () => ui.root.render(h(AssemblyPluginConfig, { assembler: controller, view: 'summary' })))
+    assert.equal(controller.getSnapshot().open, false)
+    assert.equal(ui.document.querySelector('button'), null)
+    await act(async () => ui.root.render(h(AssemblyPluginConfig, { assembler: controller, view: 'page' })))
+    assert.equal(controller.getSnapshot().open, false, 'reading details must not open the editor')
+    await act(async () => ui.document.querySelector('button').click())
     assert.equal(controller.getSnapshot().open, true)
-    assert.equal(controller.getSnapshot().session.id, 'settings-session')
-    assert.equal(closes, 1)
+    assert.equal(controller.getSnapshot().session.id, 'plugin-session')
+    await controller.close()
+    await act(async () => ui.root.render(h(AssemblyPluginConfig, { assembler: controller, view: 'page' })))
+    assert.equal(controller.getSnapshot().open, false, 'closing must not reopen from the detail page')
   } finally { await ui.close(); controller.dispose() }
 })
 

@@ -21,7 +21,7 @@
       "id": "assembly-panel",
       "type": "frontend",
       "label": "Assembly panel",
-      "sublabel": "Settings / secure fetch",
+      "sublabel": "Plugins / secure fetch",
       "pos": [
         40,
         330

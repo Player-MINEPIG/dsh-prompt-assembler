@@ -14,7 +14,7 @@ Start with a working DSH **`0.2.1-rc.2`** Host using Node **`^22.19.0 || >=24`**
    dsh plugin --profile web add github:Player-MINEPIG/dsh-prompt-assembler#codex/dsh-021-compat
    ```
 
-2. Restart the Host, open a session, then go to **Settings → Prompt assembly**. A blank session before its first message also works.
+2. Restart the Host, open a session, then go to **Plugins → Installed plugins → dsh-prompt-assembler → Prompt assembly**. A blank session before its first message also works.
 3. Click **Create** in the strategy library, enter a name and choose **Standard · public interfaces** as the backend. Keep Native instructions, Native history and Current input enabled. Expand **Source, text and delivery settings**, select the “DSH custom text” parser and click **Add custom text**. For example, enter “Keep your answers concise.” and keep the role as `user`.
 4. Click **Assembly result** to check content, roles and order. Preview sends no request and excludes pending composer input.
 5. Click **Save and apply to this session**, confirm that “Applied” shows your strategy, then return to chat and send a message. To start a new session instead, use **Create a session with this strategy** and choose a workspace; the strategy is bound before the session opens.

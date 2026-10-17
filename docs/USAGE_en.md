@@ -11,7 +11,7 @@ Standard history cleanup can produce many `CONTEXT —` audit rows in the offici
 
 ## Entry and interface
 
-The Settings sidebar contains Prompt assembly; selecting it closes Settings and opens the guarded strategy editor. The entry is available, including before a session’s first message. Sections appear in this order: Strategy library → Assembly rules and preview → History filtering rules and preview → Session application → Interface settings, separated by headings and dividers. Language changes UI labels; it is not prompt content or session strategy configuration.
+From Plugins → Installed plugins, open `dsh-prompt-assembler` and choose Prompt assembly to open the guarded strategy editor, including before a session’s first message. Reading plugin details does not open the editor automatically; closing the editor returns to the details page. Sections appear in this order: Strategy library → Assembly rules and preview → History filtering rules and preview → Session application → Interface settings, separated by headings and dividers. Language changes UI labels; it is not prompt content or session strategy configuration.
 
 ## Saving and applying
 

@@ -69,13 +69,13 @@ export async function createSessionWithPreset({ sessions, uiWorkspace, fetcher =
 }
 
 export function AssemblyLauncher({ assembler, wide = true, sessionId }) {
-  return h('button', { type: 'button', className: 'dta-launcher', style: { font: 'inherit', color: 'inherit', border: '1px solid currentColor', borderRadius: 8, background: 'transparent', padding: '7px 10px', cursor: 'pointer' }, title: '提示词装配 / Prompt assembly', 'aria-label': '提示词装配', onClick: () => void assembler.open(sessionId) }, wide ? '提示词装配' : '⌘')
+  const label = globalThis.navigator?.language?.startsWith('zh') ? '提示词装配' : 'Prompt assembly'
+  return h('button', { type: 'button', className: 'dta-launcher', style: { font: 'inherit', color: 'inherit', border: '1px solid currentColor', borderRadius: 8, background: 'transparent', padding: '7px 10px', cursor: 'pointer' }, title: label, 'aria-label': label, onClick: () => void assembler.open(sessionId) }, wide ? label : '⌘')
 }
 
-// Settings owns navigation; hand off to the existing guarded strategy editor.
-export function AssemblySettingsEntry({ assembler, close }) {
-  useEffect(() => { void assembler.open().then(opened => { if (opened) close() }) }, [assembler, close])
-  return null
+export function AssemblyPluginConfig({ assembler, view }) {
+  const description = globalThis.navigator?.language?.startsWith('zh') ? '管理装配策略、历史筛选，并应用到当前会话。' : 'Manage assembly strategies and history filtering, then apply them to the current session.'
+  return view === 'summary' ? description : h('section', null, h('p', null, description), h(AssemblyLauncher, { assembler }))
 }
 
 export function AssemblyOverlay({ assembler, sessions, workspaces, uiWorkspace, fetcher = assemblerFetch }) {
@@ -117,11 +117,10 @@ export function AssemblyOverlay({ assembler, sessions, workspaces, uiWorkspace, 
 export function apply(ctx) {
   const assembler = createAssemblyController(ctx.sessions)
   ctx.effect(() => () => assembler.dispose())
-  ctx.slots.inject('settings.section', () => ctx.slots.register({
-    name: 'settings.section', id: `${name}-settings`, order: 80,
-    label: () => globalThis.navigator?.language?.startsWith('zh') ? '提示词装配' : 'Prompt assembly',
+  ctx.slots.inject('plugins.bundle.config', () => ctx.slots.register({
+    name: 'plugins.bundle.config', key: name,
     inject: () => ({ assembler }),
-  }, AssemblySettingsEntry))
+  }, AssemblyPluginConfig))
   ctx.slots.inject('shell.overlay', () => ctx.slots.register({
     name: 'shell.overlay', id: `${name}-editor`, order: 80,
     inject: () => ({ assembler, sessions: ctx.sessions, workspaces: ctx.workspaces, uiWorkspace: ctx.uiWorkspace, fetcher: assemblerFetch }),

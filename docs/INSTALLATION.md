@@ -12,7 +12,7 @@ dsh plugin --profile web add github:Player-MINEPIG/dsh-prompt-assembler#codex/ds
 
 `#codex/dsh-021-compat` 选择此兼容分支；`#main` 跟随开发主线。复验其他候选时可改用其已审查的完整 commit，并在调用方 lockfile 固定同一修订。标准包与可选 addon 的版本均为 `1.1.1`，addon 的 peer 精确要求标准 `1.1.1`；具体源码修订仍须一起核对。
 
-仓库是 public。标准包拥有 `main:src/plugin.js`、`dsh.bundle:cordis.patch.yml` 和预构建 `dist/client.js`，无需改动 stock rc.2 核心。停止并重启目标 Host 后打开“设置 → 提示词装配”；“保存规则”仅保存资源，“保存并应用到当前会话”先保存修改再应用，新会话先绑定再打开。独立运行没有全局默认，Tavern 不必安装。GitHub 源码、npm 包与插件目录是不同分发途径，不由仓库可见性推断发布状态。
+仓库是 public。标准包拥有 `main:src/plugin.js`、`dsh.bundle:cordis.patch.yml` 和预构建 `dist/client.js`，无需改动 stock rc.2 核心。停止并重启目标 Host 后打开“插件 → 已安装插件 → dsh-prompt-assembler → 提示词装配”；“保存规则”仅保存资源，“保存并应用到当前会话”先保存修改再应用，新会话先绑定再打开。独立运行没有全局默认，Tavern 不必安装。GitHub 源码、npm 包与插件目录是不同分发途径，不由仓库可见性推断发布状态。
 
 ## 可选进阶扩展
 
@@ -37,7 +37,7 @@ node core-extension/scripts/switch-runtime.mjs install --runtime /path/to/runtim
 
 `stock-runtime` 含 `node_modules/@deepseek-ai/dsh-session` 和 `dsh-agent-loop`。目标 runtime、标准参照和准备产物均须为 0.2.1-rc.2，标准插件须为 1.1.1。工具通过公开 `dsh-plugin-manager/operations` 安装和启用插件，默认调用 npm，可用 `--npm /path/to/npm` 指定命令。切换工具拒绝未知构建、损坏备份和版本不匹配。
 
-重新启动 Host，在“设置 → 提示词装配”选择“进阶版 · 核心扩展”，检查装配结果，再保存并应用到当前会话；安装 addon 不会自动切换已有策略。
+重新启动 Host，在“插件 → 已安装插件 → dsh-prompt-assembler → 提示词装配”选择“进阶版 · 核心扩展”，检查装配结果，再保存并应用到当前会话；安装 addon 不会自动切换已有策略。
 
 随后安装、卸载均无需再提供准备产物或标准参照。停止 Host 后执行对应单条指令，然后重新启动 Host：
 
@@ -67,4 +67,4 @@ DSH_ASSEMBLER_CORE_ROOT=<prepared-runtime> DSH_ASSEMBLER_MANAGER_ROOT=<manager-c
 
 源码 checkout 中加载 `core-extension` 的 Host fixture 还需要能解析其标准包 peer。在已执行 `npm ci` 的开发 checkout 中，可用 `ln -s .. node_modules/dsh-prompt-assembler` 建立本地 peer 链接；这只影响开发依赖目录，不是插件安装步骤。
 
-Host fixture 使用临时会话与离线合成 provider，覆盖原生/进阶装配、持久记录、卸载和可选 Manager；没有环境的跳过项不代表验收通过。浏览器与 desktop 另检查设置入口、空白会话、保存/应用/预览、安全 fetch、切换与卸载；真实 provider 与用户 profile 是另外的授权验收。申请公开目录、tag/release/npm 发布需明确授权。
+Host fixture 使用临时会话与离线合成 provider，覆盖原生/进阶装配、持久记录、卸载和可选 Manager；没有环境的跳过项不代表验收通过。浏览器与 desktop 另检查已安装插件中的配置入口、空白会话、保存/应用/预览、安全 fetch、切换与卸载；真实 provider 与用户 profile 是另外的授权验收。申请公开目录、tag/release/npm 发布需明确授权。

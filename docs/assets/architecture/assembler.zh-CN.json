@@ -21,7 +21,7 @@
       "id": "assembly-panel",
       "type": "frontend",
       "label": "装配策略界面",
-      "sublabel": "设置入口 / 安全 fetch",
+      "sublabel": "插件配置 / 安全 fetch",
       "pos": [
         40,
         330

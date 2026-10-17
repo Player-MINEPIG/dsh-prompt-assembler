@@ -12,7 +12,7 @@ dsh plugin --profile web add github:Player-MINEPIG/dsh-prompt-assembler#codex/ds
 
 `#codex/dsh-021-compat` selects this compatibility branch; `#main` follows development. To reproduce another reviewed candidate, use its full reviewed commit and pin the same revision in the caller's lockfile. Standard and optional addon versions are both `1.1.1`; the addon requires exact standard peer `1.1.1`. Check their source revisions together as well.
 
-The repository is public. Standard metadata provides `main:src/plugin.js`, `dsh.bundle:cordis.patch.yml` and prebuilt `dist/client.js`. Stock rc.2 needs no core changes. Stop/restart the intended Host, then open Settings → Prompt assembly. Save rules updates the library; Save and apply to this session saves edits before applying; new sessions bind before opening. Standalone use has no global default and does not require Tavern. Repository visibility does not establish npm, tag/release or plugin-directory publication.
+The repository is public. Standard metadata provides `main:src/plugin.js`, `dsh.bundle:cordis.patch.yml` and prebuilt `dist/client.js`. Stock rc.2 needs no core changes. Stop/restart the intended Host, then open Plugins → Installed plugins → dsh-prompt-assembler → Prompt assembly. Save rules updates the library; Save and apply to this session saves edits before applying; new sessions bind before opening. Standalone use has no global default and does not require Tavern. Repository visibility does not establish npm, tag/release or plugin-directory publication.
 
 ## Optional advanced extension
 
@@ -38,7 +38,7 @@ node core-extension/scripts/switch-runtime.mjs install --runtime /path/to/runtim
 
 Stock-runtime must contain official rc.2 `node_modules/@deepseek-ai/dsh-session` and `dsh-agent-loop`. All target/reference/prepared builds must use 0.2.1-rc.2; the standard plugin must be 1.1.1. The switch uses public `dsh-plugin-manager/operations` for package installation and activation, calling npm by default; `--npm /path/to/npm` selects a command. Switching rejects unknown builds, damaged backups and incompatible versions.
 
-Restart the Host, choose “Advanced · core extension” in Settings → Prompt assembly, inspect the assembly result, then save and apply to the session. Installing the addon does not automatically switch existing strategies.
+Restart the Host, choose “Advanced · core extension” in Plugins → Installed plugins → dsh-prompt-assembler → Prompt assembly, inspect the assembly result, then save and apply to the session. Installing the addon does not automatically switch existing strategies.
 
 Subsequent installation or removal needs no prepared/stock input. Stop the Host, run the appropriate single command, then restart:
 
@@ -68,4 +68,4 @@ DSH_ASSEMBLER_CORE_ROOT=<prepared-runtime> DSH_ASSEMBLER_MANAGER_ROOT=<manager-c
 
 Host fixtures loading `core-extension` from a source checkout also need its standard-package peer to resolve. After `npm ci` in the development checkout, `ln -s .. node_modules/dsh-prompt-assembler` provides that local peer link. This affects only development dependencies and is not a plugin installation step.
 
-Host fixtures use temporary sessions and offline synthetic providers, covering native/advanced assembly, durable evidence, removal and optional Manager. Skipped fixtures do not establish acceptance. Browser/desktop checks separately cover the Settings entry, blank sessions, save/apply/preview, secure fetch, switching and removal. Real providers/user profiles require their own authorized acceptance. Directory submissions and tag/release/npm publication require explicit authorization.
+Host fixtures use temporary sessions and offline synthetic providers, covering native/advanced assembly, durable evidence, removal and optional Manager. Skipped fixtures do not establish acceptance. Browser/desktop checks separately cover the installed-plugin configuration entry, blank sessions, save/apply/preview, secure fetch, switching and removal. Real providers/user profiles require their own authorized acceptance. Directory submissions and tag/release/npm publication require explicit authorization.
