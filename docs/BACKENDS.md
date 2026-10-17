@@ -7,7 +7,7 @@
 
 | 能力 | 标准版 `backend:native` | 进阶版 `backend:core` |
 | --- | --- | --- |
-| Host | stock DSH 0.2.0-rc.2 的公开 section/context/pre-step 接口 | 显式安装 core 扩展及准备后的协议 1 核心 |
+| Host | stock DSH 0.2.1-rc.2 的公开 section/context/pre-step 接口 | 显式安装 core 扩展及准备后的协议 1 核心 |
 | 官方基础指令 | 在当前 system sections 中保留、关闭或调整整块位置 | 按既有完整 system 快照投影合同控制 |
 | 预设、用户设定、角色、世界书、PHI | system 模块可在历史前排序；user 模块按下述投递边界排序 | 保留原有 ST marker、role、depth、request/snapshot 行为 |
 | 原生历史、本步输入 | 必须保留，顺序为历史→输入；块内消息不能重排 | 可关闭、移动整块；块内顺序与工具事务仍受保护 |
@@ -69,6 +69,8 @@ ST 允许 0、1、2……聊天深度，并从聊天末端计数。这里的标�
 
 规则列表提供 `dsh.runtime-context`（总开关）、`dsh.sandbox-policy`、`dsh.approval-policy` 三个来源控制项，标准版和进阶版均可使用。已有策略未保存这些规则时默认保留原行为；界面显示启用，只有编辑并保存/应用后才产生显式设置。
 
-总开关仅过滤当前支持的 DSH 原生段落名：`sandbox:policy`、`approval:policy`、`subagent:delegation`。子开关分别过滤前两项；总开关关闭时保留子开关配置。未知段落、第三方插件上下文，以及 assembler 的世界书、预设、记忆等 context 贡献均保留。控制不依据 user 身份判断来源，也不删除原生历史或本步输入。
+总开关仅过滤当前支持的 DSH 原生段落名：`sandbox:policy`、`approval:policy`、`subagent:delegation`、`harness:source`、`app:web-surface`。子开关分别过滤前两项；总开关关闭时保留子开关配置。未知段落、第三方插件上下文，以及 assembler 的世界书、预设、记忆等 context 贡献均保留。控制不依据 user 身份判断来源，也不删除原生历史或本步输入。
 
 这些模块只控制是否发送提示文字，位置、身份及快照复用仍由 DSH 管理；不改变沙箱执行限制或审批服务策略。它们不是可拖动的正文模块。剩余 context 非空时，DSH 仍自动添加原生上下文封装文字；没有独立的“只去掉封装”开关。关闭应用于后续装配，已记录的旧快照不会被改写；DSH 用新的快照或撤销说明表达状态变化。预览列出当前存在的原生段落及保留/关闭状态，实际请求按已保存的历史展示。
+
+DSH 0.2.1-rc.2 的 `working-directory:current` 与 `team:identity` 属于宿主必需上下文，总开关不会移除它们，预览会标明必需。Host 在发送前刷新已注册运行事实；装配预览只表示预览时状态。旧 `dsh.text` 中的 `{{cwd}}` 保留兼容，优先读取有效 `workingDirectory`，缺少该服务时回退到会话原始目录。显式注册的同名变量优先。卸载撤销该兼容贡献。

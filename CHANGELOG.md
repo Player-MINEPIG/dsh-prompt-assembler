@@ -1,5 +1,12 @@
 # Changelog / 变更记录
 
+## 1.1.1
+
+- 适配 DSH 0.2.1-rc.2 和 Cordis 4.0.5，标准包与 core addon 通过 engines.dsh 声明精确宿主范围。
+- 保留旧 DSH 文本策略的 cwd 变量，使用当前有效目录；更新可选与必需运行上下文的过滤及预览。
+- 核心准备与可逆切换工具固定新版源码摘要，不再依赖已移除的 invariant 文件。
+- Target DSH 0.2.1-rc.2 and Cordis 4.0.5, preserve cwd text strategies, retain required runtime facts, and update protocol-1 preparation and reversible switching.
+
 ## 1.1.0
 
 - 排序改为公开策略 registry，按保存的数组依次执行内置与第三方算法；请求捕获注册快照，后续规则仅处理剩余节点。保留手动定位、原生历史及投递边界。

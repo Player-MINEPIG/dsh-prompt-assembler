@@ -1,3 +1,4 @@
+import { nativeVariables as withWorkingDirectory } from './native-variables.js'
 import { filterNativeContexts, contextControlPreview } from './native-context.js'
 import { assembleRequestAsync } from './assemble.js'
 import { createDshRegistry as createDefaultRegistry } from '../adapters/dsh.js'
@@ -98,6 +99,7 @@ export class RequestAssembler {
       const current = await systemPrompt.assemble({ agent, scope: agent, tavernAssemblyPreview: true, dshAssemblerRaw: true })
       // Trusted callers may supply pre-session model/workspace variables. This
       // input is deliberately absent from the HTTP session-preview endpoint.
+      current.variables = withWorkingDirectory(this.ctx, agent, current.variables)
       if (previewVariables) current.variables = { ...current.variables, ...previewVariables }
       officialSections = current.sections; officialContexts = current.contexts ?? []; nativeVariables = current.variables ?? {}
       const text = current.sections.map(section => section.interpolate === false ? section.text : section.text.replace(/\{\{([^{}]*)\}\}/g, (_, key) => {

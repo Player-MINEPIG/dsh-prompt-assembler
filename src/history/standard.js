@@ -1,4 +1,4 @@
-import { excludesSource, refreshRuntimeContext } from './refresh.js'
+import { excludesSource } from './refresh.js'
 import { historyHash, normalizeHistoryPolicy } from './policy.js'
 
 const OWNER = 'dsh-prompt-assembler/history-policy'
@@ -105,7 +105,6 @@ export function registerStandardHistoryPolicy(ctx, { store, readEvents, createDe
     let decision = await next()
     if (decision?.kind !== 'enter') return decision
     payload.signal?.throwIfAborted()
-    decision = refreshRuntimeContext(decision, payload.agent.session, saved.policy, cutoffSeq)
     pending.set(payload.agent, { ...saved, cutoffSeq, turn: payload.turn, step: payload.step })
     return excludesSource(saved.policy, 'system-prompt') ? { ...decision, startsRequestSeries: true } : decision
   }, { prepend: true })

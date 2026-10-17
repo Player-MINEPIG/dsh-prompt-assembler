@@ -7,7 +7,7 @@ See [resource layout](RESOURCE_LAYOUT_en.md) for current blocks, slots, stable p
 
 | Capability | Standard `backend:native` | Advanced `backend:core` |
 | --- | --- | --- |
-| Host | Public section/context/pre-step interfaces on stock DSH 0.2.0-rc.2 | Explicit core addon plus prepared protocol-1 core |
+| Host | Public section/context/pre-step interfaces on stock DSH 0.2.1-rc.2 | Explicit core addon plus prepared protocol-1 core |
 | Official instructions | Keep, disable or reorder the current system-section block | Existing complete-system projection contract |
 | Preset/persona/character/lore/PHI | System modules before history; user modules within delivery boundaries below | Existing ST markers, roles, depth and request/snapshot behavior |
 | History/current input | Both required, history before input; internal messages retain order | Disable or move whole blocks; native order and tool transactions remain protected |
@@ -69,6 +69,8 @@ Standard pre-step messages carry the dedicated `source.kind: dsh-prompt-assemble
 
 Rules expose `dsh.runtime-context` (master), `dsh.sandbox-policy`, and `dsh.approval-policy` in both backends. Strategies that omit these controls retain the previous behavior. The editor displays them enabled; editing and saving/applying creates explicit settings.
 
-The master filters only the supported DSH context names `sandbox:policy`, `approval:policy`, and `subagent:delegation`. Child switches filter the first two independently, retaining their settings when the master is off. Unknown sections, third-party contexts, and assembler worldbook, preset or memory context contributions remain. Ownership is never inferred from the user role. Native history and current input remain unchanged.
+The master filters only the supported DSH context names `sandbox:policy`, `approval:policy`, `subagent:delegation`, `harness:source`, and `app:web-surface`. Child switches filter the first two independently, retaining their settings when the master is off. Unknown sections, third-party contexts, and assembler worldbook, preset or memory context contributions remain. Ownership is never inferred from the user role. Native history and current input remain unchanged.
 
 These controls affect prompt text only. DSH still owns placement, role and snapshot reuse; sandbox execution limits and approval policy are unchanged. These are fixed controls, not draggable text modules. DSH retains its context framing whenever any context remains; there is no standalone framing-only switch. Changes apply to future assembly, without rewriting historical snapshots; DSH expresses updates through a new snapshot or withdrawal notice. Preview lists currently present native sections and their included/disabled status. Actual-request views retain the recorded history.
+
+DSH 0.2.1-rc.2 requires `working-directory:current` and `team:identity`; the combined control retains them and preview marks them as required. The Host refreshes registered runtime facts before dispatch, so assembly preview describes the state at preview time. Existing `dsh.text` references to `{{cwd}}` remain supported through the effective `workingDirectory`, falling back to the original session directory when that service is absent. An explicitly registered variable takes precedence. Unloading removes this compatibility contribution.

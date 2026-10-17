@@ -12,7 +12,7 @@ const text = message => message.content.filter(b => b.type === 'text').map(b => 
 async function host(run) {
   const require = createRequire(join(resolve(root), 'package.json'))
   const load = name => import(pathToFileURL(require.resolve(`@deepseek-ai/${name}`)))
-  assert.equal(require('@deepseek-ai/dsh-session/package.json').version, '0.2.0-rc.2')
+  assert.equal(require('@deepseek-ai/dsh-session/package.json').version, '0.2.1-rc.2')
   const { Context } = await load('cordis'), llm = await load('dsh-llm')
   const { SystemPrompt } = await load('dsh-system-prompt')
   const sessionModule = await load('dsh-session')

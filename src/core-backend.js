@@ -1,3 +1,4 @@
+import { nativeVariables as withWorkingDirectory } from './native-variables.js'
 import { assembleRequestAsync } from './assemble.js'
 import { normalizePreset } from './model.js'
 import { projectSystemSnapshots } from './system-snapshots.js'
@@ -35,7 +36,7 @@ export class CoreRequestBackend {
     const inputIds = events.filter(e => e.seq > start && e.type === 'user/message').map(e => e.data.id)
     const lastMetadata = events.findLast(e => e.type === 'request/assembly')?.data.metadata
     const previous = [this.owner, 'pmp-dsh-tavern', 'dsh-prompt-assembler'].includes(lastMetadata?.owner) ? lastMetadata.assembly : null
-    const assets = { ...snapshot.assemblyInput, diagnostics: snapshot.diagnostics, officialSections: snapshot.officialAssembly?.sections ?? [], nativeVariables: snapshot.officialAssembly?.variables ?? snapshot.assemblyInput.nativeVariables ?? {} }
+    const assets = { ...snapshot.assemblyInput, diagnostics: snapshot.diagnostics, officialSections: snapshot.officialAssembly?.sections ?? [], nativeVariables: withWorkingDirectory(this.ctx, payload.agent, snapshot.officialAssembly?.variables ?? snapshot.assemblyInput.nativeVariables) }
     const logical = await assembleRequestAsync({ registry: this.registry, afterAssembly: this.afterAssembly, sessionId: payload.agent.id, turn: payload.turn, step: payload.step, signal: payload.signal, preset, assets, nativeMessages: base.messages, inputIds, previous, snapshots: previous?.snapshots ?? [], maxBytes: this.resources.maxProfileBytes })
     // Complete snapshots repeat active instructions; their physical ceiling is independent of logical admission.
     const assembly = projectSystemSnapshots(logical, base.messages, undefined, { systemPromptUpdate: payload.agent.session.requestContext?.()?.systemPromptUpdate })

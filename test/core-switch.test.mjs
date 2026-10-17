@@ -9,16 +9,16 @@ function fixture(t){
  const root=mkdtempSync(join(tmpdir(),'assembler-switch-'));t.after(()=>rmSync(root,{recursive:true,force:true}))
  const runtime=join(root,'runtime'),stock=join(root,'stock'),prepared=join(root,'prepared'),home=join(root,'home'),profile=join(home,'profiles/web')
  for(const n of ['session','agent-loop']){
-  for(const r of [runtime,stock])put(join(r,`node_modules/@deepseek-ai/dsh-${n}/package.json`),JSON.stringify({version:'0.2.0-rc.2'}))
-  for(const file of ['index.js','index.js.map','invariant.js','invariant.js.map']){
+  for(const r of [runtime,stock])put(join(r,`node_modules/@deepseek-ai/dsh-${n}/package.json`),JSON.stringify({version:'0.2.1-rc.2'}))
+  for(const file of ['index.js','index.js.map']){
    put(join(runtime,`node_modules/@deepseek-ai/dsh-${n}/lib/${file}`),'STANDARD')
    put(join(stock,`node_modules/@deepseek-ai/dsh-${n}/lib/${file}`),'STANDARD')
    put(join(prepared,`${n}/lib/${file}`),'ADVANCED')
   }
  }
- put(join(prepared,'receipt.json'),JSON.stringify({sourceVersion:'0.2.0-rc.2',requestAssemblyVersion:1}))
+ put(join(prepared,'receipt.json'),JSON.stringify({sourceVersion:'0.2.1-rc.2',requestAssemblyVersion:1}))
  put(join(profile,'package.json'),JSON.stringify({dependencies:{}}))
- put(join(profile,'node_modules/dsh-prompt-assembler/package.json'),JSON.stringify({version:'1.1.0',type:'module'}))
+ put(join(profile,'node_modules/dsh-prompt-assembler/package.json'),JSON.stringify({version:'1.1.1',type:'module'}))
  put(join(profile,'node_modules/dsh-prompt-assembler/adapters/tavern.js'),`export const NATIVE_BUILTINS=[{id:'builtin-native-slots',backend:'native',rules:[]}]`)
  const store=join(home,'dsh-prompt-assembler/assembly-presets.json')
  put(store,JSON.stringify({presets:{saved:{backend:'core',rules:[]}},selections:{old:{id:'old',rules:[]},native:{id:'n',backend:'native'},off:null}}))
@@ -50,11 +50,11 @@ test('changed runtime, wrong versions and tampered backups are refused before pa
  put(target,'UNKNOWN');await assert.rejects(switchRuntime({...f,action:'install'}),/Unrecognized runtime/);assert.equal(f.calls.length,0)
  put(target,'STANDARD');put(join(f.runtime,'node_modules/@deepseek-ai/dsh-session/package.json'),JSON.stringify({version:'0.3.0'}))
  await assert.rejects(switchRuntime({...f,action:'install'}),/Unsupported runtime/);assert.equal(f.calls.length,0)
- put(join(f.runtime,'node_modules/@deepseek-ai/dsh-session/package.json'),JSON.stringify({version:'0.2.0-rc.2'}))
+ put(join(f.runtime,'node_modules/@deepseek-ai/dsh-session/package.json'),JSON.stringify({version:'0.2.1-rc.2'}))
  const standardPackage=join(f.home,'profiles/web/node_modules/dsh-prompt-assembler/package.json')
  put(standardPackage,JSON.stringify({version:'1.0.0',type:'module'}))
- await assert.rejects(switchRuntime({...f,action:'install'}),/Install standard dsh-prompt-assembler@1\.1\.0 first/);assert.equal(f.calls.length,0)
- put(standardPackage,JSON.stringify({version:'1.1.0',type:'module'}));await switchRuntime({...f,action:'install'})
+ await assert.rejects(switchRuntime({...f,action:'install'}),/Install standard dsh-prompt-assembler@1\.1\.1 first/);assert.equal(f.calls.length,0)
+ put(standardPackage,JSON.stringify({version:'1.1.1',type:'module'}));await switchRuntime({...f,action:'install'})
  put(join(f.home,'profiles/web/.assembler-core-switch/standard/agent-loop/lib/index.js'),'BAD')
  await assert.rejects(switchRuntime({...f,action:'uninstall'}),/Backup verification failed/);assert.equal(f.calls.length,1)
 })

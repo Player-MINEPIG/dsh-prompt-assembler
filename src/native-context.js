@@ -1,8 +1,10 @@
 // Exact public context names in the supported DSH runtime. Unknown/third-party
 // contexts are deliberately retained; role and delivery never establish ownership.
-export const DSH_CONTEXT_NAMES = Object.freeze(['sandbox:policy', 'approval:policy', 'subagent:delegation'])
+const OPTIONAL_DSH_CONTEXT_NAMES = Object.freeze(['sandbox:policy', 'approval:policy', 'subagent:delegation', 'harness:source', 'app:web-surface'])
+const REQUIRED_DSH_CONTEXT_NAMES = Object.freeze(['working-directory:current', 'team:identity'])
+export const DSH_CONTEXT_NAMES = Object.freeze([...OPTIONAL_DSH_CONTEXT_NAMES, ...REQUIRED_DSH_CONTEXT_NAMES])
 export const CONTEXT_CONTROLS = Object.freeze([
-  { kind: 'dsh.runtime-context', name: 'DSH 原生运行环境提示', sections: DSH_CONTEXT_NAMES },
+  { kind: 'dsh.runtime-context', name: 'DSH 原生运行环境提示', sections: OPTIONAL_DSH_CONTEXT_NAMES },
   { kind: 'dsh.sandbox-policy', name: '沙箱策略提示', sections: ['sandbox:policy'] },
   { kind: 'dsh.approval-policy', name: '审批策略提示', sections: ['approval:policy'] },
 ])
@@ -23,5 +25,5 @@ export function filterNativeContexts(assembly, preset) {
 }
 export function contextControlPreview(assembly, preset) {
   const retained = filterNativeContexts(assembly, preset).contexts
-  return assembly.contexts.filter(c => DSH_CONTEXT_NAMES.includes(c.name)).map(c => ({ name: c.name, enabled: retained.includes(c) }))
+  return assembly.contexts.filter(c => DSH_CONTEXT_NAMES.includes(c.name)).map(c => ({ name: c.name, enabled: retained.includes(c), ...(REQUIRED_DSH_CONTEXT_NAMES.includes(c.name) ? { required: true } : {}) }))
 }

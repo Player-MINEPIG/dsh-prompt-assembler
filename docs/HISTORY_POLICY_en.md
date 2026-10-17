@@ -31,7 +31,7 @@ and this feature's own restored copies are eligible; other replacements and comp
 Unknown sources stay with a warning; an exact selector explicitly opts that producer into the source policy.
 
 At pre-step entry, capture the previous `step/end` sequence. Unsent tail appends, downstream pre-step injections
-and this decision's messages remain. When runtime-context is excluded and DSH would reuse an unchanged old snapshot, copy it into a current-step message before removing the old copy. Each target is replaced in position by an empty **developer/message**, which
+and this decision's messages remain. When runtime-context is excluded, Standard mode removes old copies before DSH refreshes the admitted context. Advanced mode retains one current value in its request projection without changing native history or accumulating duplicate native snapshots. Each target is replaced in position by an empty **developer/message**, which
 derives to no model message. Empty system placeholders are unsuitable: if an injection precedes the first
 system message, native system-prompt projection can take over that placeholder and break restoration.
 
@@ -87,7 +87,7 @@ not interpreter-dependent event types. Actual standard requests derive from the 
 
 ### Official trajectory display limitation
 
-Known display defect: the official DSH `0.2.0-rc.2` trajectory renders each empty developer placeholder
+Known display defect: the official DSH `0.2.1-rc.2` trajectory renders each empty developer placeholder
 written by standard cleanup as `CONTEXT —`, with source `dsh-prompt-assembler/history-policy`.
 Cleaning many old injections can therefore fill the list with audit rows. These rows derive to no model
 message and do not indicate lost original content; original events and cleanup evidence remain in the durable log.

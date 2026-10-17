@@ -33,7 +33,7 @@ async function host(root, withCore, run) {
   const ctx = new Context(), directory = mkdtempSync(join(tmpdir(), 'history-integrated-')), requests = [], errors = [], routes = []
   try {
     await ctx.plugin(SystemPrompt, { includeHarnessIdentity: false, personaPrefix: 'INTEGRATION SYSTEM' })
-    for (const name of ['session', 'agent', 'session-projection', 'llm', 'tools', 'agent-loop', 'session-query', 'typert-registry']) {
+    for (const name of ['session', 'agent', 'session-projection', 'llm', 'tools', 'agent-loop', 'session-query', 'typert-registry', 'api-remote-access']) {
       await ctx.plugin((await load(`dsh-${name}`)).default, name === 'agent-loop' ? { agents: [] } : {})
     }
     // Mount the real public SessionController, not an inspect stub. Unused UI/file

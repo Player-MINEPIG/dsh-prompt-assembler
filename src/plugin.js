@@ -1,3 +1,4 @@
+import { nativeVariables as withWorkingDirectory } from './native-variables.js'
 import { AssemblyPresetStore } from './store.js'
 import { RequestAssembler } from './runtime.js'
 import { createDshRegistry } from '../adapters/dsh.js'
@@ -51,6 +52,7 @@ export function apply(ctx, config = {}) {
   ctx.on('system-prompt/assemble', async (assembly, context, next) => {
     try {
       const result = await next()
+      result.variables = withWorkingDirectory(ctx, context.agent, result.variables)
       if (context.agent) nativeSnapshots.set(context.agent, { assemblyInput: {}, officialAssembly: structuredClone(result) })
       return await runtime.nativeAssembly(result, context)
     } finally {

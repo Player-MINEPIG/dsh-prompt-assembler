@@ -181,7 +181,9 @@ for (const advanced of [false, true]) test(`${advanced ? 'core' : 'stock'}: runt
     const kept = await h.service.preview('history')
     assert.ok(kept.preview.filter(row => row.sourceKind === 'runtime-context').every(row => ['keep', 'restore'].includes(row.action)))
     await h.turn('KEEP OLD COPIES')
-    assert.ok(h.requests.at(-1).filter(m => m.source.kind === 'runtime-context').length > 1)
+    const keptContexts = h.requests.at(-1).filter(m => m.source.kind === 'runtime-context')
+    if (advanced) assert.deepEqual(keptContexts.map(m => m.id), h.agent.session.deriveMessages().filter(m => m.source.kind === 'runtime-context').map(m => m.id))
+    else assert.ok(keptContexts.length > 1)
   } finally { await h?.dispose(); rmSync(directory, { recursive: true, force: true }) }
 })
 

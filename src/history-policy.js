@@ -47,7 +47,6 @@ export function registerHistoryPolicy(ctx, { store, runtime, readEvents, reasoni
     let decision = await next()
     if (!active(payload.agent) || decision?.kind === 'reject') return decision
     const saved = settings(payload), events = await readEvents(payload.agent.session)
-    decision = refreshRuntimeContext(decision, payload.agent.session, saved.policy, events.findLast(e => e.type === 'step/end')?.seq ?? -1)
     const previous = events.findLast(e => e.type === 'request/assembly')?.data.metadata?.historyPolicy
     // Filtering may change an earlier request prefix even though the native surface is unchanged.
     return saved.policy.enabled || previous?.applied ? { ...decision, startsRequestSeries: true } : decision
@@ -60,7 +59,7 @@ export function registerHistoryPolicy(ctx, { store, runtime, readEvents, reasoni
     const currentStepSeq = events.findLast(e => e.type === 'step/start')?.seq ?? 0
     const contract = await reasoningSafety(payload)
     const result = await next()
-    const filtered = filterHistory({ messages: result.messages, events, policy: saved.policy, currentStepSeq, retainCurrentSystem: true,
+    const filtered = filterHistory({ messages: refreshRuntimeContext(result.messages, payload.agent.session, saved.policy, currentStepSeq), events, policy: saved.policy, currentStepSeq, retainCurrentSystem: true,
       reasoningSafety: { ...contract, toolsPresent: Boolean(payload.tools?.length) } })
     return { ...result, messages: filtered.messages, metadata: { ...result.metadata, historyPolicy: { ...filtered.audit, revision: saved.revision } } }
   }, { prepend: true })

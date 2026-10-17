@@ -5,13 +5,13 @@ import { build } from 'esbuild'
 
 // Produces a separate, reviewable core build. Never edits an installed runtime.
 const [sourceArg, outputArg] = process.argv.slice(2)
-if (!sourceArg || !outputArg) throw new Error('Usage: node scripts/prepare-request-assembly.mjs <DSH 0.2.0-rc.2 source> <output>')
+if (!sourceArg || !outputArg) throw new Error('Usage: node scripts/prepare-request-assembly.mjs <DSH 0.2.1-rc.2 source> <output>')
 const source = resolve(sourceArg), output = resolve(outputArg)
 if (source === output || source.startsWith(`${output}/`) || output.startsWith(`${source}/`)) throw new Error('Output must be separate from source')
-const sourceDigests = { session: 'dcdb1b24e30ffe293398279441de3ff1172dc22312a2011a0637caade4e99850', 'agent-loop': 'c1b3c5edf5e393c6a47e16e380f00d020bdf322845debe3e168cf48314c28bd4' }
+const sourceDigests = {"session": "ce0596fd6f1a24e23ceb2fdc2102fc4b4d150dc1fc977f98abeb9c1cf05df7ea", "agent-loop": "06c7a4a30733c1cf38cfcd8d6194a443ecd3bb17e6b24c8dd9ec6253ebbbb734"}
 for (const name of ['session', 'agent-loop']) {
   const root = join(source, 'packages/core', name)
-  if (JSON.parse(readFileSync(join(root, 'package.json'))).version !== '0.2.0-rc.2') throw new Error('Unsupported core version')
+  if (JSON.parse(readFileSync(join(root, 'package.json'))).version !== '0.2.1-rc.2') throw new Error('Unsupported core version')
   const digest = createHash('sha256')
   for (const file of readdirSync(join(root, 'src'), { recursive: true }).filter(f => f.endsWith('.ts')).sort()) digest.update(`${file}\0`).update(readFileSync(join(root, 'src', file)))
   if (digest.digest('hex') !== sourceDigests[name]) throw new Error(`Source differs from pinned core: ${name}`)
@@ -28,7 +28,7 @@ edit('session/src/types.ts', "export interface SessionEventMap {", `export inter
   /** Log-only request snapshot. Does not change native history or future requests. */
   'request/assembly': { turn: number; step: number; nativeHash: string; messages: Message[]; metadata: JsonValue }
 `)
-edit('session/src/index.ts', '      data: dataSnapshot,', "      data: dataSnapshot,\n      ...(type === 'request/assembly' ? { ignorable: true as const } : {}),")
+edit('session/src/index.ts', '      data: dataSnapshot,\n      ...(surfaceMetadataSnapshot', "      data: dataSnapshot,\n      ...(type === 'request/assembly' ? { ignorable: true as const } : {}),\n      ...(surfaceMetadataSnapshot")
 edit('agent-loop/src/index.ts', 'export class AgentLoop extends Service implements AgentFactory {', 'export class AgentLoop extends Service implements AgentFactory {\n  /** Supported pre-freeze assembly protocol. */\n  readonly requestAssemblyVersion = 1\n')
 edit('agent-loop/src/agent.ts', 'const request = this.buildRequest(', 'const request = await this.buildRequest(')
 edit('agent-loop/src/agent.ts', '  private buildRequest(', '  private async buildRequest(')
@@ -56,14 +56,7 @@ declare module '@deepseek-ai/cordis' {
   }
 }
 `)
-edit('agent-loop/src/invariant.ts', "import type { Context } from '@deepseek-ai/cordis'", "import type { Context } from '@deepseek-ai/cordis'\nimport { createHash } from 'node:crypto'")
-edit('agent-loop/src/invariant.ts', '    const expected = session.deriveMessages()', `    const last = events.findLast(event => event.type === 'request/assembly')
-    const step = events.findLast(event => event.type === 'step/start')
-    if (!last || last.seq < step!.seq || last.data.turn !== step!.data.turn || last.data.step !== step!.data.step) return fail('request assembly must match the current step')
-    const nativeHash = createHash('sha256').update(JSON.stringify(session.deriveMessages())).digest('hex')
-    if (last.data.nativeHash !== nativeHash) return fail('native surface changed after request assembly')
-    const expected = last.data.messages`)
-for (const [name, entry] of [['session', 'index'], ['session', 'invariant'], ['agent-loop', 'index'], ['agent-loop', 'invariant']]) {
+for (const [name, entry] of [['session', 'index'], ['agent-loop', 'index']]) {
   await build({ entryPoints: [join(output, name, 'src', `${entry}.ts`)], outfile: join(output, name, 'lib', `${entry}.js`), bundle: true, packages: 'external', platform: 'node', format: 'esm', target: 'es2024', sourcemap: true,
     // Cordis publishes this const enum only in declarations; values match the pinned source.
     plugins: [{ name: 'pinned-cordis-const-enum', setup(builder) {
@@ -71,5 +64,5 @@ for (const [name, entry] of [['session', 'index'], ['session', 'invariant'], ['a
     } }],
   })
 }
-writeFileSync(join(output, 'receipt.json'), JSON.stringify({ sourceVersion: '0.2.0-rc.2', sourceDigests, requestAssemblyVersion: 1, packages: ['dsh-session', 'dsh-agent-loop'] }, null, 2))
+writeFileSync(join(output, 'receipt.json'), JSON.stringify({ sourceVersion: '0.2.1-rc.2', sourceDigests, requestAssemblyVersion: 1, packages: ['dsh-session', 'dsh-agent-loop'] }, null, 2))
 console.log(`Prepared request assembly core at ${output}`)

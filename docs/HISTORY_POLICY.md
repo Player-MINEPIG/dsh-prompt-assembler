@@ -29,7 +29,7 @@
 用户可通过精确来源规则显式决定该插件的历史是否保留。
 
 在 pre-step 入口记录上一 `step/end` 的 seq；其后追加的未发送内容、下游 pre-step 注入与本次
-`decision.messages` 均保留。取消 runtime-context 时，若 DSH 因正文相同而复用旧快照，先将其复制为本步新消息，再清理旧副本。
+`decision.messages` 均保留。取消 runtime-context 时，标准后端先清理旧副本，再由 DSH 在请求准入时刷新当前快照。进阶后端在请求投影中保留一份当前值，不改写原生历史，也不在原生日志中累积重复快照。
 每条目标在原位替换成空 **developer/message**，不产生模型消息。不能用空 system 占位：
 若旧注入早于首条 system，原生系统提示投影会接管该位置并破坏恢复依据。
 
@@ -80,7 +80,7 @@ GET/PUT/preview 返回 `capabilities`。标准 UI 的来源控件可操作，真
 
 ### 官方轨迹显示限制
 
-已知显示缺陷：在 DSH `0.2.0-rc.2` 官方轨迹中，标准清理写入的空 developer 占位会逐条显示为
+已知显示缺陷：在 DSH `0.2.1-rc.2` 官方轨迹中，标准清理写入的空 developer 占位会逐条显示为
 「上下文 —」，来源为 `dsh-prompt-assembler/history-policy`。清理多条旧注入时，这些审计条目会占用
 大量列表空间。它们不产生模型消息，也不表示原始正文丢失；原始事件和清理依据仍保存在持久日志中。
 
