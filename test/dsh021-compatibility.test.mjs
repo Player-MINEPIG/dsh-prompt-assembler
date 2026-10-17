@@ -34,16 +34,21 @@ test('all-context control excludes optional official facts and retains required 
   assert.ok(preview.filter(c => !c.required).every(c => !c.enabled))
 })
 
-test('official admission accepts both packages only on the declared DSH target', { skip: !root }, async () => {
+test('official admission accepts Standard on the target and rejects the frozen advanced addon', { skip: !root }, async () => {
   const { evaluatePluginCompatibility, getDshRuntimeVersion } = await load('dsh-app-boot')
   assert.equal(getDshRuntimeVersion(), '0.2.1-rc.2')
-  for (const file of ['../package.json', '../core-extension/package.json']) {
+  for (const file of ['../package.json']) {
     const manifest = JSON.parse(readFileSync(new URL(file, import.meta.url)))
     assert.equal(evaluatePluginCompatibility(manifest), undefined)
     for (const version of ['0.2.0-rc.2', '0.2.1-rc.1', '0.2.1-rc.3']) {
       assert.deepEqual(evaluatePluginCompatibility(manifest, {}, version).requirements, { 'engines.dsh': '0.2.1-rc.2' })
     }
   }
+  const frozen = JSON.parse(readFileSync(new URL('../core-extension/package.json', import.meta.url)))
+  assert.equal(frozen.version, '1.1.0')
+  assert.equal(frozen.peerDependencies['dsh-prompt-assembler'], '1.1.0')
+  assert.deepEqual(evaluatePluginCompatibility(frozen).requirements, { 'engines.dsh': '0.2.0-rc.2' })
+  assert.equal(evaluatePluginCompatibility(frozen, {}, '0.2.0-rc.2'), undefined)
 })
 
 test('stock Host preserves cwd text strategies, literal required facts, preview and unload', { skip: !root, timeout: 15000 }, async () => {

@@ -2,6 +2,8 @@
 
 [English](ARCHITECTURE_en.md) · [交互架构图](assets/architecture/assembler.zh-CN.html) · [开发者指南](DEVELOPER_GUIDE.md)
 
+进阶路径仅保留冻结的 Assembler 1.1.0 / DSH 0.2.0-rc.2 合同；新版不提供核心改动，也不承诺后续进阶适配。
+
 src/plugin.js 入口拥有唯一 registry/store/runtime，提供 dshPromptSources 与 dshPromptAssembler。浏览器入口在 plugins.bundle.config 注册以包名为键的配置入口，并由 shell.overlay 挂载独立策略编辑器；HTTP factory 由 bundle 安全 wrapper 包裹。assembly-presets.json 保存用户预设和独立应用的会话快照，不保存来源正文或原生历史。
 
 浏览器 `apply(ctx, { configurationPackage })` 可将配置入口归属组合加载方的包详情页，省略时归属 `dsh-prompt-assembler`；入口和 overlay 共用同一个会话控制器。

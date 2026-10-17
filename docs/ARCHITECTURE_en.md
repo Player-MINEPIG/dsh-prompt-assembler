@@ -2,6 +2,8 @@
 
 [中文](ARCHITECTURE.md) · [Interactive diagram](assets/architecture/assembler.en.html) · [Developer guide](DEVELOPER_GUIDE_en.md)
 
+The advanced path is retained only as the frozen Assembler 1.1.0 / DSH 0.2.0-rc.2 contract; new versions provide no core changes or commitment to future advanced adaptation.
+
 The plugin entry in src/plugin.js owns one registry/store/runtime and provides dshPromptSources plus dshPromptAssembler. The browser entry registers package-keyed configuration through plugins.bundle.config and mounts the guarded strategy editor through shell.overlay; HTTP remains a composable factory wrapped by bundle security. assembly-presets.json owns user presets and independently applied session snapshots, not source bodies or native history.
 
 The browser `apply(ctx, { configurationPackage })` can attach configuration to a composition host’s package page; omission uses `dsh-prompt-assembler`. The entry and overlay share one session controller.

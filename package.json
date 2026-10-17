@@ -35,8 +35,7 @@
     "test": "node --test",
     "pack:check": "npm pack --dry-run --cache .npm-cache",
     "check": "npm run build && npm test && npm run pack:check",
-    "build": "node scripts/build-client.mjs",
-    "pack:core": "npm pack ./core-extension --ignore-scripts --cache .npm-cache"
+    "build": "node scripts/build-client.mjs"
   },
   "engines": {
     "node": ">=20",

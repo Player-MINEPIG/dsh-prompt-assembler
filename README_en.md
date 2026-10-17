@@ -2,6 +2,8 @@
 
 [中文](README.md) · [Installation](docs/INSTALLATION_en.md) · [Usage](docs/USAGE_en.md) · [Source integration contract](docs/INTEGRATION_en.md) · [Security boundaries](SECURITY_en.md)
 
+New versions support Standard through public interfaces only. Advanced is frozen at Assembler `1.1.0` / DSH `0.2.0-rc.2`, with no commitment to later DSH versions and no core changes released with new versions.
+
 `dsh-prompt-assembler` 1.1.1 is a standalone prompt assembly plugin for **DSH `0.2.1-rc.2`**, with composable library APIs. The plugin owns its strategy store, registry, request hook, secure API and UI. [Tavern](https://github.com/Player-MINEPIG/dsh-tavern) and [Memory Manager](https://github.com/Player-MINEPIG/dsh-memory-manager) are optional sources. Sources retain ownership of content, resources, syntax and read permissions; DSH durable history remains authoritative for session history.
 
 ## Quick start
@@ -21,7 +23,7 @@ Start with a working DSH **`0.2.1-rc.2`** Host using Node **`^22.19.0 || >=24`**
 
 **Save rules** only updates the library; reapply changes to affect subsequent requests. Installation does not apply a strategy, and there is no global default. See [usage](docs/USAGE_en.md) for the full workflow and the [known limitation](docs/HISTORY_POLICY_en.md#official-trajectory-display-limitation) for standard cleanup's trajectory display behavior.
 
-`#codex/dsh-021-compat` selects this compatibility branch; use `#main` to follow development. See [installation](docs/INSTALLATION_en.md) for other options and advanced setup. The repository is public, which does not establish npm publication or a plugin-directory listing. `dsh.bundle` loads `cordis.patch.yml`; `dsh.client` loads the committed `dist/client.js`, without compiling client source on installation. Advanced strategies require the optional addon and prepared protocol-1 core; missing either returns 409. See [backend behavior](docs/BACKENDS_en.md). Library-only use requires Node **`>=20`**.
+`#codex/dsh-021-compat` selects this compatibility branch; use `#main` to follow development. See [installation](docs/INSTALLATION_en.md) for standard installation and the historical advanced boundary. The repository is public, which does not establish npm publication or a plugin-directory listing. `dsh.bundle` loads `cordis.patch.yml`; `dsh.client` loads the committed `dist/client.js`, without compiling client source on installation. Advanced strategies require the optional addon and prepared protocol-1 core; missing either returns 409. See [backend behavior](docs/BACKENDS_en.md). Library-only use requires Node **`>=20`**.
 
 ## Sources and third-party extensions
 
@@ -54,7 +56,7 @@ npm ci
 npm run check
 ```
 
-`check` covers local tests, client building and package checks. CI runs these commands on supported library Node versions. Real Host checks explicitly select stock rc.2 for native behavior and prepared rc.2 plus the addon for advanced behavior. Skipped default tests do not establish Host or browser acceptance; see [verification](docs/INSTALLATION_en.md#verification). See [version history](CHANGELOG.md) for current changes.
+`check` covers local tests, client building and package checks. CI runs these commands on supported library Node versions. Real Host checks explicitly select stock rc.2 for native behavior and the frozen 0.2.0-rc.2 environment for historical advanced behavior. Skipped default tests do not establish Host or browser acceptance; see [verification](docs/INSTALLATION_en.md#verification). See [version history](CHANGELOG.md) for current changes.
 
 [Third-party guide](docs/DEVELOPER_GUIDE_en.md) · [HTTP API](docs/API_en.md) · [Architecture](docs/ARCHITECTURE_en.md).
 

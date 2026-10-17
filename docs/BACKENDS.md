@@ -2,8 +2,10 @@
 
 [English](BACKENDS_en.md) · [安装](INSTALLATION.md) · [来源合同](INTEGRATION.md)
 
+进阶列仅描述冻结的 Assembler `1.1.0` / DSH `0.2.0-rc.2` 合同，不适用于新版 DSH；新版只分发标准包，不承诺后续进阶适配。
+
 当前资源的块、插槽、稳定定位和兼容策略见[资源布局](RESOURCE_LAYOUT.md)。
-`dsh-prompt-assembler` 是标准 Host 插件，也是共享的策略、来源、解析与装配原语库。Tavern 正常依赖它。`dsh-prompt-assembler-core` 是同仓库 `core-extension/` 中单独打包的可选 Host 扩展；它显式注册经过验证的协议 1 executor。标准 bundle 不注册 `agent/assemble-request`，安装不会修改 DSH 核心。Memory Manager 仍是独立可选扩展。
+`dsh-prompt-assembler` 是标准 Host 插件，也是共享的策略、来源、解析与装配原语库。Tavern 正常依赖它。`dsh-prompt-assembler-core` 是同仓库 `core-extension/` 中保留的冻结历史扩展；它显式注册经过验证的协议 1 executor。标准 bundle 不注册 `agent/assemble-request`，安装不会修改 DSH 核心。Memory Manager 仍是独立可选扩展。
 
 | 能力 | 标准版 `backend:native` | 进阶版 `backend:core` |
 | --- | --- | --- |
@@ -33,7 +35,7 @@ Tavern 提供以下互有区别的参考方案，编辑后可另存为自己的�
 
 新 RP 会话与“应用默认装配策略”使用标准插槽方案，即使安装了进阶 addon 也不自动切换。已应用的旧内置快照、自定义策略和关闭状态保持原样；重新选择并应用才采用新定义。独立 DSH 会话没有隐式 RP 策略。
 
-旧策略未写 `backend` 时仍解释为 core，原规则与 revision 保持原语义。迁移不转换策略，不删除已应用快照；缺扩展时明确返回 409 `REQUEST_ASSEMBLY_CORE_REQUIRED`。请显式选择一个标准预设或安装进阶扩展。保存草稿不应用；应用会复制会话快照。两个版本共用唯一 store/registry/UI，没有第二套历史或策略库。
+旧策略未写 `backend` 时仍解释为 core，原规则与 revision 保持原语义。迁移不转换策略，不删除已应用快照；缺扩展时明确返回 409 `REQUEST_ASSEMBLY_CORE_REQUIRED`。请显式选择一个标准预设；历史进阶扩展仅适用于冻结的旧版本。保存草稿不应用；应用会复制会话快照。两个版本共用唯一 store/registry/UI，没有第二套历史或策略库。
 
 `runtime.capabilities()` 区分 native、core、coreExtensionInstalled、nativeRoles、nativeUserDelivery 和 nativeUserEntersHistory。`runtime.requireAvailable(preset)` 核对指定策略。旧 `available()` 是“有任一装配能力”，不能当作 core 授权。核心 protocol marker 本身不会加载进阶 backend；移除 addon 撤销 backend，保留选择与存储。
 

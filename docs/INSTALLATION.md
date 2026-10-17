@@ -10,45 +10,15 @@
 dsh plugin --profile web add github:Player-MINEPIG/dsh-prompt-assembler#codex/dsh-021-compat
 ```
 
-`#codex/dsh-021-compat` 选择此兼容分支；`#main` 跟随开发主线。复验其他候选时可改用其已审查的完整 commit，并在调用方 lockfile 固定同一修订。标准包与可选 addon 的版本均为 `1.1.1`，addon 的 peer 精确要求标准 `1.1.1`；具体源码修订仍须一起核对。
+`#codex/dsh-021-compat` 选择此兼容分支；`#main` 跟随开发主线。复验其他候选时可改用其已审查的完整 commit，并在调用方 lockfile 固定同一修订。新版仅分发标准包 `1.1.1`，不提供配套核心改动。
 
 仓库是 public。标准包拥有 `main:src/plugin.js`、`dsh.bundle:cordis.patch.yml` 和预构建 `dist/client.js`，无需改动 stock rc.2 核心。停止并重启目标 Host 后打开“插件 → 已安装插件 → dsh-prompt-assembler → 提示词装配”；“保存规则”仅保存资源，“保存并应用到当前会话”先保存修改再应用，新会话先绑定再打开。独立运行没有全局默认，Tavern 不必安装。GitHub 源码、npm 包与插件目录是不同分发途径，不由仓库可见性推断发布状态。
 
-## 可选进阶扩展
+## 历史进阶扩展
 
-先按上方命令安装标准 `1.1.1`，再取得同一标签的源码及准备工具依赖：
+进阶扩展冻结在 Assembler `1.1.0` 与 DSH `0.2.0-rc.2`，不承诺适配后续 DSH。源码中的 `core-extension/` 仅保留该冻结版本；不随新版标准包发布，也不能与标准 `1.1.1` 配套使用。旧环境的安装、切换与回退请使用 [v1.1.0 安装指南](https://github.com/Player-MINEPIG/dsh-prompt-assembler/blob/v1.1.0/docs/INSTALLATION.md)及其配套源码。
 
-```sh
-git clone --branch codex/dsh-021-compat --depth 1 https://github.com/Player-MINEPIG/dsh-prompt-assembler.git
-cd dsh-prompt-assembler
-npm ci
-node core-extension/scripts/prepare-request-assembly.mjs /path/to/dsh-rc2-source /path/to/prepared-core
-```
-
-`dsh-rc2-source` 是官方 DSH `0.2.1-rc.2` 的完整源码根目录，准备工具会核验核心源码摘要；输出目录须与源码分离。
-准备过程只生成独立产物。首次安装还需一个未修改的官方 rc.2 `stock-runtime`，用于校验目标构建和保存回退文件。
-`runtime` 是目标 Host 的 runtime 根目录，`home` 是该 Host 的 DSH_HOME，`profile` 须与标准插件安装时一致。
-
-停止目标 Host 后，从此 checkout 执行一键安装；它安装并启用 addon、切换核心，并保存标准构建以供回退：
-
-```sh
-node core-extension/scripts/switch-runtime.mjs install --runtime /path/to/runtime --home /path/to/dsh-home --profile web --prepared /path/to/prepared-core --stock-runtime /path/to/stock-runtime
-```
-
-`stock-runtime` 含 `node_modules/@deepseek-ai/dsh-session` 和 `dsh-agent-loop`。目标 runtime、标准参照和准备产物均须为 0.2.1-rc.2，标准插件须为 1.1.1。工具通过公开 `dsh-plugin-manager/operations` 安装和启用插件，默认调用 npm，可用 `--npm /path/to/npm` 指定命令。切换工具拒绝未知构建、损坏备份和版本不匹配。
-
-重新启动 Host，在“插件 → 已安装插件 → dsh-prompt-assembler → 提示词装配”选择“进阶版 · 核心扩展”，检查装配结果，再保存并应用到当前会话；安装 addon 不会自动切换已有策略。
-
-随后安装、卸载均无需再提供准备产物或标准参照。停止 Host 后执行对应单条指令，然后重新启动 Host：
-
-```sh
-node core-extension/scripts/switch-runtime.mjs install --runtime /path/to/runtime --home /path/to/dsh-home --profile web
-node core-extension/scripts/switch-runtime.mjs uninstall --runtime /path/to/runtime --home /path/to/dsh-home --profile web
-```
-
-卸载只移除进阶 addon 并恢复标准核心。仍绑定进阶策略的会话切回标准预设插槽优先，原选择备份保留在 profile 的 `.assembler-core-switch/selections-before-uninstall.json`；自定义策略、标准选择、关闭状态及 DSH 会话日志保留。重新安装不自动恢复旧进阶选择。首次安装也保留已有显式选择；请在界面选择进阶插槽策略以测试进阶行为。核心备份与切换 receipt 位于 profile 的 `.assembler-core-switch/`，回退前不要删除。两条指令只针对显式路径，要求目标 Host 已停止。
-
-扩展仅在 `agentLoop.requestAssemblyVersion===1` 时可挂载。只有准备后的核心、没有 addon，也不能应用 core 策略。两者缺任一，旧进阶策略仍可编辑/预览，但应用返回 409。标准包不包含准备工具或 addon bundle；root `scripts/prepare-request-assembly.mjs` 仅是源码开发兼容入口。
+升级到新版 DSH 前，使用旧版本的切换工具恢复旧环境的 stock 核心，再按目标 DSH 的正常升级流程安装新版标准插件。不要将旧准备产物复制到新版 DSH。策略与历史保留；旧 core 策略不会自动转换，请显式选择并应用标准策略。缺少进阶能力时返回 409 `REQUEST_ASSEMBLY_CORE_REQUIRED`。
 
 ## 存储与卸载
 
@@ -62,9 +32,8 @@ node core-extension/scripts/switch-runtime.mjs uninstall --runtime /path/to/runt
 npm ci
 npm run check
 DSH_ASSEMBLER_STOCK_ROOT=<stock-runtime> node --test test/native-backend.test.mjs
-DSH_ASSEMBLER_CORE_ROOT=<prepared-runtime> DSH_ASSEMBLER_MANAGER_ROOT=<manager-checkout> node --test test/host.test.mjs test/plugin-host.test.mjs
 ```
 
-源码 checkout 中加载 `core-extension` 的 Host fixture 还需要能解析其标准包 peer。在已执行 `npm ci` 的开发 checkout 中，可用 `ln -s .. node_modules/dsh-prompt-assembler` 建立本地 peer 链接；这只影响开发依赖目录，不是插件安装步骤。
+历史进阶夹具仅用于冻结的 0.2.0-rc.2 合同，不作为新版 DSH 的验收。新版 Host 验证使用 stock 目标运行时。
 
-Host fixture 使用临时会话与离线合成 provider，覆盖原生/进阶装配、持久记录、卸载和可选 Manager；没有环境的跳过项不代表验收通过。浏览器与 desktop 另检查已安装插件中的配置入口、空白会话、保存/应用/预览、安全 fetch、切换与卸载；真实 provider 与用户 profile 是另外的授权验收。申请公开目录、tag/release/npm 发布需明确授权。
+Host fixture 使用临时会话与离线合成 provider，覆盖标准装配、持久记录、卸载和可选 Manager；没有环境的跳过项不代表验收通过。浏览器与 desktop 另检查已安装插件中的配置入口、空白会话、保存/应用/预览、安全 fetch、切换与卸载；真实 provider 与用户 profile 是另外的授权验收。申请公开目录、tag/release/npm 发布需明确授权。
