@@ -1,4 +1,4 @@
-import { createElement as h, useEffect, useState, useSyncExternalStore } from 'react'
+import { createElement as h, Fragment, useEffect, useState, useSyncExternalStore } from 'react'
 import { AssemblyPanel } from './client.js'
 import { API_ROOT, assemblerFetch } from './client-fetch.js'
 
@@ -68,9 +68,15 @@ export async function createSessionWithPreset({ sessions, uiWorkspace, fetcher =
   return sessionId
 }
 
+const launcherCss = `
+.dta-launcher{appearance:none;display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box;width:fit-content;max-width:100%;font:inherit;color:var(--dsw-alias-label-primary,inherit);border:0;border-radius:var(--dsw-radius-xl,16px);background:var(--dsw-alias-bg-layer-2,transparent);padding:8px 12px;cursor:pointer;transition:background-color .15s}
+.dta-launcher:hover,.dta-launcher:focus-visible{background:var(--dsw-alias-interactive-bg-hover,#8882)}
+.dta-launcher:focus-visible{outline:var(--dsw-focus-ring-width,2px) solid var(--dsw-focus-ring-color,var(--dsw-alias-state-business-primary,#4d6bfe));outline-offset:2px}
+`
+
 export function AssemblyLauncher({ assembler, wide = true, sessionId }) {
-  const label = globalThis.navigator?.language?.startsWith('zh') ? '提示词装配' : 'Prompt assembly'
-  return h('button', { type: 'button', className: 'dta-launcher', style: { font: 'inherit', color: 'inherit', border: '1px solid currentColor', borderRadius: 8, background: 'transparent', padding: '7px 10px', cursor: 'pointer' }, title: label, 'aria-label': label, onClick: () => void assembler.open(sessionId) }, wide ? label : '⌘')
+  const label = globalThis.navigator?.language?.startsWith('zh') ? '配置当前会话' : 'Configure current session'
+  return h(Fragment, null, h('style', null, launcherCss), h('button', { type: 'button', className: 'dta-launcher', title: label, 'aria-label': label, onClick: () => void assembler.open(sessionId) }, wide ? label : '⌘'))
 }
 
 export function AssemblyPluginConfig({ assembler, view }) {

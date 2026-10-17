@@ -5,8 +5,8 @@
 - 进阶扩展冻结在 1.1.0 / DSH 0.2.0-rc.2；撤回新版核心适配，新版仅分发标准包，不承诺后续进阶适配。
 - Freeze Advanced at 1.1.0 / DSH 0.2.0-rc.2; withdraw newer core adaptation and distribute Standard only, without committing to future advanced support.
 
-- 独立装配入口迁至“插件 → 已安装插件”的包配置页，通过显式按钮复用现有策略编辑器，保留关闭与未保存保护；组合加载方可指定配置所属包。
-- Move standalone assembly configuration to Plugins → Installed plugins, reusing the guarded editor through an explicit launch button and allowing composition hosts to own the configuration page.
+- 独立装配入口迁至“插件 → 已安装插件”的包配置页，通过按文字宽度显示、带悬停反馈的“配置当前会话”按钮复用现有策略编辑器，保留关闭与未保存保护；组合加载方可指定配置所属包。
+- Move standalone assembly configuration to Plugins → Installed plugins, reusing the guarded editor through a compact Configure current session button with hover feedback and allowing composition hosts to own the configuration page.
 
 - 适配 DSH 0.2.1-rc.2 和 Cordis 4.0.5，标准包通过 engines.dsh 声明精确宿主范围。
 - 保留旧 DSH 文本策略的 cwd 变量，使用当前有效目录；更新可选与必需运行上下文的过滤及预览。

@@ -12,7 +12,7 @@ dsh plugin --profile web add github:Player-MINEPIG/dsh-prompt-assembler#codex/ds
 
 `#codex/dsh-021-compat` 选择此兼容分支；`#main` 跟随开发主线。复验其他候选时可改用其已审查的完整 commit，并在调用方 lockfile 固定同一修订。新版仅分发标准包 `1.1.1`，不提供配套核心改动。
 
-仓库是 public。标准包拥有 `main:src/plugin.js`、`dsh.bundle:cordis.patch.yml` 和预构建 `dist/client.js`，无需改动 stock rc.2 核心。停止并重启目标 Host 后打开“插件 → 已安装插件 → dsh-prompt-assembler → 提示词装配”；“保存规则”仅保存资源，“保存并应用到当前会话”先保存修改再应用，新会话先绑定再打开。独立运行没有全局默认，Tavern 不必安装。GitHub 源码、npm 包与插件目录是不同分发途径，不由仓库可见性推断发布状态。
+仓库是 public。标准包拥有 `main:src/plugin.js`、`dsh.bundle:cordis.patch.yml` 和预构建 `dist/client.js`，无需改动 stock rc.2 核心。停止并重启目标 Host 后打开“插件 → 已安装插件 → dsh-prompt-assembler → 配置当前会话”；“保存规则”仅保存资源，“保存并应用到当前会话”先保存修改再应用，新会话先绑定再打开。独立运行没有全局默认，Tavern 不必安装。GitHub 源码、npm 包与插件目录是不同分发途径，不由仓库可见性推断发布状态。
 
 ## 历史进阶扩展
 
