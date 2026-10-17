@@ -1,5 +1,11 @@
 # Changelog / 变更记录
 
+## 1.1.2
+
+- 标准插件的全部 HTTP 接口显式调用 DSH `connection.admit` 并要求 owner，包括装配、历史策略与 request-token。缺少认证服务返回 503，未登录或非 owner 请求被拒绝，回环地址不绕过认证。
+- 保留默认回环限制、Host 白名单、Origin、JSON 与桌面 CSRF token 检查。远程 Web 需同时配置 `security.allowRemoteClients` 和精确 `security.allowedHosts`，并使用正常 DSH 登录态。
+- Authenticate every installed HTTP route through DSH owner admission while preserving the existing remote, Host, Origin, JSON and desktop CSRF checks.
+
 ## 1.1.1
 
 - 进阶扩展冻结在 1.1.0 / DSH 0.2.0-rc.2；撤回新版核心适配，新版仅分发标准包，不承诺后续进阶适配。

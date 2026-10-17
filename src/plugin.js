@@ -5,7 +5,7 @@ import { createDshRegistry } from '../adapters/dsh.js'
 import { BUILTINS } from './model.js'
 import { createAssemblyApi } from './server.js'
 import { connectMemoryManager } from '../adapters/memory-manager.js'
-import { secureAssemblerApi } from './api-security.js'
+import { secureAssemblerApi, requireAssemblerOwner } from './api-security.js'
 import { connectHistoryPolicy } from './history/integration.js'
 import { HISTORY_API_ROOT } from './history/server.js'
 import { API_ROOT, API_V1, PLUGIN_ID } from './identity.js'
@@ -72,10 +72,10 @@ export function apply(ctx, config = {}) {
       const assembly = createAssemblyApi({ store, runtime,
         agents: () => ctx.get('agents'), sessions: () => ctx.get('sessions'),
         inspect: id => ctx.get('sessionController').inspect(id), readActual: id => provider?.readActual?.(id), root: API_V1 })
-      const handler = secureAssemblerApi((req, res) => {
+      const handler = requireAssemblerOwner(secureAssemblerApi((req, res) => {
         const path = new URL(req.url, 'http://localhost').pathname
         return (path === HISTORY_API_ROOT || path.startsWith(`${HISTORY_API_ROOT}/`) ? history.handler : assembly)(req, res)
-      }, config.security)
+      }, config.security), () => scope.get('connection'))
       scope.effect(() => scope.webServer.register({ kind: 'prefix', path: API_ROOT, handler }), 'assembler: HTTP API')
     })
   }

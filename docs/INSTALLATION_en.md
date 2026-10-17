@@ -14,6 +14,19 @@ For source installation, use `github:Player-MINEPIG/dsh-prompt-assembler#v1.1.1`
 
 The repository is public. Standard metadata provides `main:src/plugin.js`, `dsh.bundle:cordis.patch.yml` and prebuilt `dist/client.js`. Stock rc.2 needs no core changes. Stop/restart the intended Host, then open Plugins → Installed plugins → dsh-prompt-assembler → Configure current session. Save rules updates the library; Save and apply to this session saves edits before applying; new sessions bind before opening. Standalone use has no global default and does not require Tavern. Repository visibility does not establish npm, tag/release or plugin-directory publication.
 
+## Remote Web deployment
+
+Install the 1.1.2 source package containing the owner-admission fix, then log in through DSH normally. Preserve the existing storageDir, add the security fields below to this plugin's profile configuration, and restart the intended Host. Replace the example IP with the hostname or IP used by the browser, without protocol or port.
+
+```yaml
+security:
+  allowRemoteClients: true
+  allowedHosts:
+    - 198.51.100.10
+```
+
+These fields permit network sources only. Every assembly, history-policy and request-token route still requires an authenticated DSH owner and retains Host, Origin, JSON and desktop CSRF checks. Unauthenticated requests must return 401; wrong-Host or cross-site requests must return 403. Missing DSH connection authentication returns 503, with no anonymous loopback exemption. Independent library embedders remain responsible for authentication.
+
 ## Historical advanced extension
 
 The advanced extension is frozen at Assembler `1.1.0` and DSH `0.2.0-rc.2`, with no commitment to later DSH versions. The source `core-extension/` retains that frozen version only. It is not released with new standard packages and cannot be paired with standard `1.1.1`. Use the [v1.1.0 installation guide](https://github.com/Player-MINEPIG/dsh-prompt-assembler/blob/v1.1.0/docs/INSTALLATION_en.md) and matching source for installation, switching and rollback in old environments.

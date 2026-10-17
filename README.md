@@ -2,9 +2,11 @@
 
 [English](README_en.md) · [安装](docs/INSTALLATION.md) · [使用](docs/USAGE.md) · [来源接入合同](docs/INTEGRATION.md) · [安全边界](SECURITY.md)
 
+1.1.2 源码补丁为全部插件 HTTP 接口增加 DSH owner 认证。远程 Web 部署必须使用此补丁，并同时配置 `security.allowRemoteClients: true` 与精确 `security.allowedHosts`。这两个配置只允许网络来源，不授予访问身份。仍需正常 DSH 登录。下方 npm 安装命令对应已发布的 1.1.1，未包含该补丁；安装补丁请使用已审查源码提交或本地 1.1.2 包，不能由源码版本号推断 npm 已发布。参见[远程 Web 部署](docs/INSTALLATION.md#远程-web-部署)。
+
 新版仅支持标准版公开接口。进阶扩展冻结在 Assembler `1.1.0` / DSH `0.2.0-rc.2`，不承诺后续 DSH 适配，不随新版发布核心改动。
 
-`dsh-prompt-assembler` 1.1.1 是面向 **DSH `0.2.1-rc.2`** 的独立提示词装配插件，也提供可组合的装配库。插件自己管理策略存储、来源注册、请求钩子、安全 API 和界面；无需安装 [Tavern](https://github.com/Player-MINEPIG/dsh-tavern) 或 [Memory Manager](https://github.com/Player-MINEPIG/dsh-memory-manager)。来源继续拥有正文、资源、解析语法与读取权限，DSH durable history 继续作为会话历史的权威记录。
+`dsh-prompt-assembler` 1.1.2 源码版是面向 **DSH `0.2.1-rc.2`** 的独立提示词装配插件，也提供可组合的装配库。插件自己管理策略存储、来源注册、请求钩子、安全 API 和界面；无需安装 [Tavern](https://github.com/Player-MINEPIG/dsh-tavern) 或 [Memory Manager](https://github.com/Player-MINEPIG/dsh-memory-manager)。来源继续拥有正文、资源、解析语法与读取权限，DSH durable history 继续作为会话历史的权威记录。
 
 ## 快速开始 / Quick start
 

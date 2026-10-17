@@ -2,9 +2,11 @@
 
 [中文](README.md) · [Installation](docs/INSTALLATION_en.md) · [Usage](docs/USAGE_en.md) · [Source integration contract](docs/INTEGRATION_en.md) · [Security boundaries](SECURITY_en.md)
 
+The 1.1.2 source patch requires DSH owner authentication on every installed HTTP route. Remote Web deployments must use this patch and set both `security.allowRemoteClients: true` and an exact `security.allowedHosts` list. These options permit network sources; they do not authenticate users. Normal DSH login remains required. The npm command below installs published 1.1.1, which does not include this patch. Install a reviewed source commit or a local 1.1.2 package; the source version does not establish npm publication. See [remote Web deployment](docs/INSTALLATION_en.md#remote-web-deployment).
+
 New versions support Standard through public interfaces only. Advanced is frozen at Assembler `1.1.0` / DSH `0.2.0-rc.2`, with no commitment to later DSH versions and no core changes released with new versions.
 
-`dsh-prompt-assembler` 1.1.1 is a standalone prompt assembly plugin for **DSH `0.2.1-rc.2`**, with composable library APIs. The plugin owns its strategy store, registry, request hook, secure API and UI. [Tavern](https://github.com/Player-MINEPIG/dsh-tavern) and [Memory Manager](https://github.com/Player-MINEPIG/dsh-memory-manager) are optional sources. Sources retain ownership of content, resources, syntax and read permissions; DSH durable history remains authoritative for session history.
+`dsh-prompt-assembler` 1.1.2 source is a standalone prompt assembly plugin for **DSH `0.2.1-rc.2`**, with composable library APIs. The plugin owns its strategy store, registry, request hook, secure API and UI. [Tavern](https://github.com/Player-MINEPIG/dsh-tavern) and [Memory Manager](https://github.com/Player-MINEPIG/dsh-memory-manager) are optional sources. Sources retain ownership of content, resources, syntax and read permissions; DSH durable history remains authoritative for session history.
 
 ## Quick start
 

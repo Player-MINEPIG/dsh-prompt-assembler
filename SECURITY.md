@@ -4,6 +4,10 @@
 
 Host 插件在 DSH 的受信任插件边界内运行。插件自己的 API 必须经过 Host 的身份认证、同源校验及适用的 desktop 令牌检查；浏览器入口使用相应安全 fetch。库的 `createAssemblyApi` 只处理 JSON 与策略原语，自行嵌入的调用方负责安全路由边界。来源 ID 是提供方声明，不是签名或权限隔离；安装第三方 adapter 即信任其执行代码。
 
+标准插件从 1.1.2 起在整个 API 前显式调用 `connection.admit(req)`，只允许 `peer.principal.kind === 'owner'`。认证服务缺失返回 503，未登录返回 401，其他拒绝返回 403；回环客户端也不豁免。装配、历史策略、预览与 request-token 均经过该边界。1.1.1 的网络围栏不提供身份认证，不能只开启远程开关用于公网部署。
+
+`security.allowRemoteClients` 默认 false，限制实际 TCP 客户端。远程部署还需在 `security.allowedHosts` 中逐项填写访问主机名或 IP，不含协议和端口。DSH 自己的 Host/Origin 围栏仍生效。写请求继续要求同源或无 Origin 的有效桌面 CSRF token，并要求 application/json。CSRF token 不能替代 DSH 登录 Cookie。
+
 来源拥有内容及读取许可。registry 传给来源的请求上下文是分离、深冻结的只读对象；取消 signal 保持原对象。adapter 应遵守读取版本租约与卸载/取消，不在装配或预览中写来源状态。预览不发送模型请求，不含待发输入；它读取当前资源和 durable history。公开只读对象不代表来源内部数据自动可读，也不授予资源编辑权限。
 
 自定义文本由选定来源 parser 解释；第三方文本不会隐式运行 ST、EJS 或 JavaScript。可选 Tavern parser 的受限只读 EJS 与 helper 读取许可由来源控制。缺失运行时、非法来源输出、租约变化或解析失败应拒绝整次装配，不发送部分结果。请只向可信来源和可信模型提供敏感内容。

@@ -69,6 +69,23 @@ function sameOrigin(req) {
   }
 }
 
+/** Authenticate the complete installed API, including CSRF token reads. */
+export function requireAssemblerOwner(handler, getConnection) {
+  return (req, res) => {
+    res.setHeader('Cache-Control', 'no-store')
+    const connection = getConnection?.()
+    if (typeof connection?.admit !== 'function') {
+      return sendError(res, 503, 'ASSEMBLER_API_AUTH_UNAVAILABLE', 'DSH authentication is unavailable.')
+    }
+    const admission = connection.admit(req)
+    if (!admission || 'rejection' in admission || admission.peer?.principal?.kind !== 'owner') {
+      return sendError(res, admission?.rejection === 401 ? 401 : 403,
+        'ASSEMBLER_API_AUTH_FORBIDDEN', 'An authenticated DSH owner is required.')
+    }
+    return handler(req, res)
+  }
+}
+
 /**
  * Protects the browser-facing API from accidental network exposure, DNS
  * rebinding and cross-site writes. Remote TCP peers are denied independently

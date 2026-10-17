@@ -14,6 +14,19 @@ dsh plugin --profile web add dsh-prompt-assembler@1.1.1
 
 仓库是 public。标准包拥有 `main:src/plugin.js`、`dsh.bundle:cordis.patch.yml` 和预构建 `dist/client.js`，无需改动 stock rc.2 核心。停止并重启目标 Host 后打开“插件 → 已安装插件 → dsh-prompt-assembler → 配置当前会话”；“保存规则”仅保存资源，“保存并应用到当前会话”先保存修改再应用，新会话先绑定再打开。独立运行没有全局默认，Tavern 不必安装。GitHub 源码、npm 包与插件目录是不同分发途径，不由仓库可见性推断发布状态。
 
+## 远程 Web 部署
+
+先安装包含 owner 鉴权修复的 1.1.2 源码包。按现有流程登录 DSH。保留插件原有 storageDir，在该插件的 profile 配置内增加以下 security 字段，并重启目标 Host。将示例 IP 换成浏览器实际访问的主机名或 IP，不含协议与端口。
+
+```yaml
+security:
+  allowRemoteClients: true
+  allowedHosts:
+    - 198.51.100.10
+```
+
+这两个字段只放行网络来源。全部装配、历史策略与 request-token 接口仍要求 DSH owner 登录，并保留 Host、Origin、JSON 和桌面 CSRF token 检查。未登录请求必须返回 401，错误 Host 或跨站请求必须返回 403。缺少 DSH connection 认证服务返回 503，不开放匿名回环入口。独立嵌入库的调用方仍负责自己的身份认证。
+
 ## 历史进阶扩展
 
 进阶扩展冻结在 Assembler `1.1.0` 与 DSH `0.2.0-rc.2`，不承诺适配后续 DSH。源码中的 `core-extension/` 仅保留该冻结版本；不随新版标准包发布，也不能与标准 `1.1.1` 配套使用。旧环境的安装、切换与回退请使用 [v1.1.0 安装指南](https://github.com/Player-MINEPIG/dsh-prompt-assembler/blob/v1.1.0/docs/INSTALLATION.md)及其配套源码。
