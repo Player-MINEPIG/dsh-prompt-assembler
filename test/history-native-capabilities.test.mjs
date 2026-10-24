@@ -3,6 +3,7 @@ import assert from 'node:assert/strict'
 import { createRequire } from 'node:module'
 import { join, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
+import { readFileSync } from 'node:fs'
 
 // Compatibility reproductions, deliberately not a production policy implementation.
 // Every model response is synthetic; no provider connection or real profile is used.
@@ -12,7 +13,9 @@ const text = message => message.content.filter(b => b.type === 'text').map(b => 
 async function host(run) {
   const require = createRequire(join(resolve(root), 'package.json'))
   const load = name => import(pathToFileURL(require.resolve(`@deepseek-ai/${name}`)))
-  assert.equal(require('@deepseek-ai/dsh-session/package.json').version, '0.2.1-rc.2')
+  const { evaluatePluginCompatibility } = await load('dsh-app-boot')
+  const manifest = JSON.parse(readFileSync(new URL('../package.json', import.meta.url)))
+  assert.equal(evaluatePluginCompatibility(manifest, {}, require('@deepseek-ai/dsh-session/package.json').version), undefined)
   const { Context } = await load('cordis'), llm = await load('dsh-llm')
   const { SystemPrompt } = await load('dsh-system-prompt')
   const sessionModule = await load('dsh-session')

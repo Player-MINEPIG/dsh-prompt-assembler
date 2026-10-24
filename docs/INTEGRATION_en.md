@@ -16,7 +16,7 @@ const result = await assembleRequestAsync({ registry, preset, nativeMessages, in
 stop()
 ```
 
-Implement `myNotesStore.read({sessionId,signal})` to return `{id,text}[]`. Registration does not apply a strategy or write history. `result.messages` contains logical contributions. The standard Host uses the shared runtime’s official sections/context/pre-step integration rather than sending that array. Advanced complete request replacement requires `projectSystemSnapshots` and the explicitly prepared protocol 1 pre-freeze `agent/assemble-request` hook. Stock DSH `0.2.1-rc.2` lacks that hook; plugin installation does not modify core. Never replace durable history with logical assembly output.
+Implement `myNotesStore.read({sessionId,signal})` to return `{id,text}[]`. Registration does not apply a strategy or write history. `result.messages` contains logical contributions. The standard Host uses the shared runtime’s official sections/context/pre-step integration rather than sending that array. Advanced complete request replacement requires `projectSystemSnapshots` and the explicitly prepared protocol 1 pre-freeze `agent/assemble-request` hook. Stock DSH `0.2.1-rc.2` / `0.2.1-rc.3` lacks that hook; plugin installation does not modify core. Never replace durable history with logical assembly output.
 
 ## Sources and parsers
 

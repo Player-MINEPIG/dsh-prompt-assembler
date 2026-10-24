@@ -16,7 +16,7 @@ const result = await assembleRequestAsync({ registry, preset, nativeMessages, in
 stop()
 ```
 
-示例 `myNotesStore.read({sessionId,signal})` 返回 `{id,text}[]`，接入方自行实现。注册不会加入策略或写入历史。`result.messages` 是逻辑贡献。标准 Host 通过共享 runtime 的官方 sections/context/pre-step 接入，不直接发送该数组。进阶完整请求替换才需要 `projectSystemSnapshots` 和显式准备的协议 1 pre-freeze `agent/assemble-request` 钩子。Stock DSH `0.2.1-rc.2` 没有该钩子，插件安装不会修改核心。不要用逻辑消息直接替代原生 durable history。
+示例 `myNotesStore.read({sessionId,signal})` 返回 `{id,text}[]`，接入方自行实现。注册不会加入策略或写入历史。`result.messages` 是逻辑贡献。标准 Host 通过共享 runtime 的官方 sections/context/pre-step 接入，不直接发送该数组。进阶完整请求替换才需要 `projectSystemSnapshots` 和显式准备的协议 1 pre-freeze `agent/assemble-request` 钩子。Stock DSH `0.2.1-rc.2` / `0.2.1-rc.3` 没有该钩子，插件安装不会修改核心。不要用逻辑消息直接替代原生 durable history。
 
 ## 来源及解析器
 

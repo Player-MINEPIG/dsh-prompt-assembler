@@ -87,7 +87,7 @@ not interpreter-dependent event types. Actual standard requests derive from the 
 
 ### Official trajectory display limitation
 
-Known display defect: the official DSH `0.2.1-rc.2` trajectory renders each empty developer placeholder
+Known display defect: the official DSH `0.2.1-rc.2` / `0.2.1-rc.3` trajectory renders each empty developer placeholder
 written by standard cleanup as `CONTEXT —`, with source `dsh-prompt-assembler/history-policy`.
 Cleaning many old injections can therefore fill the list with audit rows. These rows derive to no model
 message and do not indicate lost original content; original events and cleanup evidence remain in the durable log.

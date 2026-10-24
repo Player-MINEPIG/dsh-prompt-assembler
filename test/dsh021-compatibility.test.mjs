@@ -35,13 +35,17 @@ test('all-context control excludes optional official facts and retains required 
 })
 
 test('official admission accepts Standard on the target and rejects the frozen advanced addon', { skip: !root }, async () => {
-  const { evaluatePluginCompatibility, getDshRuntimeVersion } = await load('dsh-app-boot')
-  assert.equal(getDshRuntimeVersion(), '0.2.1-rc.2')
+  const { evaluatePluginCompatibility } = await load('dsh-app-boot')
   for (const file of ['../package.json']) {
     const manifest = JSON.parse(readFileSync(new URL(file, import.meta.url)))
     assert.equal(evaluatePluginCompatibility(manifest), undefined)
-    for (const version of ['0.2.0-rc.2', '0.2.1-rc.1', '0.2.1-rc.3']) {
-      assert.deepEqual(evaluatePluginCompatibility(manifest, {}, version).requirements, { 'engines.dsh': '0.2.1-rc.2' })
+    for (const version of ['0.2.1-rc.2', '0.2.1-rc.3', '0.2.1-rc.99', '0.2.1']) {
+      assert.equal(evaluatePluginCompatibility(manifest, {}, version), undefined, version)
+    }
+    for (const version of ['0.2.0-rc.2', '0.2.1-alpha.5', '0.2.1-rc.1', '0.2.2-alpha.1', '0.2.2-rc.1', '0.2.2', '0.3.0']) {
+      const denied = evaluatePluginCompatibility(manifest, {}, version)
+      assert.deepEqual(denied.requirements, { 'engines.dsh': '>=0.2.1-rc.2 <0.2.2-0' })
+      assert.equal(denied.exempted, false)
     }
   }
   const frozen = JSON.parse(readFileSync(new URL('../core-extension/package.json', import.meta.url)))

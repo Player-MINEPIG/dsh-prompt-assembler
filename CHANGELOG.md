@@ -1,5 +1,11 @@
 # Changelog / 变更记录
 
+## 1.1.2 — DSH 0.2.1 RC compatibility range
+
+- 标准版的 Host 与 LLM peer 范围改为 `>=0.2.1-rc.2 <0.2.2-0`；保留 rc.2 并验证 rc.3 的公开装配、历史读取和卸载行为。
+- Standard Host and LLM peer ranges now admit `>=0.2.1-rc.2 <0.2.2-0`, retaining rc.2 and verifying rc.3. Later 0.2.1 RCs are admitted by policy; 0.2.2 and its prereleases remain outside the boundary.
+- 进阶扩展仍冻结在 1.1.0 / DSH 0.2.0-rc.2。The advanced extension remains frozen at 1.1.0 / DSH 0.2.0-rc.2.
+
 ## 1.1.1
 
 - 进阶扩展冻结在 1.1.0 / DSH 0.2.0-rc.2；撤回新版核心适配，新版仅分发标准包，不承诺后续进阶适配。
