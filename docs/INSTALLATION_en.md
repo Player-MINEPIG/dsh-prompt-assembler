@@ -26,9 +26,9 @@ The `.tgz` in [Release v1.1.3](https://github.com/Player-MINEPIG/dsh-prompt-asse
 
 Standalone use requires neither Tavern nor Memory Manager. Installation does not apply a strategy and creates no global default. Save rules updates the library. Save and apply to this session saves edits before application. Create a session with this strategy binds before opening the session.
 
-### Share with Tavern 4.0.0 and other plugins
+### Share with Tavern 3.0.6 and other plugins
 
-Install and enable Assembler in the target profile before installing Tavern 4.0.0 or another consumer. Tavern declares Assembler peer range `~1.1.3`. DSH's `autoInstallPeers:false` does not install a missing peer, and a peer declaration does not enable its bundle. Consumers reuse `dshPromptAssembler`, `dshPromptSources` or `dshPromptStrategies` instead of starting another instance. Check every consumer's compatible range before updating the shared runtime.
+Install and enable Assembler in the target profile before installing Tavern 3.0.6 or another consumer. Tavern declares Assembler peer range `~1.1.3`. DSH's `autoInstallPeers:false` does not install a missing peer, and a peer declaration does not enable its bundle. Consumers reuse `dshPromptAssembler`, `dshPromptSources` or `dshPromptStrategies` instead of starting another instance. Check every consumer's compatible range before updating the shared runtime.
 
 Removing Tavern withdraws its sources and UI while the independent Assembler and other consumers retain shared storage. Disabling or removing Assembler stops its services and consumers that require them. DSH restores dependencies when Assembler is enabled again. This does not promise uninterrupted in-flight tasks.
 
@@ -38,9 +38,9 @@ Use the CLI for these steps so the old Host stays stopped while replacing packag
 
 1. Stop the old Host. Retain backups of its data directory and profile configuration.
 2. Use the CLI command above to install and enable independent Assembler 1.1.3 in the same profile.
-3. If the old Tavern config uses a custom `assemblerStorageDir`, set that path as the independent Assembler's `storageDir`, then remove `assemblerStorageDir` from Tavern; Tavern 4.0.0 rejects the retained field. The default remains `dshHomePath('dsh-prompt-assembler')`, so existing strategy files need no move or deletion.
-4. If the old Tavern `security` config also governed its bundled Assembler, configure the required `security.allowedHosts` and `security.allowRemoteClients` on the independent Assembler. Tavern 4.0.0 no longer forwards those options.
-5. Retain data, remove the old Tavern package and reinstall using the 4.0.0 package. A pnpm overwrite can leave the old bundled copy; removing the package does not mean deleting its data. Restart the Host and check the strategy library, applied session selections and both plugin entries.
+3. If the old Tavern config uses a custom `assemblerStorageDir`, set that path as the independent Assembler's `storageDir`, then remove `assemblerStorageDir` from Tavern; Tavern 3.0.6 rejects the retained field. The default remains `dshHomePath('dsh-prompt-assembler')`, so existing strategy files need no move or deletion.
+4. If the old Tavern `security` config also governed its bundled Assembler, configure the required `security.allowedHosts` and `security.allowRemoteClients` on the independent Assembler. Tavern 3.0.6 no longer forwards those options.
+5. Retain data, remove the old Tavern package and reinstall using the 3.0.6 package. A pnpm overwrite can leave the old bundled copy; removing the package does not mean deleting its data. Restart the Host and check the strategy library, applied session selections and both plugin entries.
 
 Do not let the old Host process requests while replacing packages. Retain strategies, resources and DSH durable history. Upgrading does not rewrite sessions. Set the existing custom path before opening a new empty default store.
 
