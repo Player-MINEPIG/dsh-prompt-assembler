@@ -41,6 +41,9 @@ A legacy strategy without `backend` remains core, retaining existing rule and re
 
 When native-system is disabled or omitted and retained effective system text differs from current assembly, public `startsRequestSeries` reconciliation asks DSH to update the effective system surface, preventing earlier in-history instructions from leaking into future requests. Original log events remain. The retained legacy native ST-style snapshot overrides authored roles and does not honor preset chat slots. User-only tails can use pre-step, but user contributions before existing history cannot be recreated with public append delivery; tail roles alone do not establish full advanced ST equivalence. Module placement is logical assembly policy; frozen DSH messages establish actual order.
 
+
+Both adaptive native layouts deliver Tavern's selected first-turn greeting as system content, without assistant or depth insertion. Provenance retains the character resource ID and greeting field. Tavern still controls first-turn gating and primary or alternate selection; later turns stop contributing the greeting. DSH records the content through its normal system-update mechanism, without creating an assistant conversation message. Advanced strategies retain assistant references and depth placement.
+
 ## Preset-first ordering modes
 
 Select a mode under Standard → Placement, or choose its matching built-in strategy. Existing sessions do not switch automatically.

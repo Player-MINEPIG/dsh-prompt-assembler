@@ -67,7 +67,9 @@ test('missing or disabled preset slots fall back to roles, and repeated macros d
 
 test('opening previews do not add a synthetic assistant greeting to native history', async () => {
   const result = await plan([prompt('p', 'user', 'A{{chatHistory}}B')], { placement: 'native-slots', history: [], inputs: [], includeGreetingReference: true, character: { data: { firstMessage: 'REFERENCE ONLY' } } })
-  assert.deepEqual(result.logical.messages.map(textOf), ['A', 'B'])
+  assert.deepEqual(result.logical.messages.map(textOf), ['A', 'REFERENCE ONLY', 'B'])
+  assert.equal(result.logical.messages.some(message => message.role === 'assistant'), false)
+  assert.equal(result.logical.nodes.find(node => node.source?.field === 'greeting').role, 'system')
 })
 
 test('depth worldbook entries follow native priority without splitting tool history', async () => {

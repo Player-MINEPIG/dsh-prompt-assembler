@@ -1,5 +1,10 @@
 # Changelog / 变更记录
 
+## 1.1.3 — Native first-turn greeting
+
+- 修复 Tavern 标准版静默省略开场白的问题。预设插槽优先与角色优先均以 system 内容携带选中的首轮开场白，保留宏展开、资源来源与首轮判断，不创建虚构的助手对话。
+- Deliver Tavern's selected first-turn greeting as system content in both native layouts, preserving macros, provenance and first-turn gating without fabricating an assistant reply. Advanced assistant/depth placement remains unchanged.
+
 ## 1.1.2 — DSH 0.2.1 RC compatibility range
 
 - 标准版的 Host 与 LLM peer 范围改为 `>=0.2.1-rc.2 <0.2.2-0`；保留 rc.2 并验证 rc.3 的公开装配、历史读取和卸载行为。

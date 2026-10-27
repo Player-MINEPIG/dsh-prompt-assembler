@@ -9,16 +9,16 @@
 ## 标准安装
 
 ```sh
-dsh plugin --profile web add dsh-prompt-assembler@1.1.2
+dsh plugin --profile web add dsh-prompt-assembler@1.1.3
 ```
 
-源码安装可使用 `github:Player-MINEPIG/dsh-prompt-assembler#v1.1.2`；`#main` 跟随开发主线。复验其他候选时可改用其已审查的完整 commit，并在调用方 lockfile 固定同一修订。新版仅分发标准包 `1.1.2`，不提供配套核心改动。
+源码安装可使用 `github:Player-MINEPIG/dsh-prompt-assembler#v1.1.3`；`#main` 跟随开发主线。复验其他候选时可改用其已审查的完整 commit，并在调用方 lockfile 固定同一修订。新版仅分发标准包 `1.1.3`，不提供配套核心改动。
 
 仓库是 public。标准包拥有 `main:src/plugin.js`、`dsh.bundle:cordis.patch.yml` 和预构建 `dist/client.js`，无需改动 stock rc.2 核心。停止并重启目标 Host 后打开“插件 → 已安装插件 → dsh-prompt-assembler → 配置当前会话”；“保存规则”仅保存资源，“保存并应用到当前会话”先保存修改再应用，新会话先绑定再打开。独立运行没有全局默认，Tavern 不必安装。GitHub 源码、npm 包与插件目录是不同分发途径，不由仓库可见性推断发布状态。
 
 ## 历史进阶扩展
 
-进阶扩展冻结在 Assembler `1.1.0` 与 DSH `0.2.0-rc.2`，不承诺适配后续 DSH。源码中的 `core-extension/` 仅保留该冻结版本；不随新版标准包发布，也不能与标准 `1.1.2` 配套使用。旧环境的安装、切换与回退请使用 [v1.1.0 安装指南](https://github.com/Player-MINEPIG/dsh-prompt-assembler/blob/v1.1.0/docs/INSTALLATION.md)及其配套源码。
+进阶扩展冻结在 Assembler `1.1.0` 与 DSH `0.2.0-rc.2`，不承诺适配后续 DSH。源码中的 `core-extension/` 仅保留该冻结版本；不随新版标准包发布，也不能与标准 `1.1.3` 配套使用。旧环境的安装、切换与回退请使用 [v1.1.0 安装指南](https://github.com/Player-MINEPIG/dsh-prompt-assembler/blob/v1.1.0/docs/INSTALLATION.md)及其配套源码。
 
 升级到新版 DSH 前，使用旧版本的切换工具恢复旧环境的 stock 核心，再按目标 DSH 的正常升级流程安装新版标准插件。不要将旧准备产物复制到新版 DSH。策略与历史保留；旧 core 策略不会自动转换，请显式选择并应用标准策略。缺少进阶能力时返回 409 `REQUEST_ASSEMBLY_CORE_REQUIRED`。
 

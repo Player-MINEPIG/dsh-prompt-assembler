@@ -4,7 +4,7 @@
 
 New versions support Standard through public interfaces only. Advanced is frozen at Assembler `1.1.0` / DSH `0.2.0-rc.2`, with no commitment to later DSH versions and no core changes released with new versions.
 
-`dsh-prompt-assembler` 1.1.2 is a standalone prompt assembly plugin for **DSH `0.2.1-rc.2` / `0.2.1-rc.3`**, with composable library APIs. The plugin owns its strategy store, registry, request hook, secure API and UI. [Tavern](https://github.com/Player-MINEPIG/dsh-tavern) and [Memory Manager](https://github.com/Player-MINEPIG/dsh-memory-manager) are optional sources. Sources retain ownership of content, resources, syntax and read permissions; DSH durable history remains authoritative for session history.
+`dsh-prompt-assembler` 1.1.3 is a standalone prompt assembly plugin for **DSH `0.2.1-rc.2` / `0.2.1-rc.3`**, with composable library APIs. The plugin owns its strategy store, registry, request hook, secure API and UI. [Tavern](https://github.com/Player-MINEPIG/dsh-tavern) and [Memory Manager](https://github.com/Player-MINEPIG/dsh-memory-manager) are optional sources. Sources retain ownership of content, resources, syntax and read permissions; DSH durable history remains authoritative for session history.
 
 Compatibility range: `>=0.2.1-rc.2 <0.2.2-0`. DSH rc.2 and rc.3 are exercised; later 0.2.1 RCs and the final release are admitted by policy, not a claim of prior validation. Reassess 0.2.2, including its prereleases.
 
@@ -15,7 +15,7 @@ Start with a working DSH **`0.2.1-rc.2` / `0.2.1-rc.3`** Host using Node **`^22.
 1. Stop the target Host and install the plugin. Replace `web` with your profile name:
 
    ```sh
-   dsh plugin --profile web add dsh-prompt-assembler@1.1.2
+   dsh plugin --profile web add dsh-prompt-assembler@1.1.3
    ```
 
 2. Restart the Host, open a session, then go to **Plugins → Installed plugins → dsh-prompt-assembler → Configure current session**. A blank session before its first message also works.
@@ -25,7 +25,7 @@ Start with a working DSH **`0.2.1-rc.2` / `0.2.1-rc.3`** Host using Node **`^22.
 
 **Save rules** only updates the library; reapply changes to affect subsequent requests. Installation does not apply a strategy, and there is no global default. See [usage](docs/USAGE_en.md) for the full workflow and the [known limitation](docs/HISTORY_POLICY_en.md#official-trajectory-display-limitation) for standard cleanup's trajectory display behavior.
 
-For source installation, use `github:Player-MINEPIG/dsh-prompt-assembler#v1.1.2`; use `#main` to follow development. See [installation](docs/INSTALLATION_en.md) for standard installation and the historical advanced boundary. The repository is public, which does not establish npm publication or a plugin-directory listing. `dsh.bundle` loads `cordis.patch.yml`; `dsh.client` loads the committed `dist/client.js`, without compiling client source on installation. Advanced strategies require the optional addon and prepared protocol-1 core; missing either returns 409. See [backend behavior](docs/BACKENDS_en.md). Library-only use requires Node **`>=20`**.
+For source installation, use `github:Player-MINEPIG/dsh-prompt-assembler#v1.1.3`; use `#main` to follow development. See [installation](docs/INSTALLATION_en.md) for standard installation and the historical advanced boundary. The repository is public, which does not establish npm publication or a plugin-directory listing. `dsh.bundle` loads `cordis.patch.yml`; `dsh.client` loads the committed `dist/client.js`, without compiling client source on installation. Advanced strategies require the optional addon and prepared protocol-1 core; missing either returns 409. See [backend behavior](docs/BACKENDS_en.md). Library-only use requires Node **`>=20`**.
 
 ## Sources and third-party extensions
 

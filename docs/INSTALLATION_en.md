@@ -9,16 +9,16 @@ For compatibility regression, point `DSH_ASSEMBLER_STOCK_ROOT` at each official 
 ## Standard installation
 
 ```sh
-dsh plugin --profile web add dsh-prompt-assembler@1.1.2
+dsh plugin --profile web add dsh-prompt-assembler@1.1.3
 ```
 
-For source installation, use `github:Player-MINEPIG/dsh-prompt-assembler#v1.1.2`; `#main` follows development. To reproduce another reviewed candidate, use its full reviewed commit and pin the same revision in the caller's lockfile. New versions distribute standard `1.1.2` only, without accompanying core changes.
+For source installation, use `github:Player-MINEPIG/dsh-prompt-assembler#v1.1.3`; `#main` follows development. To reproduce another reviewed candidate, use its full reviewed commit and pin the same revision in the caller's lockfile. New versions distribute standard `1.1.3` only, without accompanying core changes.
 
 The repository is public. Standard metadata provides `main:src/plugin.js`, `dsh.bundle:cordis.patch.yml` and prebuilt `dist/client.js`. Stock rc.2 needs no core changes. Stop/restart the intended Host, then open Plugins → Installed plugins → dsh-prompt-assembler → Configure current session. Save rules updates the library; Save and apply to this session saves edits before applying; new sessions bind before opening. Standalone use has no global default and does not require Tavern. Repository visibility does not establish npm, tag/release or plugin-directory publication.
 
 ## Historical advanced extension
 
-The advanced extension is frozen at Assembler `1.1.0` and DSH `0.2.0-rc.2`, with no commitment to later DSH versions. The source `core-extension/` retains that frozen version only. It is not released with new standard packages and cannot be paired with standard `1.1.2`. Use the [v1.1.0 installation guide](https://github.com/Player-MINEPIG/dsh-prompt-assembler/blob/v1.1.0/docs/INSTALLATION_en.md) and matching source for installation, switching and rollback in old environments.
+The advanced extension is frozen at Assembler `1.1.0` and DSH `0.2.0-rc.2`, with no commitment to later DSH versions. The source `core-extension/` retains that frozen version only. It is not released with new standard packages and cannot be paired with standard `1.1.3`. Use the [v1.1.0 installation guide](https://github.com/Player-MINEPIG/dsh-prompt-assembler/blob/v1.1.0/docs/INSTALLATION_en.md) and matching source for installation, switching and rollback in old environments.
 
 Before upgrading DSH, restore the old environment to stock using its matching switch tool, then follow the target DSH upgrade procedure and install the new standard plugin. Never copy old prepared builds into newer DSH. Strategies and history remain; legacy core strategies are not converted automatically. Explicitly select and apply a standard strategy. Missing advanced capabilities return 409 `REQUEST_ASSEMBLY_CORE_REQUIRED`.
 

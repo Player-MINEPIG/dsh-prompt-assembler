@@ -1,4 +1,5 @@
 import { positionWins } from '../src/resource-positions.js'
+import { adaptiveNativePlacement } from '../src/native-policy.js'
 import { tavernPositions } from './position-catalog.js'
 import { contentGuides } from './content-guides.js'
 import { RequestSourceRegistry } from '../src/registry.js'
@@ -66,10 +67,12 @@ export function registerTavernSources(registry, { worldbookPolicy, worldbookVali
   register({ id: 'character', name: '角色卡', resolve({ assets, preset, nativeMessages }, rule) {
     const fields = characterFields(assets, preset), data = assets.character?.data ?? {}, selection = assets.characterSelection ?? {}
     const blocks = Object.entries(fields).map(([id, value]) => text(id, value, { referenceOnly: id === 'phi', source: { resourceId: assets.character?.id, field: id } }))
-    // The opening assistant reference precedes the conversation even when a
-    // preset's chatHistory marker has already claimed history/current input.
-    // Use the existing depth placement so it cannot split a tool transaction.
-    if (assets.includeGreetingReference) { const i = selection.greetingIndex ?? 0; blocks.push(text('greeting', i > 0 ? (data.alternateGreetings ?? data.alternate_greetings ?? [])[i - 1] : data.firstMessage ?? data.first_mes, { role: 'assistant', depth: rule.depth ?? Math.max(1, nativeMessages.filter(m => m.role !== 'system').length), source: { resourceId: assets.character?.id, field: 'greeting' } })) }
+    if (assets.includeGreetingReference) {
+      const i = selection.greetingIndex ?? 0
+      const placement = adaptiveNativePlacement(preset) ? { role: 'system' }
+        : { role: 'assistant', depth: rule.depth ?? Math.max(1, nativeMessages.filter(m => m.role !== 'system').length) }
+      blocks.push(text('greeting', i > 0 ? (data.alternateGreetings ?? data.alternate_greetings ?? [])[i - 1] : data.firstMessage ?? data.first_mes, { ...placement, source: { resourceId: assets.character?.id, field: 'greeting' } }))
+    }
     const dp = data.extensions?.depth_prompt
     if (dp?.prompt) blocks.push(text('depth_prompt', dp.prompt, { role: dp.role ?? 'system', depth: dp.depth ?? 4, source: { resourceId: assets.character?.id, field: 'depth_prompt' } }))
     return { blocks, macros: { description: 'description', personality: 'personality', scenario: 'scenario', mesexamples: 'examples', charDescription: 'description', charPersonality: 'personality' } }

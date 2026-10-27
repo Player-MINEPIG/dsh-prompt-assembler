@@ -28,7 +28,7 @@ export async function assembleNative(runtime, { preset, agent, sessionId = agent
   const logical = await assembleRequestAsync({ registry: runtime.registry, afterAssembly: runtime.afterAssembly, sessionId,
     turn: events.findLast(e => e.type === 'turn/start')?.data.turn ?? null,
     step: (events.findLast(e => e.type === 'step/start')?.data.step ?? 0) + 1,
-    signal, preset, assets: { ...snapshot.assemblyInput, ...(adaptiveNativePlacement(preset) ? { includeGreetingReference: false } : {}), diagnostics: snapshot.diagnostics,
+    signal, preset, assets: { ...snapshot.assemblyInput, diagnostics: snapshot.diagnostics,
       officialSections: assembly.sections, nativeVariables: assembly.variables ?? {} },
     nativeMessages, inputIds: inputs.map(m => m.id), preview, maxBytes: runtime.resources.maxProfileBytes })
   logical.runtimeContextControls = runtimeContextControls
