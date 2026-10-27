@@ -8,13 +8,41 @@ For compatibility regression, point `DSH_ASSEMBLER_STOCK_ROOT` at each official 
 
 ## Standard installation
 
-```sh
-dsh plugin --profile web add dsh-prompt-assembler@1.1.3
+Open **Plugins → Add plugin** in DSH. Enter this Release asset URL, then install and enable the independent Assembler.
+
+```text
+https://github.com/Player-MINEPIG/dsh-prompt-assembler/releases/download/v1.1.3/dsh-prompt-assembler-1.1.3.tgz
 ```
 
-For source installation, use `github:Player-MINEPIG/dsh-prompt-assembler#v1.1.3`; `#main` follows development. To reproduce another reviewed candidate, use its full reviewed commit and pin the same revision in the caller's lockfile. New versions distribute standard `1.1.3` only, without accompanying core changes.
+Restart the Host when prompted. Open **Plugins → Installed plugins → dsh-prompt-assembler → Configure current session**. Reading plugin details does not open the editor. A blank session before its first message can also be configured.
 
-The repository is public. Standard metadata provides `main:src/plugin.js`, `dsh.bundle:cordis.patch.yml` and prebuilt `dist/client.js`. Stock rc.2 needs no core changes. Stop/restart the intended Host, then open Plugins → Installed plugins → dsh-prompt-assembler → Configure current session. Save rules updates the library; Save and apply to this session saves edits before applying; new sessions bind before opening. Standalone use has no global default and does not require Tavern. Repository visibility does not establish npm, tag/release or plugin-directory publication.
+The CLI accepts the same source. Stop the target Host and replace `web` with the intended profile name.
+
+```sh
+dsh plugin --profile web add https://github.com/Player-MINEPIG/dsh-prompt-assembler/releases/download/v1.1.3/dsh-prompt-assembler-1.1.3.tgz
+```
+
+The `.tgz` in [Release v1.1.3](https://github.com/Player-MINEPIG/dsh-prompt-assembler/releases/tag/v1.1.3) includes the built client. It requires no stock DSH core changes or npm publication. The GUI accepts repository URLs and direct `.tgz` or `.tar.gz` asset URLs. It does not accept a Release HTML page or source `.zip`. A repository source installs the package at that commit without selecting a Release asset. Source installation can use `github:Player-MINEPIG/dsh-prompt-assembler#v1.1.3`; use a full reviewed commit for development acceptance. New versions provide standard package `1.1.3` only.
+
+Standalone use requires neither Tavern nor Memory Manager. Installation does not apply a strategy and creates no global default. Save rules updates the library. Save and apply to this session saves edits before application. Create a session with this strategy binds before opening the session.
+
+### Share with Tavern 4.0.0 and other plugins
+
+Install and enable Assembler in the target profile before installing Tavern 4.0.0 or another consumer. Tavern declares Assembler peer range `~1.1.3`. DSH's `autoInstallPeers:false` does not install a missing peer, and a peer declaration does not enable its bundle. Consumers reuse `dshPromptAssembler`, `dshPromptSources` or `dshPromptStrategies` instead of starting another instance. Check every consumer's compatible range before updating the shared runtime.
+
+Removing Tavern withdraws its sources and UI while the independent Assembler and other consumers retain shared storage. Disabling or removing Assembler stops its services and consumers that require them. DSH restores dependencies when Assembler is enabled again. This does not promise uninterrupted in-flight tasks.
+
+### Upgrade from an Assembler bundled with Tavern
+
+Use the CLI for these steps so the old Host stays stopped while replacing packages.
+
+1. Stop the old Host. Retain backups of its data directory and profile configuration.
+2. Use the CLI command above to install and enable independent Assembler 1.1.3 in the same profile.
+3. If the old Tavern config uses a custom `assemblerStorageDir`, set that path as the independent Assembler's `storageDir`, then remove `assemblerStorageDir` from Tavern; Tavern 4.0.0 rejects the retained field. The default remains `dshHomePath('dsh-prompt-assembler')`, so existing strategy files need no move or deletion.
+4. If the old Tavern `security` config also governed its bundled Assembler, configure the required `security.allowedHosts` and `security.allowRemoteClients` on the independent Assembler. Tavern 4.0.0 no longer forwards those options.
+5. Update Tavern to 4.0.0 and restart the Host. Check the strategy library, applied session selections and both plugin entries.
+
+Do not let the old Host process requests while replacing packages. Retain strategies, resources and DSH durable history. Upgrading does not rewrite sessions. Set the existing custom path before opening a new empty default store.
 
 ## Historical advanced extension
 
@@ -26,7 +54,7 @@ Before upgrading DSH, restore the old environment to stock using its matching sw
 
 Strategies/session snapshots live in `dshHomePath('dsh-prompt-assembler')/assembly-presets.json`. Explicit `migrateLegacy(root)` merges absent IDs and retains old files and play/native scopes. Unified session selection, including null, wins over legacy mode fallback. Missing backend remains core, without automatic conversion. Standalone use has no default. Attached Tavern uses standard preset-slots-first style for unbound play sessions and new openings; installing the addon does not change that default. Existing snapshots remain unchanged.
 
-Provider removal withdraws its sources/catalog entries while retaining applied snapshots/storage. Standard user contributions remain native history; advanced request-only contributions stop, while request/assembly remains readable. The switch command moves core selections to standard slots before returning to stock; removing the addon separately leaves retained core selections explicitly unavailable. Returning to stock uses retained standard builds. Migrations and real-profile writes require an authorized environment.
+Provider removal withdraws its sources/catalog entries while retaining applied snapshots/storage. Standard user contributions remain native history; advanced request-only contributions stop, while request/assembly remains readable. For core restoration and selection switching in the frozen advanced environment, follow the [v1.1.0 guide](https://github.com/Player-MINEPIG/dsh-prompt-assembler/blob/v1.1.0/docs/INSTALLATION_en.md). Standard package `1.1.3` does not perform those steps. Migrations and real-profile writes require an authorized environment.
 
 ## Verification
 

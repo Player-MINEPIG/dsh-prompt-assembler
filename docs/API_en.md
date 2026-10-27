@@ -24,6 +24,8 @@ Tavern's compatibility prefix `/pmp-dsh-tavern/api/v1/assembly-presets` forwards
 
 Strategies optionally carry `backend:native|core`; absent means legacy core. Native user rules optionally specify `delivery:context|pre-step`. Unsupported native layouts return 409 ASSEMBLY_NATIVE_UNSUPPORTED. `GET /actual` reads the latest durable `request/assembly` by default, returning `backend` and `recordKind:request/assembly`. An attached `readActual(sessionId)` provider may also supply a verified native request with its `recordKind` and `seq`. Log sequence selects the latest record; at equal sequence, only a provider result with historical assembly detail enriches the display. A native session without that provider or an existing `request/assembly` returns `request:null`; current history or preview cannot fabricate frozen evidence. Selecting native does not hide an older core record. See [backend rules](BACKENDS_en.md) and the [actual request contract](INTEGRATION_en.md#actual-requests-and-historical-sources).
 
+The Host service exposes `dshPromptAssembler.version` as the running package version string for compatibility checks. It is neither an HTTP protocol version nor the SDK version resolved by a consumer. Reading this local Host property needs no additional HTTP route.
+
 ## API scope
 
 The strategy library, applied session snapshot, current read-only preview and latest actual request are separate composable capabilities. `/actual` has no historical record-ID selector: never use it to fill a different turn/step or use `/preview` to reconstruct history. Callers compose public interfaces for record-specific history, source-body authorization and Trace presentation. Assembler owns neither source resource editors nor a second session history.

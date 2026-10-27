@@ -12,10 +12,10 @@
 
 准备已可运行的 DSH **`0.2.1-rc.2` / `0.2.1-rc.3`** Host，使用 Node **`^22.19.0 || >=24`**。以下流程使用标准版，无需 Tavern、Memory Manager 或 core addon。
 
-1. 停止目标 Host，安装插件；将 `web` 替换为实际使用的 profile：
+1. 在 DSH 的 **插件 → 添加插件** 中输入以下 Release 附件直链，安装并启用独立 Assembler。
 
-   ```sh
-   dsh plugin --profile web add dsh-prompt-assembler@1.1.3
+   ```text
+   https://github.com/Player-MINEPIG/dsh-prompt-assembler/releases/download/v1.1.3/dsh-prompt-assembler-1.1.3.tgz
    ```
 
 2. 重新启动 Host，打开一个会话，再进入 **插件 → 已安装插件 → dsh-prompt-assembler → 配置当前会话**。尚未发送第一条消息的空白会话也可使用。
@@ -25,7 +25,7 @@
 
 **保存规则** 只更新策略库；修改后须重新应用才影响后续请求。安装本身不应用策略，没有全局默认策略。完整操作见[使用说明](docs/USAGE.md)；标准历史清理的轨迹显示限制见[已知缺陷](docs/HISTORY_POLICY.md#官方轨迹显示限制)。
 
-源码安装可使用 `github:Player-MINEPIG/dsh-prompt-assembler#v1.1.3`；跟随开发主线可改用 `#main`。标准安装及旧进阶版边界见[安装说明](docs/INSTALLATION.md)。仓库为 public；GitHub 源码、npm 与公开目录是独立分发途径。标准 bundle 使用已构建客户端，安装时不编译源码。进阶策略要求可选 addon 与准备后的协议 1 核心，缺任一返回 409，见[两种后端](docs/BACKENDS.md)。纯装配库需要 Node **`>=20`**。
+[v1.1.3 Release](https://github.com/Player-MINEPIG/dsh-prompt-assembler/releases/tag/v1.1.3) 提供预构建 `.tgz`，通过 GitHub 安装不需要先发布 npm 包。GUI 接受附件直链，不接受 Release 网页地址，也不会从仓库地址自动寻找附件。源码安装可使用 `github:Player-MINEPIG/dsh-prompt-assembler#v1.1.3`；`#main` 仅用于跟随开发。标准安装、升级与旧进阶版边界见[安装说明](docs/INSTALLATION.md)。进阶策略要求可选 addon 与准备后的协议 1 核心，缺任一返回 409，见[两种后端](docs/BACKENDS.md)。纯装配库需要 Node **`>=20`**。
 
 ## 来源与第三方扩展
 
@@ -37,7 +37,9 @@ flowchart LR
   Registry -.公开只读对象.-> Sources[DSH / Tavern / Manager / 第三方来源]
 ```
 
-插件公开 Host 服务 `dshPromptAssembler`，提供 `store`、`runtime`、`registry`、`strategies`、`registerPresets(definition)`、`attachTavern(options)` 和 `migrateLegacy(root)`；共享来源服务为 `dshPromptSources`，排序服务为 `dshPromptStrategies`。Tavern adapter 接收来源拥有的公开只读对象，assembler 不依赖 Tavern/Manager 包或其内部文件。第三方用现有 registry API 注册动态模块或自定义文本解析器，无需修改装配核心；未选择的来源不会自动注入。
+插件公开 Host 服务 `dshPromptAssembler`，提供 `version`、`store`、`runtime`、`registry`、`strategies`、`registerPresets(definition)`、`attachTavern(options)` 和 `migrateLegacy(root)`；共享来源服务为 `dshPromptSources`，排序服务为 `dshPromptStrategies`。Tavern adapter 接收来源拥有的公开只读对象，assembler 不依赖 Tavern/Manager 包或其内部文件。第三方用现有 registry API 注册动态模块或自定义文本解析器，无需修改装配核心；未选择的来源不会自动注入。
+
+Tavern 4.0.0 与其他共享消费者在同一 profile 使用这一个独立实例。Tavern 的 Assembler peer 范围为 `~1.1.3`，不再内嵌或启动另一份运行时。移除 Tavern 保留 Assembler；停用 Assembler 会使要求该服务的消费者等待服务恢复。首次安装先安装并启用 Assembler，再安装业务插件。
 
 [来源接入合同](docs/INTEGRATION.md) 和[运行示例](docs/examples/notes.js)说明注册、取消、读取租约、预览和来源卸载的行为。进阶装配快照保留完整请求内容与 provenance；标准版使用原生事件与正文引用。来源卸载后不会改写 DSH 原生历史。迁移旧 `assembly-presets.json` 保留原文件与旧 mode scope，由 assembler 自己的存储接管后续修改。卸载插件保留 DSH durable history 和策略存储。
 

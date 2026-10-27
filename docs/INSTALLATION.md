@@ -8,13 +8,41 @@
 
 ## 标准安装
 
-```sh
-dsh plugin --profile web add dsh-prompt-assembler@1.1.3
+在 DSH 的 **插件 → 添加插件** 中输入以下 Release 附件直链，安装并启用独立 Assembler。
+
+```text
+https://github.com/Player-MINEPIG/dsh-prompt-assembler/releases/download/v1.1.3/dsh-prompt-assembler-1.1.3.tgz
 ```
 
-源码安装可使用 `github:Player-MINEPIG/dsh-prompt-assembler#v1.1.3`；`#main` 跟随开发主线。复验其他候选时可改用其已审查的完整 commit，并在调用方 lockfile 固定同一修订。新版仅分发标准包 `1.1.3`，不提供配套核心改动。
+按界面提示重启 Host，再进入 **插件 → 已安装插件 → dsh-prompt-assembler → 配置当前会话**。只打开插件详情不会自动打开编辑器。尚未发送第一条消息的空白会话也可配置。
 
-仓库是 public。标准包拥有 `main:src/plugin.js`、`dsh.bundle:cordis.patch.yml` 和预构建 `dist/client.js`，无需改动 stock rc.2 核心。停止并重启目标 Host 后打开“插件 → 已安装插件 → dsh-prompt-assembler → 配置当前会话”；“保存规则”仅保存资源，“保存并应用到当前会话”先保存修改再应用，新会话先绑定再打开。独立运行没有全局默认，Tavern 不必安装。GitHub 源码、npm 包与插件目录是不同分发途径，不由仓库可见性推断发布状态。
+命令行使用同一安装来源。停止目标 Host 后，将 `web` 替换为实际 profile 名称。
+
+```sh
+dsh plugin --profile web add https://github.com/Player-MINEPIG/dsh-prompt-assembler/releases/download/v1.1.3/dsh-prompt-assembler-1.1.3.tgz
+```
+
+[Release v1.1.3](https://github.com/Player-MINEPIG/dsh-prompt-assembler/releases/tag/v1.1.3) 的 `.tgz` 含已构建客户端，不修改 stock DSH 核心，也不要求 npm 发布。GUI 接受仓库地址和以 `.tgz` 或 `.tar.gz` 结尾的附件直链，不接受 Release HTML 页面或源码 `.zip`。仓库来源安装对应提交的包，不会自动下载 Release 附件。源码安装可用 `github:Player-MINEPIG/dsh-prompt-assembler#v1.1.3`；开发验收使用已审查的完整 commit。新版仅提供标准包 `1.1.3`。
+
+独立运行无需 Tavern 或 Memory Manager。安装本身不应用策略，也没有全局默认。保存规则仅更新策略库；保存并应用到当前会话先保存再应用；使用此策略新建会话先绑定再打开。
+
+### 与 Tavern 4.0.0 及其他插件共享
+
+先在目标 profile 安装并启用 Assembler，再安装 Tavern 4.0.0 或其他消费者。Tavern 的 Assembler peer 范围为 `~1.1.3`。DSH 的 `autoInstallPeers:false` 不会代为安装缺失 peer，声明 peer 也不等于启用 bundle。消费者通过 `dshPromptAssembler`、`dshPromptSources` 或 `dshPromptStrategies` 复用服务，不启动另一个实例。升级共享运行时前，核对所有消费者声明的兼容范围。
+
+移除 Tavern 只撤销它的来源和界面，独立 Assembler 与其他消费者继续使用共享存储。停用或移除 Assembler 会停止其服务，依赖服务的消费者也会停止。重新启用后由 DSH 恢复依赖，不承诺在途任务不中断。
+
+### 从 Tavern 内嵌版本升级
+
+以下步骤通过 CLI 更新，让旧 Host 在包替换期间保持停止。
+
+1. 停止旧 Host，保留当前数据目录和 profile 配置的备份。
+2. 使用上面的 CLI 命令，在同一 profile 安装并启用独立 Assembler 1.1.3。
+3. 如果旧 Tavern 配置使用自定义 `assemblerStorageDir`，将该路径设为独立 Assembler 的 `storageDir`，再从 Tavern 配置删除 `assemblerStorageDir`；Tavern 4.0.0 拒绝保留该字段。默认路径仍为 `dshHomePath('dsh-prompt-assembler')`，无需搬迁或删除原策略文件。
+4. 如果旧 Tavern 的 `security` 配置曾同时供其内嵌 Assembler 使用，在独立 Assembler 中配置所需的 `security.allowedHosts` 和 `security.allowRemoteClients`。Tavern 4.0.0 不再向 Assembler 转发这些选项。
+5. 更新 Tavern 到 4.0.0，然后重启 Host。核对策略库、会话应用状态和两个插件的入口。
+
+不要让旧 Host 在包替换期间继续处理请求。旧策略、资源和 DSH durable history 保留，不通过重写会话完成升级。保留旧自定义路径之前不要让新的空默认目录替代它。
 
 ## 历史进阶扩展
 
@@ -26,7 +54,7 @@ dsh plugin --profile web add dsh-prompt-assembler@1.1.3
 
 策略与 session 快照存于 `dshHomePath('dsh-prompt-assembler')/assembly-presets.json`。显式 `migrateLegacy(root)` 只合并缺少的 ID，保留旧文件和 play/native scope；统一 session 选择（含 null）优先于旧 mode 回退。旧策略缺 backend 仍为 core，不自动变成 native。独立运行无默认；Tavern 挂载时，无绑定 play 会话和新开场默认标准预设插槽优先；安装 addon 不改变默认方案。已有明确快照不会因此改变。
 
-卸载提供方撤销其来源与内置目录项，保留会话快照和策略文件。标准 user 贡献留在原生历史；进阶 request-only 贡献停止，已有 request/assembly 仍可读。一键卸载将旧 core 选择切回标准预设插槽优先；单独移除 addon 而不切换会明确报错。恢复 stock 核心使用切换工具保留的标准构建。迁移与真实 profile 写入只在授权环境执行。
+卸载提供方撤销其来源与内置目录项，保留会话快照和策略文件。标准 user 贡献留在原生历史；进阶 request-only 贡献停止，已有 request/assembly 仍可读。冻结进阶环境的核心恢复和旧 core 选择切换使用 [v1.1.0 指南](https://github.com/Player-MINEPIG/dsh-prompt-assembler/blob/v1.1.0/docs/INSTALLATION.md)，不使用标准 1.1.3 包执行。迁移与真实 profile 写入只在授权环境执行。
 
 ## 验证
 

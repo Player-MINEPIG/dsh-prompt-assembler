@@ -4,6 +4,12 @@
 
 adapter 在 assembler 仓库维护，调用提供方的公开接口。提供方拥有身份、正文语法、访问权限、revision 与编辑；assembler 管 descriptor、用户选中的位置、角色、保留方式、完整 system 投影及请求 metadata。生产包不依赖 Tavern 或 Memory Manager。
 
+## 共享运行时依赖
+
+在同一 profile 独立安装并启用 Assembler。需要 SDK 的消费者将 `dsh-prompt-assembler` 放入 `peerDependencies`，使用与实际验收一致的兼容范围。Tavern 4.0.0 使用 `~1.1.3`。开发构建可通过固定 GitHub commit 的开发依赖取得 SDK，不需要为 GitHub Release 安装先发布 npm。不要把 GitHub URL 写成业务插件的自动运行时子依赖；目标 pnpm 默认会拒绝该来源。
+
+运行时注入所需的公开服务，并在采用新能力前检查 `dshPromptAssembler.version`。该值来自正在运行的独立包。来源协议用 `dshPromptSources.version` 检查，不能用协议数字推导包版本。不要安装第二个 Assembler、读取 Tavern 的嵌套路径，或用 SDK 构造器的 `instanceof` 判断共享服务身份。停用消费者时撤销自己的注册，不关闭 Assembler。
+
 ## 注册 Host 来源
 
 [笔记示例](examples/notes.js)同时提供可独立选择的模块和 `[[note-id]]` 手填文本解析器。notes store 实现 read({sessionId,signal})，在来源授权后返回 {id,text}[]。可信 Cordis 插件可这样挂载：

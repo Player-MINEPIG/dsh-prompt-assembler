@@ -24,6 +24,8 @@ Tavern 旧前缀 /pmp-dsh-tavern/api/v1/assembly-presets 经其自身安全边�
 
 策略可带 backend:native|core，缺省为旧 core。标准 user 规则可带 delivery:context|pre-step。不支持的原生布局返回 409 ASSEMBLY_NATIVE_UNSUPPORTED。`GET /actual` 默认读取最近的 durable `request/assembly`，返回 `backend` 与 `recordKind:request/assembly`。已挂载的 `readActual(sessionId)` provider 也可提供经核验的原生请求及其 `recordKind`、`seq`；按日志序号选择最近记录，同序号只有带历史装配明细的 provider 结果用于增强展示。没有 provider 且没有已有 `request/assembly` 的标准会话返回 `request:null`，不能从当前历史或预览伪造冻结证据。当前策略切换为 native 不隐藏先前的 core 记录。见[后端规则](BACKENDS.md)和[实际请求合同](INTEGRATION.md#实际请求与历史来源)。
 
+Host 服务公开的 `dshPromptAssembler.version` 是运行包版本字符串，供消费者进行兼容性检查。它不是 HTTP 协议版本，也不是某个调用方解析到的 SDK 版本。无需通过新增 HTTP 路由探测本地 Host 服务版本。
+
 ## API 范围
 
 策略库、会话应用快照、当前只读预览和最近实际请求是不同的可组合能力。`/actual` 没有历史记录 ID 选择器；不能用它填充另一 turn/step 的记录，也不能用 `/preview` 重建历史。逐条历史读取、来源正文授权和 Trace 展示由调用方组合公开接口；Assembler 不拥有来源资源编辑器或另一套会话历史。

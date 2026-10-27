@@ -12,10 +12,10 @@ Compatibility range: `>=0.2.1-rc.2 <0.2.2-0`. DSH rc.2 and rc.3 are exercised; l
 
 Start with a working DSH **`0.2.1-rc.2` / `0.2.1-rc.3`** Host using Node **`^22.19.0 || >=24`**. This walkthrough uses Standard mode and requires no Tavern, Memory Manager or core addon.
 
-1. Stop the target Host and install the plugin. Replace `web` with your profile name:
+1. Open **Plugins → Add plugin** in DSH. Enter this Release asset URL, then install and enable the independent Assembler.
 
-   ```sh
-   dsh plugin --profile web add dsh-prompt-assembler@1.1.3
+   ```text
+   https://github.com/Player-MINEPIG/dsh-prompt-assembler/releases/download/v1.1.3/dsh-prompt-assembler-1.1.3.tgz
    ```
 
 2. Restart the Host, open a session, then go to **Plugins → Installed plugins → dsh-prompt-assembler → Configure current session**. A blank session before its first message also works.
@@ -25,7 +25,7 @@ Start with a working DSH **`0.2.1-rc.2` / `0.2.1-rc.3`** Host using Node **`^22.
 
 **Save rules** only updates the library; reapply changes to affect subsequent requests. Installation does not apply a strategy, and there is no global default. See [usage](docs/USAGE_en.md) for the full workflow and the [known limitation](docs/HISTORY_POLICY_en.md#official-trajectory-display-limitation) for standard cleanup's trajectory display behavior.
 
-For source installation, use `github:Player-MINEPIG/dsh-prompt-assembler#v1.1.3`; use `#main` to follow development. See [installation](docs/INSTALLATION_en.md) for standard installation and the historical advanced boundary. The repository is public, which does not establish npm publication or a plugin-directory listing. `dsh.bundle` loads `cordis.patch.yml`; `dsh.client` loads the committed `dist/client.js`, without compiling client source on installation. Advanced strategies require the optional addon and prepared protocol-1 core; missing either returns 409. See [backend behavior](docs/BACKENDS_en.md). Library-only use requires Node **`>=20`**.
+[Release v1.1.3](https://github.com/Player-MINEPIG/dsh-prompt-assembler/releases/tag/v1.1.3) provides the prebuilt `.tgz`. GitHub installation needs no npm publication. The GUI accepts the asset URL, not the Release page, and a repository URL does not select a Release asset. Source installation can use `github:Player-MINEPIG/dsh-prompt-assembler#v1.1.3`; reserve `#main` for development. See [installation](docs/INSTALLATION_en.md) for installation, upgrades and the historical advanced boundary. Advanced strategies require the optional addon and prepared protocol-1 core; missing either returns 409. See [backend behavior](docs/BACKENDS_en.md). Library-only use requires Node **`>=20`**.
 
 ## Sources and third-party extensions
 
@@ -37,7 +37,9 @@ flowchart LR
   Registry -.public read objects.-> Sources[DSH / Tavern / Manager / third-party sources]
 ```
 
-The Host service `dshPromptAssembler` exposes `store`, `runtime`, `registry`, `strategies`, `registerPresets(definition)`, `attachTavern(options)` and `migrateLegacy(root)`. Shared source registration uses `dshPromptSources`; ordering uses `dshPromptStrategies`. The Tavern adapter receives source-owned public read objects; the assembler has no Tavern/Manager package dependency and does not import their internals. Third parties register dynamic modules or custom text parsers through the existing registry API. Unselected sources do not inject content.
+The Host service `dshPromptAssembler` exposes `version`, `store`, `runtime`, `registry`, `strategies`, `registerPresets(definition)`, `attachTavern(options)` and `migrateLegacy(root)`. Shared source registration uses `dshPromptSources`; ordering uses `dshPromptStrategies`. The Tavern adapter receives source-owned public read objects; the assembler has no Tavern/Manager package dependency and does not import their internals. Third parties register dynamic modules or custom text parsers through the existing registry API. Unselected sources do not inject content.
+
+Tavern 4.0.0 and other consumers share this independent instance in the same profile. Tavern declares Assembler peer range `~1.1.3` and no longer carries or starts another runtime. Removing Tavern retains Assembler. Disabling Assembler leaves consumers that require its service waiting until that service returns. Install and enable Assembler before installing consumer plugins.
 
 The [integration contract](docs/INTEGRATION_en.md) and [runnable example](docs/examples/notes.js) describe registration, cancellation, read leases, preview and source removal. Advanced assembly snapshots retain full request content and provenance; standard mode uses native events and body references. Removing a source does not rewrite native DSH history. Migration of legacy `assembly-presets.json` preserves the original file and old mode scopes; subsequent edits belong to the assembler store. Uninstalling preserves DSH durable history and strategy storage.
 

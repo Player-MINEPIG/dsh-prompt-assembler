@@ -58,7 +58,9 @@ Tavern 的存储模板仅在当前会话存在启用且支持的资源时可作�
 
 独立插件在 Host 中组合自己的 store、registry、runtime、HTTP 与浏览器界面。package `main` 为 `src/plugin.js`；`./plugin` 提供 Host 入口，`./client` 提供浏览器入口；根导出仍为库原语。`dsh.bundle` 指向 `cordis.patch.yml`，`dsh.client` 指向提交的 `dist/client.js`。共享来源服务是 `dshPromptSources`。
 
-`dshPromptAssembler` 提供 `{store,runtime,registry,strategies,registerPresets(definition),attachTavern(options),migrateLegacy(root)}`。插件自有存储位于 Host 的 `dshHomePath('dsh-prompt-assembler')`，文件名为 `assembly-presets.json`。新独立会话没有隐式策略或全局默认；“插件 → 已安装插件 → dsh-prompt-assembler”中的“提示词装配”入口在第一条消息之前也可用，策略库的“使用此策略新建会话”先绑定策略再打开会话。
+`dshPromptAssembler` 提供 `{version,store,runtime,registry,strategies,registerPresets(definition),attachTavern(options),migrateLegacy(root)}`。`version` 是实际运行包从自身 manifest 读取的版本字符串，例如 `1.1.3`。消费者用它核对运行时兼容范围；SDK 包的版本不能替代运行服务版本，`registry.version` 与 `strategies.version` 则分别是来源和排序协议版本。插件自有存储位于 Host 的 `dshHomePath('dsh-prompt-assembler')`，文件名为 `assembly-presets.json`。新独立会话没有隐式策略或全局默认；“插件 → 已安装插件 → dsh-prompt-assembler”中的“提示词装配”入口在第一条消息之前也可用，策略库的“使用此策略新建会话”先绑定策略再打开会话。
+
+Tavern 4.0.0 使用 peer 范围 `~1.1.3` 并要求先独立安装、启用 Assembler。Tavern 不再托管 Host 实例或独立客户端。多个消费者注入同一服务，停用其中一个只撤销该消费者的注册。安装顺序、更新和自定义存储及安全选项的升级见[安装说明](INSTALLATION.md#与-tavern-400-及其他插件共享)。
 
 `attachTavern({resources,sessionReads,mode,builtins,defaultPresetId,afterAssembly})` 接收来源拥有的公开只读资源对象、读取租约及兼容配置，返回 disposer。Tavern 通过 `registerTavernSources` 将来源注册到共享 registry；注册与卸载跟随来源的 scoped context，不重复注册 DSH 内置来源。assembler 不依赖 Tavern/Manager 包，不读取其内部文件。来源内容、解析权限与资源编辑仍归来源。Tavern 要求独立安装并挂载的 assembler 服务，保留旧 service/HTTP 转发到同一 owned store/runtime；新接入使用 assembler 服务与 API。不要给同一请求同时安装两个独立策略 hook。
 

@@ -9,6 +9,9 @@ import { secureAssemblerApi } from './api-security.js'
 import { connectHistoryPolicy } from './history/integration.js'
 import { HISTORY_API_ROOT } from './history/server.js'
 import { API_ROOT, API_V1, PLUGIN_ID } from './identity.js'
+import { createRequire } from 'node:module'
+
+const manifest = createRequire(import.meta.url)('../package.json')
 
 export const name = PLUGIN_ID
 export const inject = ['systemPrompt', 'sessionController']
@@ -31,6 +34,7 @@ export function apply(ctx, config = {}) {
   runtime.validateResult = (...args) => provider?.validateResult?.(...args)
   const history = connectHistoryPolicy(ctx, { runtime, storageDir: config.storageDir })
   const face = {
+    version: manifest.version,
     registry, strategies: registry.strategies, store, runtime, history,
     registerPresets: definition => store.registerPresets(definition),
     migrateLegacy: root => store.migrateLegacy(root),

@@ -4,7 +4,7 @@
 
 The advanced path is retained only as the frozen Assembler 1.1.0 / DSH 0.2.0-rc.2 contract; new versions provide no core changes or commitment to future advanced adaptation.
 
-The plugin entry in src/plugin.js owns one registry/store/runtime and provides dshPromptSources plus dshPromptAssembler. The browser entry registers package-keyed configuration through plugins.bundle.config and mounts the guarded strategy editor through shell.overlay; HTTP remains a composable factory wrapped by bundle security. assembly-presets.json owns user presets and independently applied session snapshots, not source bodies or native history.
+The independently enabled src/plugin.js owns the single registry/store/runtime and provides dshPromptSources and dshPromptAssembler. Tavern 4.0.0 and other consumers reuse this instance through peers and service injection, without carrying or starting another Host runtime. `dshPromptAssembler.version` identifies the running package from its own manifest. Source and ordering protocols retain their separate version fields. The browser entry registers package-keyed configuration through plugins.bundle.config and mounts the guarded strategy editor through shell.overlay; HTTP remains a composable factory wrapped by bundle security. assembly-presets.json owns user presets and independently applied session snapshots, not source bodies or native history.
 
 The browser `apply(ctx, { configurationPackage })` can attach configuration to a composition host’s package page; omission uses `dsh-prompt-assembler`. The entry and overlay share one session controller.
 
