@@ -39,7 +39,7 @@ flowchart LR
 
 插件公开 Host 服务 `dshPromptAssembler`，提供 `version`、`store`、`runtime`、`registry`、`strategies`、`registerPresets(definition)`、`attachTavern(options)` 和 `migrateLegacy(root)`；共享来源服务为 `dshPromptSources`，排序服务为 `dshPromptStrategies`。Tavern adapter 接收来源拥有的公开只读对象，assembler 不依赖 Tavern/Manager 包或其内部文件。第三方用现有 registry API 注册动态模块或自定义文本解析器，无需修改装配核心；未选择的来源不会自动注入。
 
-Tavern 3.0.6 与其他共享消费者在同一 profile 使用这一个独立实例。Tavern 的 Assembler peer 范围为 `~1.1.3`，不再内嵌或启动另一份运行时。移除 Tavern 保留 Assembler；停用 Assembler 会使要求该服务的消费者等待服务恢复。首次安装先安装并启用 Assembler，再安装业务插件。
+Tavern 3.1.5 与其他共享消费者在同一 profile 使用这一个独立实例。Tavern 的 Assembler peer 范围为 `~1.1.3`，不再内嵌或启动另一份运行时。移除 Tavern 保留 Assembler；停用 Assembler 会使要求该服务的消费者等待服务恢复。首次安装先安装并启用 Assembler，再安装业务插件。
 
 [来源接入合同](docs/INTEGRATION.md) 和[运行示例](docs/examples/notes.js)说明注册、取消、读取租约、预览和来源卸载的行为。进阶装配快照保留完整请求内容与 provenance；标准版使用原生事件与正文引用。来源卸载后不会改写 DSH 原生历史。迁移旧 `assembly-presets.json` 保留原文件与旧 mode scope，由 assembler 自己的存储接管后续修改。卸载插件保留 DSH durable history 和策略存储。
 

@@ -6,7 +6,7 @@ An adapter belongs in the assembler repository and calls the provider's public i
 
 ## Depend on the shared runtime
 
-Install and enable Assembler independently in the same profile. Consumers that import the SDK declare `dsh-prompt-assembler` in `peerDependencies`, using a range consistent with their acceptance. Tavern 3.0.6 uses `~1.1.3`. Development builds can obtain the SDK through a development dependency pinned to a GitHub commit. Installing a GitHub Release needs no prior npm publication. Do not use a GitHub URL as an automatic runtime subdependency of a consumer plugin. The target pnpm rejects that source by default.
+Install and enable Assembler independently in the same profile. Consumers that import the SDK declare `dsh-prompt-assembler` in `peerDependencies`, using a range consistent with their acceptance. Tavern 3.1.5 uses `~1.1.3`. Development builds can obtain the SDK through a development dependency pinned to a GitHub commit. Installing a GitHub Release needs no prior npm publication. Do not use a GitHub URL as an automatic runtime subdependency of a consumer plugin. The target pnpm rejects that source by default.
 
 Inject the required public services and check `dshPromptAssembler.version` before adopting new capabilities. That value comes from the running independent package. Check the source protocol through `dshPromptSources.version`; a protocol number does not identify the package version. Do not start another Assembler, read Tavern nested paths or use SDK constructor `instanceof` checks to identify the shared service. Disabling a consumer withdraws its own registrations without stopping Assembler.
 

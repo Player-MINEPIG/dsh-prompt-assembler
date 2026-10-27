@@ -4,7 +4,7 @@
 
 进阶路径仅保留冻结的 Assembler 1.1.0 / DSH 0.2.0-rc.2 合同；新版不提供核心改动，也不承诺后续进阶适配。
 
-独立启用的 src/plugin.js 入口拥有唯一 registry/store/runtime，提供 dshPromptSources 与 dshPromptAssembler。Tavern 3.0.6 和其他消费者通过 peer 与服务注入复用这个实例，不携带或启动另一份 Host 运行时。`dshPromptAssembler.version` 从自身 manifest 标识运行包版本，来源与排序协议仍使用各自的 version 字段。浏览器入口在 plugins.bundle.config 注册以包名为键的配置入口，并由 shell.overlay 挂载独立策略编辑器；HTTP factory 由 bundle 安全 wrapper 包裹。assembly-presets.json 保存用户预设和独立应用的会话快照，不保存来源正文或原生历史。
+独立启用的 src/plugin.js 入口拥有唯一 registry/store/runtime，提供 dshPromptSources 与 dshPromptAssembler。Tavern 3.1.5 和其他消费者通过 peer 与服务注入复用这个实例，不携带或启动另一份 Host 运行时。`dshPromptAssembler.version` 从自身 manifest 标识运行包版本，来源与排序协议仍使用各自的 version 字段。浏览器入口在 plugins.bundle.config 注册以包名为键的配置入口，并由 shell.overlay 挂载独立策略编辑器；HTTP factory 由 bundle 安全 wrapper 包裹。assembly-presets.json 保存用户预设和独立应用的会话快照，不保存来源正文或原生历史。
 
 浏览器 `apply(ctx, { configurationPackage })` 可将配置入口归属组合加载方的包详情页，省略时归属 `dsh-prompt-assembler`；入口和 overlay 共用同一个会话控制器。
 

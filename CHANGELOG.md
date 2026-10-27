@@ -5,8 +5,8 @@
 - 修复 Tavern 标准版静默省略开场白的问题。预设插槽优先与角色优先均以 system 内容携带选中的首轮开场白，保留宏展开、资源来源与首轮判断，不创建虚构的助手对话。
 - Deliver Tavern's selected first-turn greeting as system content in both native layouts, preserving macros, provenance and first-turn gating without fabricating an assistant reply. Advanced assistant/depth placement remains unchanged.
 
-- 独立 Assembler 作为共享插件通过 GitHub Release `.tgz` 安装，不需要先发布 npm。Tavern 3.0.6 使用 `~1.1.3` peer，不再内嵌或托管第二份实例；移除 Tavern 保留共享运行时。补充旧自定义存储与安全选项的升级步骤。
-- Distribute independent Assembler as a shared plugin through the GitHub Release `.tgz`, without requiring npm publication. Tavern 3.0.6 declares peer range `~1.1.3` and no longer carries or owns a second instance. Removing Tavern retains the shared runtime. Document migration of previous custom storage and security options.
+- 独立 Assembler 作为共享插件通过 GitHub Release `.tgz` 安装，不需要先发布 npm。Tavern 3.1.5 使用 `~1.1.3` peer，不再内嵌或托管第二份实例；移除 Tavern 保留共享运行时。补充旧自定义存储与安全选项的升级步骤。
+- Distribute independent Assembler as a shared plugin through the GitHub Release `.tgz`, without requiring npm publication. Tavern 3.1.5 declares peer range `~1.1.3` and no longer carries or owns a second instance. Removing Tavern retains the shared runtime. Document migration of previous custom storage and security options.
 - Host 服务增加来自自身 manifest 的 `dshPromptAssembler.version`，供消费者核对实际运行包版本，来源与排序协议版本不变。
 - Add `dshPromptAssembler.version` from the running package manifest for consumer compatibility checks. Source and ordering protocol versions remain unchanged.
 

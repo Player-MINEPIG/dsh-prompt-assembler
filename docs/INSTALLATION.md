@@ -26,9 +26,9 @@ dsh plugin --profile web add https://github.com/Player-MINEPIG/dsh-prompt-assemb
 
 独立运行无需 Tavern 或 Memory Manager。安装本身不应用策略，也没有全局默认。保存规则仅更新策略库；保存并应用到当前会话先保存再应用；使用此策略新建会话先绑定再打开。
 
-### 与 Tavern 3.0.6 及其他插件共享
+### 与 Tavern 3.1.5 及其他插件共享
 
-先在目标 profile 安装并启用 Assembler，再安装 Tavern 3.0.6 或其他消费者。Tavern 的 Assembler peer 范围为 `~1.1.3`。DSH 的 `autoInstallPeers:false` 不会代为安装缺失 peer，声明 peer 也不等于启用 bundle。消费者通过 `dshPromptAssembler`、`dshPromptSources` 或 `dshPromptStrategies` 复用服务，不启动另一个实例。升级共享运行时前，核对所有消费者声明的兼容范围。
+先在目标 profile 安装并启用 Assembler，再安装 Tavern 3.1.5 或其他消费者。Tavern 的 Assembler peer 范围为 `~1.1.3`。DSH 的 `autoInstallPeers:false` 不会代为安装缺失 peer，声明 peer 也不等于启用 bundle。消费者通过 `dshPromptAssembler`、`dshPromptSources` 或 `dshPromptStrategies` 复用服务，不启动另一个实例。升级共享运行时前，核对所有消费者声明的兼容范围。
 
 移除 Tavern 只撤销它的来源和界面，独立 Assembler 与其他消费者继续使用共享存储。停用或移除 Assembler 会停止其服务，依赖服务的消费者也会停止。重新启用后由 DSH 恢复依赖，不承诺在途任务不中断。
 
@@ -38,9 +38,9 @@ dsh plugin --profile web add https://github.com/Player-MINEPIG/dsh-prompt-assemb
 
 1. 停止旧 Host，保留当前数据目录和 profile 配置的备份。
 2. 使用上面的 CLI 命令，在同一 profile 安装并启用独立 Assembler 1.1.3。
-3. 如果旧 Tavern 配置使用自定义 `assemblerStorageDir`，将该路径设为独立 Assembler 的 `storageDir`，再从 Tavern 配置删除 `assemblerStorageDir`；Tavern 3.0.6 拒绝保留该字段。默认路径仍为 `dshHomePath('dsh-prompt-assembler')`，无需搬迁或删除原策略文件。
-4. 如果旧 Tavern 的 `security` 配置曾同时供其内嵌 Assembler 使用，在独立 Assembler 中配置所需的 `security.allowedHosts` 和 `security.allowRemoteClients`。Tavern 3.0.6 不再向 Assembler 转发这些选项。
-5. 保留数据并卸载旧 Tavern 软件包，再使用 3.0.6 安装包重新安装。pnpm 覆盖更新可能留下旧内嵌副本；卸载软件包不等于删除数据。完成后重启 Host，核对策略库、会话应用状态和两个插件入口。
+3. 如果旧 Tavern 配置使用自定义 `assemblerStorageDir`，将该路径设为独立 Assembler 的 `storageDir`，再从 Tavern 配置删除 `assemblerStorageDir`；Tavern 3.1.5 拒绝保留该字段。默认路径仍为 `dshHomePath('dsh-prompt-assembler')`，无需搬迁或删除原策略文件。
+4. 如果旧 Tavern 的 `security` 配置曾同时供其内嵌 Assembler 使用，在独立 Assembler 中配置所需的 `security.allowedHosts` 和 `security.allowRemoteClients`。Tavern 3.1.5 不再向 Assembler 转发这些选项。
+5. 保留数据并卸载旧 Tavern 软件包，再使用 3.1.5 安装包重新安装。pnpm 覆盖更新可能留下旧内嵌副本；卸载软件包不等于删除数据。完成后重启 Host，核对策略库、会话应用状态和两个插件入口。
 
 不要让旧 Host 在包替换期间继续处理请求。旧策略、资源和 DSH durable history 保留，不通过重写会话完成升级。保留旧自定义路径之前不要让新的空默认目录替代它。
 
