@@ -40,7 +40,7 @@ Use the CLI for these steps so the old Host stays stopped while replacing packag
 2. Use the CLI command above to install and enable independent Assembler 1.1.3 in the same profile.
 3. If the old Tavern config uses a custom `assemblerStorageDir`, set that path as the independent Assembler's `storageDir`, then remove `assemblerStorageDir` from Tavern; Tavern 4.0.0 rejects the retained field. The default remains `dshHomePath('dsh-prompt-assembler')`, so existing strategy files need no move or deletion.
 4. If the old Tavern `security` config also governed its bundled Assembler, configure the required `security.allowedHosts` and `security.allowRemoteClients` on the independent Assembler. Tavern 4.0.0 no longer forwards those options.
-5. Update Tavern to 4.0.0 and restart the Host. Check the strategy library, applied session selections and both plugin entries.
+5. Retain data, remove the old Tavern package and reinstall using the 4.0.0 package. A pnpm overwrite can leave the old bundled copy; removing the package does not mean deleting its data. Restart the Host and check the strategy library, applied session selections and both plugin entries.
 
 Do not let the old Host process requests while replacing packages. Retain strategies, resources and DSH durable history. Upgrading does not rewrite sessions. Set the existing custom path before opening a new empty default store.
 

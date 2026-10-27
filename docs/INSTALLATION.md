@@ -40,7 +40,7 @@ dsh plugin --profile web add https://github.com/Player-MINEPIG/dsh-prompt-assemb
 2. 使用上面的 CLI 命令，在同一 profile 安装并启用独立 Assembler 1.1.3。
 3. 如果旧 Tavern 配置使用自定义 `assemblerStorageDir`，将该路径设为独立 Assembler 的 `storageDir`，再从 Tavern 配置删除 `assemblerStorageDir`；Tavern 4.0.0 拒绝保留该字段。默认路径仍为 `dshHomePath('dsh-prompt-assembler')`，无需搬迁或删除原策略文件。
 4. 如果旧 Tavern 的 `security` 配置曾同时供其内嵌 Assembler 使用，在独立 Assembler 中配置所需的 `security.allowedHosts` 和 `security.allowRemoteClients`。Tavern 4.0.0 不再向 Assembler 转发这些选项。
-5. 更新 Tavern 到 4.0.0，然后重启 Host。核对策略库、会话应用状态和两个插件的入口。
+5. 保留数据并卸载旧 Tavern 软件包，再使用 4.0.0 安装包重新安装。pnpm 覆盖更新可能留下旧内嵌副本；卸载软件包不等于删除数据。完成后重启 Host，核对策略库、会话应用状态和两个插件入口。
 
 不要让旧 Host 在包替换期间继续处理请求。旧策略、资源和 DSH durable history 保留，不通过重写会话完成升级。保留旧自定义路径之前不要让新的空默认目录替代它。
 
